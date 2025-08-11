@@ -29,8 +29,6 @@ import {
  * - Feedback row shows a "Last: <Action>" pill on the right
  */
 
-/* ---------------- Storage (AsyncStorage with web fallback) ---------------- */
-
 type StorageLike = {
   getItem: (k: string) => Promise<string | null>;
   setItem: (k: string, v: string) => Promise<void>;
@@ -213,9 +211,8 @@ export default function TabIndex() {
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
   const [showWhy, setShowWhy] = useState(false);
-  const [showScore, setShowScore] = useState(true); // NEW: toggle to show/hide Chen score for hero
+  const [showScore, setShowScore] = useState(true); // toggle to show/hide Chen score for hero
 
-  // compact mode for mobile
   const isCompact = Platform.OS !== "web";
 
   // hero row flash (fade) state
@@ -259,7 +256,6 @@ export default function TabIndex() {
   useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
 
   function dealTable(n: number) {
-    // reset hero highlight each new hand
     setHeroFlash("none");
     heroFlashOpacity.setValue(0);
     if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
@@ -283,7 +279,6 @@ export default function TabIndex() {
       positionLabel: "",
     }));
 
-    // assign roles + position labels
     ps.forEach((p, idx) => {
       const pos = (idx - btn + n) % n; // 0=Dealer,1=SB,2=BB,3=UTG...
       if (pos === 0) p.role = "Dealer";
@@ -292,13 +287,11 @@ export default function TabIndex() {
       p.positionLabel = labelForPos(pos, n);
     });
 
-    // blinds
     ps.forEach((p) => {
       if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
       if (p.role === "BB") p.bet = bigBlind;
     });
 
-    // rotate list so SB is first (top) and Dealer last
     const sbIndex = ps.findIndex((p) => p.role === "SB");
     const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
 
@@ -309,13 +302,14 @@ export default function TabIndex() {
 
   function newHand() { dealTable(numPlayers); }
 
-  // First deal after prefs are loaded
   useEffect(() => { if (ready) newHand(); }, [ready]);
 
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
-  const recommended = useMemo(() => recommendAction(heroScore, numPlayers, facingRaise), [heroScore, numPlayers, facingRaise]);
+  const recommended = useMemo(
+    () => recommendAction(heroScore, numPlayers, facingRaise),
+    [heroScore, numPlayers, facingRaise]
+  );
 
-  // Reset ONLY the stats (not the persisted preferences)
   function resetStats() {
     setTotalHands(0);
     setCorrectHands(0);
@@ -329,7 +323,6 @@ export default function TabIndex() {
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
 
-    // set hero flash color & animate fade tied to feedbackSecs
     setHeroFlash(correct ? "correct" : "incorrect");
     heroFlashOpacity.setValue(1);
     if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
@@ -361,7 +354,6 @@ export default function TabIndex() {
     const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
     setResult((correct ? `Correct — ` : `Better play — `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
 
-    // timers: only auto-hide feedback when Show why is OFF
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
@@ -375,7 +367,10 @@ export default function TabIndex() {
       {item.isHero && heroFlash !== "none" && (
         <Animated.View
           pointerEvents="none"
-          style={[styles.rowOverlay, { backgroundColor: heroFlash === "correct" ? "#b9efd2" : "#f8c7cc", opacity: heroFlashOpacity }]}
+          style={[
+            styles.rowOverlay,
+            { backgroundColor: heroFlash === "correct" ? "#b9efd2" : "#f8c7cc", opacity: heroFlashOpacity },
+          ]}
         />
       )}
 
@@ -400,7 +395,7 @@ export default function TabIndex() {
         )}
         <View style={{ height: 6 }} />
         {item.isHero
-          ? (showScore ? <Pill text={`Score ${heroScore}`} /> : null)
+          ? (showScore ? <Pill text={`Score ${heroScore}`} /> : <Pill text="Hidden" />)  /* CHANGED: show Hidden when score hidden */
           : <Pill text="Hidden" />
         }
       </View>
@@ -468,7 +463,9 @@ export default function TabIndex() {
             <Text style={[styles.feedbackText, { flex: 1, paddingRight: 8 }]}>
               {result || "Take an action to see feedback."}
             </Text>
-            <View style={styles.pill}><Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text></View>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+            </View>
           </View>
         </View>
       )}
@@ -542,9 +539,9 @@ export default function TabIndex() {
           </View>
         </View>
 
-        {/* NEW: Show Chen score toggle */}
+        {/* Show Chen score toggle */}
         <View style={styles.controlsRow}>
-          <View className="switchRow" style={styles.switchRow}>
+          <View style={styles.switchRow}>
             <Switch value={showScore} onValueChange={setShowScore} />
             <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
           </View>
@@ -581,7 +578,6 @@ function positionBadgeStyle(label?: string) {
 const styles = StyleSheet.create({
   screen: { padding: 16, gap: 12 },
 
-  // Header with compact one-line stats on the right
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 22, fontWeight: "700" },
   headerStats: { fontSize: 13, color: "#333", marginLeft: 12, flexShrink: 1, textAlign: "right" },
@@ -603,15 +599,12 @@ const styles = StyleSheet.create({
 
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
 
-  // LEFT cards
   cardsCol: { flexDirection: "row", gap: 6 },
 
-  // MIDDLE meta
   metaCol: { flex: 1 },
   playerName: { fontWeight: "600" },
   playerSub: { color: "#666", fontSize: 12 },
 
-  // RIGHT stack: position pill on top, then score
   tailCol: { alignItems: "flex-end", justifyContent: "center" },
 
   cardBox: { width: 50, height: 68, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
@@ -622,24 +615,20 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: "#4f6df6" },
   btnOutline: { backgroundColor: "#fff", borderColor: "#d0d0e0", borderWidth: 1 },
   btnText: { color: "#2b2e57", fontWeight: "600" },
-  btnGrow: { flex: 1 }, // equal-width action buttons
+  btnGrow: { flex: 1 },
 
   underlineLetter: { textDecorationLine: "underline" },
 
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
 
-  // Actions row
   actionsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   actionsLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
 
-  // Feedback row layout
   feedbackRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
 
-  // Helper
   helper: { color: "#666", fontSize: 12, textAlign: "center", marginTop: 6 },
 
-  // badge
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: "600" },
 });
