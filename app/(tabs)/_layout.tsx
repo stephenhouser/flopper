@@ -30,15 +30,22 @@ export default function TabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Pre-flop',
-          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cards-playing-diamond-multiple"  size={28} color={color} />,
+          title: 'Home',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="texas-holdem"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: 'Texas Holdem',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cards-playing-diamond-multiple" size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="blackjack"
+        options={{
+          title: 'Blackjack',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cards-playing-spade-multiple" size={28} color={color} />,
         }}
       />
     </Tabs>
