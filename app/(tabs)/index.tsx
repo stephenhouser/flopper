@@ -18,12 +18,13 @@ import {
  * - Title: Pre-Flop Trainer
  * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
  * - Dealer advances each hand; your seat fixed; SB at top, Dealer at bottom
- * - Cards on LEFT; on the RIGHT a vertical stack with Position pill (top) and Score/Hidden pill (bottom)
+ * - Cards on LEFT; middle row shows [Position pill] + [Name] inline, bet below
+ * - Right column shows Score/Hidden
  * - Actions: Check / Call / Fold / Raise (primary blue, equal width), New hand on far right
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
- * - Controls: instant redeal, adjustable feedback time, Show why toggle
+ * - Controls: instant redeal, adjustable feedback time, Show why toggle, Show Chen score toggle
  * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs, showScore
- * - Reset stats: ONLY resets totals/correct and leaves prefs intact
+ * - Reset stats: ONLY resets totals/correct (keeps prefs)
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
  * - If "Show why" is ON, feedback row is always visible (not auto-cleared)
  * - Feedback row shows a "Last: <Action>" pill on the right
@@ -380,22 +381,25 @@ export default function TabIndex() {
         <PlayingCard card={item.cards[1]} hidden={!item.isHero} compact={isCompact} />
       </View>
 
-      {/* MIDDLE: name + bet */}
+      {/* MIDDLE: [Position pill] + [Name] on the same line; Bet under it */}
       <View style={styles.metaCol}>
-        <Text style={[styles.playerName, isCompact && { fontSize: 14 }]}>{item.name}</Text>
+        <View style={styles.nameRow}>
+          {!!item.positionLabel && (
+            <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
+              <Text style={[styles.badgeText, isCompact && { fontSize: 11 }]}>
+                {item.positionLabel}
+              </Text>
+            </View>
+          )}
+          <Text style={[styles.playerName, isCompact && { fontSize: 14 }]}>{item.name}</Text>
+        </View>
         <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Bet: {item.bet}</Text>
       </View>
 
-      {/* RIGHT: position pill on top, then score/hidden under it */}
+      {/* RIGHT: Score/Hidden pill */}
       <View style={styles.tailCol}>
-        {!!item.positionLabel && (
-          <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
-            <Text style={[styles.badgeText, isCompact && { fontSize: 11 }]}>{item.positionLabel}</Text>
-          </View>
-        )}
-        <View style={{ height: 6 }} />
         {item.isHero
-          ? (showScore ? <Pill text={`Score ${heroScore}`} /> : <Pill text="Hidden" />)  /* CHANGED: show Hidden when score hidden */
+          ? (showScore ? <Pill text={`Score ${heroScore}`} /> : <Pill text="Hidden" />)
           : <Pill text="Hidden" />
         }
       </View>
@@ -599,12 +603,16 @@ const styles = StyleSheet.create({
 
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
 
+  // LEFT cards
   cardsCol: { flexDirection: "row", gap: 6 },
 
+  // MIDDLE meta
   metaCol: { flex: 1 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
   playerName: { fontWeight: "600" },
   playerSub: { color: "#666", fontSize: 12 },
 
+  // RIGHT stack: score/hidden only
   tailCol: { alignItems: "flex-end", justifyContent: "center" },
 
   cardBox: { width: 50, height: 68, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
