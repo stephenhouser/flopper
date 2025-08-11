@@ -12,7 +12,8 @@ import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, Te
  *  - Dealer/button advances each hand; your seat stays fixed (seat 0)
  *  - List is rotated so SB shows at the top and Dealer at the end
  *  - Position labels (Dealer, SB, BB, UTG, MP, HJ, CO, …)
- *  - Stats tracking: total, correct, accuracy %
+ *  - Stats tracking: total, correct, accuracy % + always-on feedback
+ *  - Controls at the bottom; changes trigger an immediate redeal
  */
 
 // ---------------- Card / Deck helpers ----------------
@@ -217,12 +218,10 @@ export default function TabIndex() {
 
   function newHand() {
     dealTable(numPlayers);
-    setFacingRaise(Math.random() < 0.35);
   }
 
   useEffect(() => {
     newHand();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const heroScore = useMemo(() => {
@@ -249,8 +248,7 @@ export default function TabIndex() {
     const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
     setResult(
       (correct ? `Correct ✅ — ` : `Better play ❗ — `) +
-      `Recommended: ${recommended.toUpperCase()}. ${why}\n` +
-      `Stats: ${nextCorrect}/${nextTotal} correct (${accuracy}%)`
+      `Recommended: ${recommended.toUpperCase()}. ${why}`
     );
 
     if (autoNew) setTimeout(() => newHand(), 900);
@@ -292,12 +290,16 @@ export default function TabIndex() {
         <RowButton label="New hand" onPress={newHand} kind="outline" />
       </View>
 
-      {/* Quick Stats */}
+      {/* Stats & Feedback */}
       <View style={styles.card}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
           <Pill text={`Correct: ${correctHands}`} />
           <Pill text={`Total: ${totalHands}`} />
           <Pill text={`Accuracy: ${accuracyPct}%`} />
+        </View>
+        <View style={{ marginTop: 8 }}>
+          <Text style={styles.feedbackText}>{result || 'Take an action to see feedback here.'}</Text>
+          <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
         </View>
       </View>
 
@@ -317,30 +319,22 @@ export default function TabIndex() {
         <RowButton label="Raise" onPress={() => act("raise")} kind="primary" />
       </View>
 
-      {/* Feedback */}
-      {heroAction ? (
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackText}>{result}</Text>
-          <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
-        </View>
-      ) : null}
-
-      {/* Controls */}
+      {/* Controls (moved to bottom; immediate redeal on change) */}
       <View style={styles.card}> 
         <View style={styles.controlsRow}>
           <View style={styles.controlBlock}>
             <Text style={styles.label}>Players</Text>
             <View style={styles.stepper}> 
-              <RowButton label="-" onPress={() => setNumPlayers((n) => Math.max(2, n - 1))} />
+              <RowButton label="-" onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
               <Text style={styles.stepperNum}>{numPlayers}</Text>
-              <RowButton label="+" onPress={() => setNumPlayers((n) => Math.min(9, n + 1))} />
+              <RowButton label="+" onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
             </View>
           </View>
           <View style={styles.controlBlock}>
             <Text style={styles.label}>Big blind</Text>
             <TextInput
               value={String(bigBlind)}
-              onChangeText={(t) => setBigBlind(Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1))}
+              onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
               inputMode="numeric"
               keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
               style={styles.input}
@@ -349,11 +343,11 @@ export default function TabIndex() {
         </View>
         <View style={styles.controlsRow}>
           <View style={styles.switchRow}>
-            <Switch value={autoNew} onValueChange={setAutoNew} />
+            <Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} />
             <Text style={styles.switchLabel}>Auto new hand</Text>
           </View>
           <View style={styles.switchRow}>
-            <Switch value={facingRaise} onValueChange={setFacingRaise} />
+            <Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} />
             <Text style={styles.switchLabel}>Facing a raise</Text>
           </View>
         </View>
@@ -419,7 +413,6 @@ const styles = StyleSheet.create({
 
   actionsRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
 
-  feedbackCard: { backgroundColor: "#fff", borderRadius: 14, padding: 12 },
   feedbackText: { fontWeight: "600" },
   feedbackSub: { color: "#666", marginTop: 4, fontSize: 12 },
 
