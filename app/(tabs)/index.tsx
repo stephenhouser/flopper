@@ -22,7 +22,7 @@ import {
  * - Actions: Check / Call / Fold / Raise (primary blue, equal width), New hand on far right
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
  * - Controls: instant redeal, adjustable feedback time, Show why toggle
- * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs
+ * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs, showScore
  * - Reset stats: ONLY resets totals/correct and leaves prefs intact
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
  * - If "Show why" is ON, feedback row is always visible (not auto-cleared)
@@ -213,6 +213,7 @@ export default function TabIndex() {
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
   const [showWhy, setShowWhy] = useState(false);
+  const [showScore, setShowScore] = useState(true); // NEW: toggle to show/hide Chen score for hero
 
   // compact mode for mobile
   const isCompact = Platform.OS !== "web";
@@ -231,11 +232,12 @@ export default function TabIndex() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const [sWhy, sAuto, sFacing, sSecs] = await Promise.all([
+      const [sWhy, sAuto, sFacing, sSecs, sScore] = await Promise.all([
         Storage.getItem("poker.showWhy"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
         Storage.getItem("poker.feedbackSecs"),
+        Storage.getItem("poker.showScore"),
       ]);
       if (sWhy != null) setShowWhy(sWhy === "1");
       if (sAuto != null) setAutoNew(sAuto === "1");
@@ -244,6 +246,7 @@ export default function TabIndex() {
         const v = Math.max(0, Math.min(10, parseFloat(sSecs)));
         if (!Number.isNaN(v)) setFeedbackSecs(v);
       }
+      if (sScore != null) setShowScore(sScore === "1");
       setReady(true);
     })();
   }, []);
@@ -253,6 +256,7 @@ export default function TabIndex() {
   useEffect(() => { Storage.setItem("poker.autoNew", autoNew ? "1" : "0"); }, [autoNew]);
   useEffect(() => { Storage.setItem("poker.facingRaise", facingRaise ? "1" : "0"); }, [facingRaise]);
   useEffect(() => { Storage.setItem("poker.feedbackSecs", String(feedbackSecs)); }, [feedbackSecs]);
+  useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
 
   function dealTable(n: number) {
     // reset hero highlight each new hand
@@ -395,7 +399,10 @@ export default function TabIndex() {
           </View>
         )}
         <View style={{ height: 6 }} />
-        {item.isHero ? <Pill text={`Score ${heroScore}`} /> : <Pill text="Hidden" />}
+        {item.isHero
+          ? (showScore ? <Pill text={`Score ${heroScore}`} /> : null)
+          : <Pill text="Hidden" />
+        }
       </View>
     </View>
   );
@@ -532,6 +539,14 @@ export default function TabIndex() {
           <View style={styles.switchRow}>
             <Switch value={showWhy} onValueChange={setShowWhy} />
             <Text style={styles.switchLabel}>Show why (feedback)</Text>
+          </View>
+        </View>
+
+        {/* NEW: Show Chen score toggle */}
+        <View style={styles.controlsRow}>
+          <View className="switchRow" style={styles.switchRow}>
+            <Switch value={showScore} onValueChange={setShowScore} />
+            <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
           </View>
         </View>
 
