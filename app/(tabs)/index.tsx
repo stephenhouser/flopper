@@ -22,11 +22,11 @@ import {
  * - Actions: Check / Call / Fold / Raise (primary blue, equal width, hotkeys underlined)
  * - New hand button on the far right of actions row
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
- * - One-line stats in header: "Total • Correct • Accuracy"
- * - Controls at bottom with instant redeal, reset stats, adjustable feedback time, and a "Show why" toggle
- * - "Show why" preference is persisted across sessions (AsyncStorage with web fallback to localStorage)
- * - Hero row flashes green/red (fade) based on correctness, resets on next hand
- * - Fade timing follows feedback time (starts at 3/4, lasts remaining 1/4)
+ * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
+ * - Controls at bottom with instant redeal, reset stats, adjustable feedback time
+ * - Toggles: "Show why" (feedback card)
+ * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs (AsyncStorage w/ web fallback)
+ * - Hero row flashes green/red (fade) based on correctness; fade starts at 3/4 of feedback time
  */
 
 /* ---------------- Storage (AsyncStorage with web fallback) ---------------- */
@@ -38,7 +38,6 @@ type StorageLike = {
 
 const Storage: StorageLike = (() => {
   try {
-    // Dynamically require to avoid bundling issues on web if not installed
     const AS = require("@react-native-async-storage/async-storage").default;
     return {
       getItem: (k: string) => AS.getItem(k),
@@ -130,15 +129,15 @@ function recommendAction(
   numPlayers: number,
   facingRaise: boolean
 ): "raise" | "call/check" | "fold" {
-  const tableTightener = Math.max(0, (numPlayers - 6) * 0.7); // +0 at 6-max, tighter at 9
+  const tableTightener = Math.max(0, (numPlayers - 6) * 0.7);
 
   if (facingRaise) {
-    if (score >= 11 + tableTightener) return "raise"; // 3-bet
-    if (score >= 8 + tableTightener) return "call/check"; // call
+    if (score >= 11 + tableTightener) return "raise";
+    if (score >= 8 + tableTightener) return "call/check";
     return "fold";
   } else {
-    if (score >= 9 + tableTightener) return "raise"; // open
-    if (score >= 6 + tableTightener) return "call/check"; // limp/check
+    if (score >= 9 + tableTightener) return "raise";
+    if (score >= 6 + tableTightener) return "call/check";
     return "fold";
   }
 }
@@ -159,7 +158,7 @@ function labelForPos(posFromDealer: number, n: number): string {
   if (posFromDealer === 0) return "Dealer"; // BTN
   if (posFromDealer === 1) return "SB";
   if (posFromDealer === 2) return "BB";
-  const rest = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO"]; // extend if needed
+  const rest = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO"];
   return rest[posFromDealer - 3] || `Seat ${posFromDealer}`;
 }
 
@@ -237,7 +236,7 @@ export default function TabIndex() {
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
-  const [showWhy, setShowWhy] = useState(false); // persisted
+  const [showWhy, setShowWhy] = useState(false);
 
   // compact mode for mobile
   const isCompact = Platform.OS !== "web";
@@ -252,16 +251,40 @@ export default function TabIndex() {
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
-  /* ---- Persisted preferences: Show why ---- */
+  // Load persisted prefs first, then deal first hand
+  const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const saved = await Storage.getItem("poker.showWhy");
-      if (saved != null) setShowWhy(saved === "1");
+      const [sWhy, sAuto, sFacing, sSecs] = await Promise.all([
+        Storage.getItem("poker.showWhy"),
+        Storage.getItem("poker.autoNew"),
+        Storage.getItem("poker.facingRaise"),
+        Storage.getItem("poker.feedbackSecs"),
+      ]);
+      if (sWhy != null) setShowWhy(sWhy === "1");
+      if (sAuto != null) setAutoNew(sAuto === "1");
+      if (sFacing != null) setFacingRaise(sFacing === "1");
+      if (sSecs != null) {
+        const v = Math.max(0, Math.min(10, parseFloat(sSecs)));
+        if (!Number.isNaN(v)) setFeedbackSecs(v);
+      }
+      setReady(true);
     })();
   }, []);
+
+  // Persist prefs on change
   useEffect(() => {
     Storage.setItem("poker.showWhy", showWhy ? "1" : "0");
   }, [showWhy]);
+  useEffect(() => {
+    Storage.setItem("poker.autoNew", autoNew ? "1" : "0");
+  }, [autoNew]);
+  useEffect(() => {
+    Storage.setItem("poker.facingRaise", facingRaise ? "1" : "0");
+  }, [facingRaise]);
+  useEffect(() => {
+    Storage.setItem("poker.feedbackSecs", String(feedbackSecs));
+  }, [feedbackSecs]);
 
   function dealTable(n: number) {
     // reset hero highlight each new hand
@@ -319,9 +342,10 @@ export default function TabIndex() {
     dealTable(numPlayers);
   }
 
+  // First deal after prefs are loaded
   useEffect(() => {
-    newHand();
-  }, []);
+    if (ready) newHand();
+  }, [ready]);
 
   const heroScore = useMemo(
     () => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0),
@@ -513,11 +537,11 @@ export default function TabIndex() {
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>
-      {/* Header with one-line stats */}
+      {/* Header with compact one-line stats */}
       <View style={styles.header}>
-        <Text style={styles.title}>Poker Hand Trainer</Text>
+        <Text style={styles.title}>Pre-Flop Trainer</Text>
         <Text style={styles.headerStats} numberOfLines={1}>
-          Total: {totalHands} • Correct: {correctHands} • Accuracy: {accuracyPct}%
+          {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
         </Text>
       </View>
 
@@ -569,7 +593,7 @@ export default function TabIndex() {
 
       {/* Controls (bottom) */}
       <View style={styles.card}>
-        <View className="row" style={styles.controlsRow}>
+        <View style={styles.controlsRow}>
           <View style={styles.controlBlock}>
             <Text style={styles.label}>Players</Text>
             <View style={styles.stepper}>
@@ -635,6 +659,36 @@ export default function TabIndex() {
           </View>
         </View>
 
+        <View style={styles.controlsRow}>
+          <View style={[styles.controlBlock, { width: "100%" }]}>
+            <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
+            <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
+              <RowButton
+                label={<Text>-</Text>}
+                onPress={() =>
+                  setFeedbackSecs((s) => {
+                    const v = Math.max(0, parseFloat((s - 0.5).toFixed(1)));
+                    return v;
+                  })
+                }
+              />
+              <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
+              <RowButton
+                label={<Text>+</Text>}
+                onPress={() =>
+                  setFeedbackSecs((s) => {
+                    const v = Math.min(10, parseFloat((s + 0.5).toFixed(1)));
+                    return v;
+                  })
+                }
+              />
+            </View>
+            <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
+              Set to 0.0s to keep feedback visible (turn off Auto new hand if you want to study longer).
+            </Text>
+          </View>
+        </View>
+
         {/* Show why toggle (persisted) */}
         <View style={styles.controlsRow}>
           <View style={styles.switchRow}>
@@ -684,7 +738,7 @@ function positionBadgeStyle(label?: string) {
 const styles = StyleSheet.create({
   screen: { padding: 16, gap: 12 },
 
-  // Header with one-line stats on the right
+  // Header with compact one-line stats on the right
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 22, fontWeight: "700" },
   headerStats: { fontSize: 13, color: "#333", marginLeft: 12, flexShrink: 1, textAlign: "right" },
@@ -785,7 +839,4 @@ const styles = StyleSheet.create({
   // badge
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: "600" },
-
-  // Feedback text style (used by optional WHY card)
-  feedbackText: { fontWeight: "600" },
 });
