@@ -18,8 +18,8 @@ import {
  * - Title: Pre-Flop Trainer
  * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
  * - Dealer advances each hand; your seat fixed; SB at top, Dealer at bottom
- * - Cards on LEFT; middle row shows [Position pill] + [Name] inline, bet below
- * - Right column shows Score/Hidden
+ * - Cards on LEFT; middle row shows [Position pill] + [Name] inline, Chen score (hero only) under it
+ * - Right column shows a BIG Bet pill
  * - Actions: Check / Call / Fold / Raise (primary blue, equal width), New hand on far right
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
  * - Controls: instant redeal, adjustable feedback time, Show why toggle, Show Chen score toggle
@@ -157,8 +157,10 @@ function withHotkey(label: string, hotkey: string) {
   );
 }
 
-const Pill: React.FC<{ text: string }> = ({ text }) => (
-  <View style={styles.pill}><Text style={styles.pillText}>{text}</Text></View>
+const Pill: React.FC<{ text: string; large?: boolean }> = ({ text, large }) => (
+  <View style={[styles.pill, large && styles.pillLarge]}>
+    <Text style={[styles.pillText, large && styles.pillLargeText]}>{text}</Text>
+  </View>
 );
 
 const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean; compact?: boolean }> = ({ card, hidden, compact }) => {
@@ -381,27 +383,24 @@ export default function TabIndex() {
         <PlayingCard card={item.cards[1]} hidden={!item.isHero} compact={isCompact} />
       </View>
 
-      {/* MIDDLE: [Position pill] + [Name] on the same line; Bet under it */}
+      {/* MIDDLE: [Position pill] + [Name] inline; Chen score text (hero only) under it */}
       <View style={styles.metaCol}>
         <View style={styles.nameRow}>
           {!!item.positionLabel && (
             <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
-              <Text style={[styles.badgeText, isCompact && { fontSize: 11 }]}>
-                {item.positionLabel}
-              </Text>
+              <Text style={[styles.badgeText, isCompact && { fontSize: 11 }]}>{item.positionLabel}</Text>
             </View>
           )}
           <Text style={[styles.playerName, isCompact && { fontSize: 14 }]}>{item.name}</Text>
         </View>
-        <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Bet: {item.bet}</Text>
+        {item.isHero && showScore ? (
+          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Chen: {heroScore}</Text>
+        ) : null}
       </View>
 
-      {/* RIGHT: Score/Hidden pill */}
+      {/* RIGHT: BIG Bet pill */}
       <View style={styles.tailCol}>
-        {item.isHero
-          ? (showScore ? <Pill text={`Score ${heroScore}`} /> : <Pill text="Hidden" />)
-          : <Pill text="Hidden" />
-        }
+        <Pill large text={`Bet ${item.bet}`} />
       </View>
     </View>
   );
@@ -612,7 +611,7 @@ const styles = StyleSheet.create({
   playerName: { fontWeight: "600" },
   playerSub: { color: "#666", fontSize: 12 },
 
-  // RIGHT stack: score/hidden only
+  // RIGHT: big bet pill only
   tailCol: { alignItems: "flex-end", justifyContent: "center" },
 
   cardBox: { width: 50, height: 68, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
@@ -630,6 +629,10 @@ const styles = StyleSheet.create({
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
 
+  // Bigger variant for Bet
+  pillLarge: { paddingHorizontal: 12, paddingVertical: 6 },
+  pillLargeText: { fontSize: 13, fontWeight: "700" },
+
   actionsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   actionsLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
 
@@ -637,6 +640,7 @@ const styles = StyleSheet.create({
 
   helper: { color: "#666", fontSize: 12, textAlign: "center", marginTop: 6 },
 
+  // badge
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: "600" },
 });
