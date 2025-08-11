@@ -15,18 +15,18 @@ import {
 
 /**
  * Expo Router Tabs — app/(tabs)/index.tsx
+ * - Title: Pre-Flop Trainer
+ * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
  * - Web (desktop): original sizes; Mobile: compact rows/cards
- * - Dealer advances each hand; your seat fixed at 0
- * - SB at top, Dealer at bottom
- * - Position pill (Dealer/SB/BB/UTG/UTG+1/MP/LJ/HJ/CO) on left with unique colors
+ * - Dealer advances each hand; your seat fixed at 0; SB at top, Dealer at bottom
+ * - Position pill on left for all seats
  * - Actions: Check / Call / Fold / Raise (primary blue, equal width, hotkeys underlined)
  * - New hand button on the far right of actions row
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
- * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
- * - Controls at bottom with instant redeal, reset stats, adjustable feedback time
- * - Toggles: "Show why" (feedback card)
- * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs (AsyncStorage w/ web fallback)
- * - Hero row flashes green/red (fade) based on correctness; fade starts at 3/4 of feedback time
+ * - Controls: instant redeal, reset stats, adjustable feedback time, "Show why" toggle
+ * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs
+ * - Hero row flashes green/red; fade starts at 3/4 of feedback time
+ * - NEW: If "Show why" is ON, feedback row is always visible and feedback text is not auto-cleared between hands
  */
 
 /* ---------------- Storage (AsyncStorage with web fallback) ---------------- */
@@ -232,7 +232,7 @@ export default function TabIndex() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [facingRaise, setFacingRaise] = useState(false);
   const [heroAction, setHeroAction] = useState<"" | "check" | "call" | "fold" | "raise">("");
-  const [result, setResult] = useState<string>(""); // feedback; shown only if "Show why" is ON
+  const [result, setResult] = useState<string>(""); // feedback text
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
@@ -335,7 +335,8 @@ export default function TabIndex() {
 
     setPlayers(rotated);
     setHeroAction("");
-    setResult("");
+    // DO NOT clear result when showWhy is ON — keeps feedback visible between hands
+    if (!showWhy) setResult("");
   }
 
   function newHand() {
@@ -360,7 +361,7 @@ export default function TabIndex() {
   function resetStats() {
     setTotalHands(0);
     setCorrectHands(0);
-    setResult("Stats reset.");
+    setResult(showWhy ? "Stats reset." : ""); // when showing feedback, leave a note instead of clearing
   }
 
   function act(action: "check" | "call" | "fold" | "raise") {
@@ -405,7 +406,7 @@ export default function TabIndex() {
     setTotalHands((t) => t + 1);
     setCorrectHands((c) => c + (correct ? 1 : 0));
 
-    // compute/keep "why" feedback (rendered only if Show why is ON)
+    // compute/keep "why" feedback
     const why = `Chen score: ${heroScore}. ${
       facingRaise ? "Facing a raise." : "No raise yet."
     } ${numPlayers} players.`;
@@ -414,11 +415,13 @@ export default function TabIndex() {
         `Recommended: ${recommended.toUpperCase()}. ${why}`
     );
 
-    // timers: result visibility governed by toggle; auto-new still uses delay
+    // timers: only auto-hide feedback text when Show why is OFF
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
-    if (feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
+    if (!showWhy && feedbackSecs > 0) {
+      hideTimerRef.current = setTimeout(() => setResult(""), delay);
+    }
     if (autoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
@@ -545,10 +548,12 @@ export default function TabIndex() {
         </Text>
       </View>
 
-      {/* Optional WHY feedback card (shown only if toggled on and result is non-empty) */}
-      {showWhy && !!result && (
+      {/* Feedback row: when Show why is ON, this card is always visible */}
+      {showWhy && (
         <View style={styles.card}>
-          <Text style={styles.feedbackText}>{result}</Text>
+          <Text style={styles.feedbackText}>
+            {result || "Take an action to see feedback."}
+          </Text>
         </View>
       )}
 
@@ -661,7 +666,9 @@ export default function TabIndex() {
 
         <View style={styles.controlsRow}>
           <View style={[styles.controlBlock, { width: "100%" }]}>
-            <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
+            <Text style={styles.label}>
+              Feedback time (seconds) — also delays auto new hand
+            </Text>
             <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
               <RowButton
                 label={<Text>-</Text>}
@@ -684,7 +691,7 @@ export default function TabIndex() {
               />
             </View>
             <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
-              Set to 0.0s to keep feedback visible (turn off Auto new hand if you want to study longer).
+              If "Show why" is ON, feedback stays visible; otherwise it hides after the delay above.
             </Text>
           </View>
         </View>
