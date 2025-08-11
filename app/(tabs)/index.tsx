@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 /**
@@ -14,6 +14,7 @@ import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, Te
  *  - Position labels (Dealer, SB, BB, UTG, MP, HJ, CO, …)
  *  - Stats tracking: total, correct, accuracy %
  *  - Controls at the bottom; reset-stats button
+ *  - Adjustable feedback display time (and auto-new-hand delay)
  */
 
 // ---------------- Card / Deck helpers ----------------
@@ -163,6 +164,10 @@ export default function TabIndex() {
   const [result, setResult] = useState<string>("");
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
+  const [feedbackSecs, setFeedbackSecs] = useState(1.0); // seconds visible for feedback and delay before auto-new-hand
+
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
@@ -224,6 +229,32 @@ export default function TabIndex() {
     newHand();
   }, []);
 
+  // --- Hotkeys (web only): c=check, a=call, f=fold, r=raise, Enter=repeat last, Space=new hand ---
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handler = (e: any) => {
+      const target = e.target as HTMLElement | null;
+      const tag = target && (target.tagName || '').toLowerCase();
+      const editable = target && (target as any).isContentEditable;
+      if (tag === 'input' || tag === 'textarea' || editable) return;
+      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      const k = String(e.key || '').toLowerCase();
+
+      if (k === 'c') act('check');
+      else if (k === 'a') act('call');
+      else if (k === 'f') act('fold');
+      else if (k === 'r') act('raise');
+      else if (k === 'enter') {
+        if (heroAction) act(heroAction);
+      } else if (k === ' ' || k === 'spacebar') {
+        e.preventDefault();
+        newHand();
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [heroAction, newHand]);
+
   const heroScore = useMemo(() => {
     if (!hero) return 0;
     return chenScore(hero.cards[0], hero.cards[1]);
@@ -254,7 +285,21 @@ export default function TabIndex() {
     const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
     setResult((correct ? `Correct ✅ — ` : `Better play ❗ — `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
 
-    if (autoNew) setTimeout(() => newHand(), 900);
+    // manage timers
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+
+    const delay = Math.max(0, Math.round(feedbackSecs * 1000));
+
+    // Auto-hide feedback after delay unless set to 0s
+    if (feedbackSecs > 0) {
+      hideTimerRef.current = setTimeout(() => setResult(""), delay);
+    }
+
+    // Auto deal a new hand after the same delay if enabled
+    if (autoNew) {
+      dealTimerRef.current = setTimeout(() => newHand(), delay);
+    }
   }
 
   const renderPlayer = ({ item }: { item: Player }) => (
@@ -295,14 +340,16 @@ export default function TabIndex() {
 
       {/* Stats & Feedback */}
       <View style={styles.card}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Pill text={`Correct: ${correctHands}`} />
-          <Pill text={`Total: ${totalHands}`} />
-          <Pill text={`Accuracy: ${accuracyPct}%`} />
-        </View>
-        <View style={{ marginTop: 8 }}>
-          <Text style={styles.feedbackText}>{result || 'Take an action to see feedback here.'}</Text>
-          <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
+        <View style={styles.statsRow}>
+          <View style={styles.statsLeft}>
+            <Text style={styles.feedbackText}>{result || 'Take an action to see feedback here.'}</Text>
+            <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
+          </View>
+          <View style={styles.statsRight}>
+            <Text style={styles.statLine}>Total: {totalHands}</Text>
+            <Text style={styles.statLine}>Correct: {correctHands}</Text>
+            <Text style={styles.statLine}>Accuracy: {accuracyPct}%</Text>
+          </View>
         </View>
       </View>
       <FlatList
@@ -314,9 +361,9 @@ export default function TabIndex() {
 
       {/* Actions */}
       <View style={styles.actionsRow}> 
-        <RowButton label="Check" onPress={() => act("check")} />
-        <RowButton label="Call" onPress={() => act("call")} />
-        <RowButton label="Fold" onPress={() => act("fold")} kind="outline" />
+        <RowButton label="Check" onPress={() => act("check")} kind="primary" />
+        <RowButton label="Call" onPress={() => act("call")} kind="primary" />
+        <RowButton label="Fold" onPress={() => act("fold")} kind="primary" />
         <RowButton label="Raise" onPress={() => act("raise")} kind="primary" />
       </View>
 
@@ -350,6 +397,17 @@ export default function TabIndex() {
           <View style={styles.switchRow}>
             <Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} />
             <Text style={styles.switchLabel}>Facing a raise</Text>
+          </View>
+        </View>
+        <View style={styles.controlsRow}>
+          <View style={[styles.controlBlock, { width: "100%" }]}>
+            <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
+            <View style={[styles.stepper, { justifyContent: 'flex-start' }]}> 
+              <RowButton label="-" onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
+              <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
+              <RowButton label="+" onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+            </View>
+            <Text style={{ color: '#666', fontSize: 12, marginTop: 4 }}>Set to 0.0s to keep feedback visible (turn off Auto new hand if you want it to persist).</Text>
           </View>
         </View>
         <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
@@ -389,7 +447,7 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, color: "#555", marginBottom: 6 },
   input: { backgroundColor: "#f2f2f6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 16 },
   stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
-  stepperNum: { width: 36, textAlign: "center", fontSize: 16 },
+  stepperNum: { width: 60, textAlign: "center", fontSize: 16 },
 
   switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   switchLabel: { fontSize: 14 },
@@ -416,6 +474,12 @@ const styles = StyleSheet.create({
   pillText: { fontSize: 11, color: "#444" },
 
   actionsRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
+
+  // Stats layout
+  statsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
+  statsLeft: { flex: 1, paddingRight: 8 },
+  statsRight: { minWidth: 120, alignItems: "flex-end" },
+  statLine: { fontSize: 13, fontWeight: "600" },
 
   feedbackCard: { backgroundColor: "#fff", borderRadius: 14, padding: 12 },
   feedbackText: { fontWeight: "600" },
