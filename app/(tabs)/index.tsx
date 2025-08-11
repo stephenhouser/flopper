@@ -145,43 +145,59 @@ export default function TabIndex() {
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
-  function dealTable(n: number) {
-    let deck = shuffle(makeDeck());
+function dealTable(n:number){
+  let deck = shuffle(makeDeck());
 
-    const ps: Player[] = Array.from({ length: n }).map((_, i) => ({
-      id: i,
-      name: i === 0 ? "You" : `P${i + 1}`,
-      role: "" as Player["role"],
-      bet: 0,
-      cards: [{ rank: "A", suit: "♠" }, { rank: "A", suit: "♥" }] as [CardT, CardT],
-      isHero: i === 0,
-    }));
+  // Keep hero fixed at the same seat every hand
+  const heroSeat = 0;
 
-    const btn = Math.floor(Math.random() * n);
-    ps.forEach((p, idx) => {
-      const pos = (idx - btn + n) % n;
-      if (pos === 0) p.role = "Dealer";
-      else if (pos === 1) p.role = "SB";
-      else if (pos === 2) p.role = "BB";
-    });
-
-    ps.forEach((p) => {
-      if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
-      if (p.role === "BB") p.bet = bigBlind;
-    });
-
-    for (let r = 0; r < 2; r++) {
-      for (let i = 0; i < n; i++) {
-        const c = deck.pop()!;
-        if (r === 0) ps[i].cards[0] = c;
-        else ps[i].cards[1] = c;
-      }
-    }
-
-    setPlayers(ps);
-    setHeroAction("");
-    setResult("");
+  // Advance a global button (dealer) seat each hand so your relative position changes
+  const g: any = (globalThis as any);
+  if (typeof g.__BTN_SEAT__ !== 'number') {
+    g.__BTN_SEAT__ = Math.floor(Math.random() * n); // random starting dealer
+  } else {
+    g.__BTN_SEAT__ = (g.__BTN_SEAT__ + 1) % n; // dealer advances each hand
   }
+  const btn: number = g.__BTN_SEAT__;
+
+  const positionLabels = ["Dealer", "SB", "BB", "UTG", "MP", "HJ", "CO"];
+
+  const ps:Array<Player> = Array.from({ length:n }).map((_, i) => ({
+    id: i,
+    name: i === heroSeat ? "You" : `P${i+1}`,
+    role: "" as Player["role"],
+    bet: 0,
+    cards: [deck.pop()!, deck.pop()!] as [CardT, CardT],
+    isHero: i === heroSeat,
+    positionLabel: "" as string,
+  } as Player & { positionLabel: string }));
+
+  // Assign roles and position labels based on current dealer (button)
+  ps.forEach((p, idx) => {
+    const pos = (idx - btn + n) % n;
+    if (pos === 0) p.role = "Dealer";
+    else if (pos === 1) p.role = "SB";
+    else if (pos === 2) p.role = "BB";
+
+    // Assign position labels, cycling through available labels array
+    p.positionLabel = positionLabels[pos] || `Pos ${pos}`;
+  });
+
+  // Set blinds
+  ps.forEach((p) => {
+    if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
+    if (p.role === "BB") p.bet = bigBlind;
+  });
+
+  // Rotate list so SB is first (top) and Dealer ends last
+  const sbIndex = ps.findIndex((p) => p.role === "SB");
+  const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
+
+  setPlayers(rotated);
+  setHeroAction("");
+  setResult("");
+}
+
 
   function newHand() {
     dealTable(numPlayers);
