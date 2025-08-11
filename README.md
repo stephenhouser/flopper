@@ -2,6 +2,28 @@
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
 
+## TODO
+
+Because Expo Go can’t load arbitrary native modules, you’ll need a dev build:
+Install the library:
+
+```
+npm i react-native-key-command
+```
+
+Prebuild & apply native changes, then build a dev client:
+
+```
+npm i react-native-key-command
+npx expo prebuild
+(cd ios && pod install)
+# iOS: runs `pod install` automatically; ensure the AppDelegate additions from the README are applied
+# Android: ensure the MainActivity.onKeyDown override is applied
+eas build --profile development --platform all
+```
+
+The code I added dynamically requires the module and no-ops if it isn’t present, so your app keeps running in Expo Go until you switch to the dev build.
+
 ## Get started
 
 1. Install dependencies
