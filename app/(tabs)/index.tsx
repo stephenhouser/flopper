@@ -17,17 +17,15 @@ import {
  * Expo Router Tabs — app/(tabs)/index.tsx
  * - Title: Pre-Flop Trainer
  * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
- * - Web (desktop): original sizes; Mobile: compact rows/cards
- * - Dealer advances each hand; your seat fixed at 0; SB at top, Dealer at bottom
- * - Position pill on left for all seats
- * - Actions: Check / Call / Fold / Raise (primary blue, equal width, hotkeys underlined)
- * - New hand button on the far right of actions row
+ * - Dealer advances each hand; your seat fixed; SB at top, Dealer at bottom
+ * - Cards on LEFT; on the RIGHT a vertical stack with Position pill (top) and Score/Hidden pill (bottom)
+ * - Actions: Check / Call / Fold / Raise (primary blue, equal width), New hand on far right
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
- * - Controls: instant redeal, reset stats, adjustable feedback time, "Show why" toggle
+ * - Controls: instant redeal, adjustable feedback time, Show why toggle
  * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs
+ * - Reset stats: clears stats AND all persisted prefs (resets to defaults)
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
- * - Feedback row always visible when Show why is ON (not auto-cleared)
- * - NEW: Feedback row shows a "Last: <Action>" pill on the right
+ * - If "Show why" is ON, feedback row is always visible (not auto-cleared)
  */
 
 /* ---------------- Storage (AsyncStorage with web fallback) ---------------- */
@@ -35,6 +33,7 @@ import {
 type StorageLike = {
   getItem: (k: string) => Promise<string | null>;
   setItem: (k: string, v: string) => Promise<void>;
+  removeItem: (k: string) => Promise<void>;
 };
 
 const Storage: StorageLike = (() => {
@@ -43,6 +42,7 @@ const Storage: StorageLike = (() => {
     return {
       getItem: (k: string) => AS.getItem(k),
       setItem: (k: string, v: string) => AS.setItem(k, v),
+      removeItem: (k: string) => AS.removeItem(k),
     };
   } catch {
     return {
@@ -53,6 +53,11 @@ const Storage: StorageLike = (() => {
       setItem: async (k: string, v: string) => {
         if (typeof window !== "undefined" && (window as any).localStorage) {
           (window as any).localStorage.setItem(k, v);
+        }
+      },
+      removeItem: async (k: string) => {
+        if (typeof window !== "undefined" && (window as any).localStorage) {
+          (window as any).localStorage.removeItem(k);
         }
       },
     };
@@ -104,7 +109,6 @@ function chenScore(c1: CardT, c2: CardT): number {
   else if (gap === 3) score -= 4;
   else if (gap >= 4) score -= 5;
   if (suited) score += 2;
-
   return Math.round(score * 2) / 2;
 }
 
@@ -210,8 +214,8 @@ export default function TabIndex() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [facingRaise, setFacingRaise] = useState(false);
   const [heroAction, setHeroAction] = useState<"" | Action>("");
-  const [lastAction, setLastAction] = useState<"" | Action>(""); // NEW: show beside feedback
-  const [result, setResult] = useState<string>(""); // feedback text
+  const [lastAction, setLastAction] = useState<"" | Action>("");
+  const [result, setResult] = useState<string>("");
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
@@ -303,7 +307,6 @@ export default function TabIndex() {
 
     setPlayers(rotated);
     setHeroAction("");
-    // Do not clear feedback when showing why; keep it visible between hands
     if (!showWhy) setResult("");
   }
 
@@ -315,23 +318,40 @@ export default function TabIndex() {
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
   const recommended = useMemo(() => recommendAction(heroScore, numPlayers, facingRaise), [heroScore, numPlayers, facingRaise]);
 
-  function resetStats() {
+  async function resetStatsAndPrefs() {
+    // Reset in-memory stats
     setTotalHands(0);
     setCorrectHands(0);
+    setLastAction("");
     setResult(showWhy ? "Stats reset." : "");
+
+    // Clear persisted prefs
+    await Promise.all([
+      Storage.removeItem("poker.showWhy"),
+      Storage.removeItem("poker.autoNew"),
+      Storage.removeItem("poker.facingRaise"),
+      Storage.removeItem("poker.feedbackSecs"),
+    ]);
+
+    // Reset current session prefs to defaults
+    setShowWhy(false);
+    setAutoNew(true);
+    setFacingRaise(false);
+    setFeedbackSecs(1.0);
+
+    // Redeal to reflect defaults
+    dealTable(numPlayers);
   }
 
   function act(action: Action) {
     setHeroAction(action);
-    setLastAction(action); // NEW: remember most recent action
+    setLastAction(action);
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
 
     // set hero flash color & animate fade tied to feedbackSecs
     setHeroFlash(correct ? "correct" : "incorrect");
     heroFlashOpacity.setValue(1);
-
-    // clear any pending fade
     if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
 
     const totalMs = Math.max(0, Math.round(feedbackSecs * 1000));
@@ -379,22 +399,26 @@ export default function TabIndex() {
         />
       )}
 
-      <View style={[styles.roleCol, { width: isCompact ? 62 : 74 }]}>
+      {/* LEFT: cards */}
+      <View style={styles.cardsCol}>
+        <PlayingCard card={item.cards[0]} hidden={!item.isHero} compact={isCompact} />
+        <PlayingCard card={item.cards[1]} hidden={!item.isHero} compact={isCompact} />
+      </View>
+
+      {/* MIDDLE: name + bet */}
+      <View style={styles.metaCol}>
+        <Text style={[styles.playerName, isCompact && { fontSize: 14 }]}>{item.name}</Text>
+        <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Bet: {item.bet}</Text>
+      </View>
+
+      {/* RIGHT: position pill on top, then score/hidden under it */}
+      <View style={styles.tailCol}>
         {!!item.positionLabel && (
           <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
             <Text style={[styles.badgeText, isCompact && { fontSize: 11 }]}>{item.positionLabel}</Text>
           </View>
         )}
-      </View>
-      <View style={styles.cardsCol}>
-        <PlayingCard card={item.cards[0]} hidden={!item.isHero} compact={isCompact} />
-        <PlayingCard card={item.cards[1]} hidden={!item.isHero} compact={isCompact} />
-      </View>
-      <View style={styles.metaCol}>
-        <Text style={[styles.playerName, isCompact && { fontSize: 14 }]}>{item.name}</Text>
-        <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Bet: {item.bet}</Text>
-      </View>
-      <View style={styles.tailCol}>
+        <View style={{ height: 6 }} />
         {item.isHero ? <Pill text={`Score ${heroScore}`} /> : <Pill text="Hidden" />}
       </View>
     </View>
@@ -536,7 +560,7 @@ export default function TabIndex() {
         </View>
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-          <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
+          <RowButton label={<Text>Reset stats & prefs</Text>} onPress={resetStatsAndPrefs} kind="outline" />
         </View>
       </View>
 
@@ -545,7 +569,7 @@ export default function TabIndex() {
   );
 }
 
-/* Position badge colors for all seats */
+/* Position badge colors */
 function positionBadgeStyle(label?: string) {
   switch (label) {
     case "Dealer": return { backgroundColor: "#EDE2FF" };
@@ -587,12 +611,17 @@ const styles = StyleSheet.create({
   rowOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
 
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
-  roleCol: { width: 74, alignItems: "center" },
+
+  // LEFT cards
   cardsCol: { flexDirection: "row", gap: 6 },
+
+  // MIDDLE meta
   metaCol: { flex: 1 },
-  tailCol: {},
   playerName: { fontWeight: "600" },
   playerSub: { color: "#666", fontSize: 12 },
+
+  // RIGHT stack: position pill on top, then score
+  tailCol: { alignItems: "flex-end", justifyContent: "center" },
 
   cardBox: { width: 50, height: 68, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
   cardHidden: { width: 40, height: 58, borderRadius: 8, backgroundColor: "#e6e6ee" },
@@ -609,7 +638,7 @@ const styles = StyleSheet.create({
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
 
-  // Actions row: left group fills remaining width, New hand sits on right
+  // Actions row
   actionsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   actionsLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
 
@@ -622,6 +651,4 @@ const styles = StyleSheet.create({
   // badge
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: "600" },
-
-  feedbackText: { fontWeight: "600" },
 });
