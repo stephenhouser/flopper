@@ -9,6 +9,7 @@ Install the library:
 
 ```
 npm i react-native-key-command
+expo install @react-native-async-storage/async-storage
 ```
 
 Prebuild & apply native changes, then build a dev client:
