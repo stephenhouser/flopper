@@ -2,14 +2,16 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
 
 /**
- * Drop this file in: app/(tabs)/index.tsx
- * - Dealer/button advances each hand; your seat stays fixed (seat 0)
- * - SB shown at top, Dealer at bottom
- * - Position pill on the left (Dealer/SB/BB/UTG/UTG+1/MP/LJ/HJ/CO), unique colors
- * - Actions: Check / Call / Fold / Raise (primary blue, hotkeys underlined)
- * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native)
- * - Stats & feedback at top; controls at bottom (instant redeal, reset stats)
- * - Adjustable feedback time (also delays auto new hand)
+ * Expo Router Tabs — app/(tabs)/index.tsx
+ * - Dealer advances each hand; your seat fixed at 0
+ * - SB at top, Dealer at bottom
+ * - Position pill (Dealer/SB/BB/UTG/UTG+1/MP/LJ/HJ/CO) on left with unique colors
+ * - Actions: Check / Call / Fold / Raise (primary blue, equal width, hotkeys underlined)
+ * - New hand button on the far right of actions row
+ * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
+ * - Stats & feedback at top (why-left; totals-right)
+ * - Controls at bottom with instant redeal, reset stats, adjustable feedback time
+ * - Hero row flashes green/red based on correctness, resets on next hand
  */
 
 /* ---------------- Card / Deck helpers ---------------- */
@@ -129,18 +131,17 @@ function withHotkey(label: string, hotkey: string) {
   );
 }
 
-// Add `equal?: boolean`
 const RowButton: React.FC<{
   label: React.ReactNode;
   onPress: () => void;
   kind?: "primary" | "secondary" | "outline";
-  equal?: boolean;
+  equal?: boolean; // equal-width in a flex row
 }> = ({ label, onPress, kind = "secondary", equal = false }) => (
   <Pressable
     onPress={onPress}
     style={({ pressed }) => [
       styles.btn,
-      equal && styles.btnGrow,            // ⬅️ equal-width
+      equal && styles.btnGrow,
       kind === "primary" && styles.btnPrimary,
       kind === "outline" && styles.btnOutline,
       pressed && { opacity: 0.8 },
@@ -164,12 +165,18 @@ export default function TabIndex() {
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0); // also controls auto new hand delay
 
+  // NEW: hero row flash state
+  const [heroFlash, setHeroFlash] = useState<"none" | "correct" | "incorrect">("none");
+
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
   function dealTable(n: number) {
+    // reset hero highlight each new hand
+    setHeroFlash("none");
+
     let deck = shuffle(makeDeck());
     const heroSeat = 0; // fixed hero seat
 
@@ -235,6 +242,9 @@ export default function TabIndex() {
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
 
+    // set hero flash color
+    setHeroFlash(correct ? "correct" : "incorrect");
+
     setTotalHands((t) => t + 1);
     setCorrectHands((c) => c + (correct ? 1 : 0));
 
@@ -250,7 +260,14 @@ export default function TabIndex() {
   }
 
   const renderPlayer = ({ item }: { item: Player }) => (
-    <View style={[styles.row, item.isHero && styles.rowHero]}>
+    <View
+      style={[
+        styles.row,
+        item.isHero && styles.rowHero,
+        item.isHero && heroFlash === "correct" && styles.rowCorrect,
+        item.isHero && heroFlash === "incorrect" && styles.rowIncorrect,
+      ]}
+    >
       <View style={styles.roleCol}>
         {!!item.positionLabel && (
           <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
@@ -323,6 +340,7 @@ export default function TabIndex() {
           <Text style={styles.title}>Poker Hand Trainer</Text>
           <Text style={styles.subtitle}>Pre-flop reps with instant feedback</Text>
         </View>
+        {/* New hand moved down next to action buttons */}
       </View>
 
       {/* Stats & Feedback (why on left; totals stacked on right) */}
@@ -355,9 +373,8 @@ export default function TabIndex() {
           <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
           <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
           <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
-          <RowButton equal label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
         </View>
-
+        <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
       </View>
 
       {/* Controls (bottom) */}
@@ -450,6 +467,8 @@ const styles = StyleSheet.create({
 
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14, padding: 10, gap: 10 },
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
+  rowCorrect: { backgroundColor: "#e8f7ee" },   // soft green
+  rowIncorrect: { backgroundColor: "#fdebec" }, // soft red
   roleCol: { width: 74, alignItems: "center" },
   cardsCol: { flexDirection: "row", gap: 6 },
   metaCol: { flex: 1 },
@@ -465,27 +484,16 @@ const styles = StyleSheet.create({
   btnPrimary: { backgroundColor: "#4f6df6" },
   btnOutline: { backgroundColor: "#fff", borderColor: "#d0d0e0", borderWidth: 1 },
   btnText: { color: "#2b2e57", fontWeight: "600" },
+  btnGrow: { flex: 1 }, // equal-width action buttons
 
   underlineLetter: { textDecorationLine: "underline" },
 
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
 
-  actionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    gap: 8,
-  },
-  actionsLeft: {
-    flex: 1,                         // ⬅️ left group fills row
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,                          // spacing between equal buttons
-  },
-  btnGrow: {
-    flex: 1,                         // ⬅️ each action button shares space evenly
-  },
+  // Actions row: left group fills remaining width, New hand sits on right
+  actionsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  actionsLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
 
   // Stats layout
   statsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 12 },
