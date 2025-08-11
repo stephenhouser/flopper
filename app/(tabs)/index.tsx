@@ -23,9 +23,10 @@ import {
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
  * - Controls: instant redeal, adjustable feedback time, Show why toggle
  * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs
- * - Reset stats: clears stats AND all persisted prefs (resets to defaults)
+ * - Reset stats: ONLY resets totals/correct and leaves prefs intact
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
  * - If "Show why" is ON, feedback row is always visible (not auto-cleared)
+ * - Feedback row shows a "Last: <Action>" pill on the right
  */
 
 /* ---------------- Storage (AsyncStorage with web fallback) ---------------- */
@@ -33,7 +34,6 @@ import {
 type StorageLike = {
   getItem: (k: string) => Promise<string | null>;
   setItem: (k: string, v: string) => Promise<void>;
-  removeItem: (k: string) => Promise<void>;
 };
 
 const Storage: StorageLike = (() => {
@@ -42,7 +42,6 @@ const Storage: StorageLike = (() => {
     return {
       getItem: (k: string) => AS.getItem(k),
       setItem: (k: string, v: string) => AS.setItem(k, v),
-      removeItem: (k: string) => AS.removeItem(k),
     };
   } catch {
     return {
@@ -53,11 +52,6 @@ const Storage: StorageLike = (() => {
       setItem: async (k: string, v: string) => {
         if (typeof window !== "undefined" && (window as any).localStorage) {
           (window as any).localStorage.setItem(k, v);
-        }
-      },
-      removeItem: async (k: string) => {
-        if (typeof window !== "undefined" && (window as any).localStorage) {
-          (window as any).localStorage.removeItem(k);
         }
       },
     };
@@ -152,7 +146,6 @@ function labelForPos(posFromDealer: number, n: number): string {
 
 /* ---------------- UI bits ---------------- */
 
-// underline helper for hotkey letters
 function withHotkey(label: string, hotkey: string) {
   const i = label.toLowerCase().indexOf(hotkey.toLowerCase());
   if (i === -1) return <Text>{label}</Text>;
@@ -318,29 +311,12 @@ export default function TabIndex() {
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
   const recommended = useMemo(() => recommendAction(heroScore, numPlayers, facingRaise), [heroScore, numPlayers, facingRaise]);
 
-  async function resetStatsAndPrefs() {
-    // Reset in-memory stats
+  // Reset ONLY the stats (not the persisted preferences)
+  function resetStats() {
     setTotalHands(0);
     setCorrectHands(0);
     setLastAction("");
     setResult(showWhy ? "Stats reset." : "");
-
-    // Clear persisted prefs
-    await Promise.all([
-      Storage.removeItem("poker.showWhy"),
-      Storage.removeItem("poker.autoNew"),
-      Storage.removeItem("poker.facingRaise"),
-      Storage.removeItem("poker.feedbackSecs"),
-    ]);
-
-    // Reset current session prefs to defaults
-    setShowWhy(false);
-    setAutoNew(true);
-    setFacingRaise(false);
-    setFeedbackSecs(1.0);
-
-    // Redeal to reflect defaults
-    dealTable(numPlayers);
   }
 
   function act(action: Action) {
@@ -560,7 +536,7 @@ export default function TabIndex() {
         </View>
 
         <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-          <RowButton label={<Text>Reset stats & prefs</Text>} onPress={resetStatsAndPrefs} kind="outline" />
+          <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
         </View>
       </View>
 
