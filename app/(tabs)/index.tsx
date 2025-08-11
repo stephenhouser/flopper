@@ -18,16 +18,14 @@ import {
  * - Title: Pre-Flop Trainer
  * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
  * - Dealer advances each hand; your seat fixed; SB at top, Dealer at bottom
- * - Cards on LEFT; middle row shows [Position pill] + [Name] inline, Chen score (hero only) under it
- * - Right column shows a BIG Bet pill
- * - Actions: Check / Call / Fold / Raise (primary blue, equal width), New hand on far right
+ * - Cards on LEFT; middle row shows [Position pill] + [Name] inline, Chen score text (hero only) under it
+ * - Right column shows a BIG bet pill (amount only; adds SB/BB tag when applicable)
  * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
  * - Controls: instant redeal, adjustable feedback time, Show why toggle, Show Chen score toggle
  * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs, showScore
  * - Reset stats: ONLY resets totals/correct (keeps prefs)
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
- * - If "Show why" is ON, feedback row is always visible (not auto-cleared)
- * - Feedback row shows a "Last: <Action>" pill on the right
+ * - If "Show why" is ON, feedback row is always visible
  */
 
 type StorageLike = {
@@ -219,6 +217,7 @@ export default function TabIndex() {
   const isCompact = Platform.OS !== "web";
 
   // hero row flash (fade) state
+  theTimerCleanup(); // (noop here—placeholder if you centralize timers later)
   const [heroFlash, setHeroFlash] = useState<"none" | "correct" | "incorrect">("none");
   const heroFlashOpacity = useRef(new Animated.Value(0)).current;
 
@@ -364,6 +363,12 @@ export default function TabIndex() {
     if (autoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
+  // Bet label with SB/BB shorthand where applicable (no "Bet" word)
+  const betLabel = (p: Player) => {
+    const tag = p.role === "SB" ? "SB" : p.role === "BB" ? "BB" : "";
+    return tag ? `${p.bet} (${tag})` : `${p.bet}`;
+  };
+
   const renderPlayer = ({ item }: { item: Player }) => (
     <View style={[styles.row, { padding: isCompact ? 8 : 10 }, item.isHero && styles.rowHero]}>
       {/* Fade overlay only for hero */}
@@ -398,9 +403,9 @@ export default function TabIndex() {
         ) : null}
       </View>
 
-      {/* RIGHT: BIG Bet pill */}
+      {/* RIGHT: BIG bet pill (amount only; adds SB/BB tag) */}
       <View style={styles.tailCol}>
-        <Pill large text={`Bet ${item.bet}`} />
+        <Pill large text={betLabel(item)} />
       </View>
     </View>
   );
@@ -602,16 +607,13 @@ const styles = StyleSheet.create({
 
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
 
-  // LEFT cards
   cardsCol: { flexDirection: "row", gap: 6 },
 
-  // MIDDLE meta
   metaCol: { flex: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   playerName: { fontWeight: "600" },
   playerSub: { color: "#666", fontSize: 12 },
 
-  // RIGHT: big bet pill only
   tailCol: { alignItems: "flex-end", justifyContent: "center" },
 
   cardBox: { width: 50, height: 68, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
@@ -640,7 +642,9 @@ const styles = StyleSheet.create({
 
   helper: { color: "#666", fontSize: 12, textAlign: "center", marginTop: 6 },
 
-  // badge
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: "600" },
 });
+
+// tiny helper if you later centralize timers; safe no-op now
+function theTimerCleanup() {}
