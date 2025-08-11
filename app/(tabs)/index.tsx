@@ -363,10 +363,11 @@ export default function TabIndex() {
     if (autoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
-  // Bet label with SB/BB shorthand where applicable (no "Bet" word)
+  // Bet label with SB/BB shorthand where applicable (with "$")
   const betLabel = (p: Player) => {
     const tag = p.role === "SB" ? "SB" : p.role === "BB" ? "BB" : "";
-    return tag ? `${p.bet} (${tag})` : `${p.bet}`;
+    const amt = `$${p.bet}`;
+    return tag ? `${amt} (${tag})` : amt;
   };
 
   const renderPlayer = ({ item }: { item: Player }) => (
