@@ -4,6 +4,16 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
 
 ## TODO
 
+Progressive web app
+
+<https://docs.expo.dev/guides/progressive-web-apps/>
+
+Proper icons (for settings gear)
+
+```
+expo install @expo/vector-icons
+```
+
 Because Expo Go can’t load arbitrary native modules, you’ll need a dev build:
 Install the library:
 

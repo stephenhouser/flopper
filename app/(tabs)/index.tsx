@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -16,16 +17,14 @@ import {
 /**
  * Expo Router Tabs — app/(tabs)/index.tsx
  * - Title: Pre-Flop Trainer
- * - Header stats: "{correctHands}/{totalHands} • Accuracy: {accuracyPct}%"
- * - Dealer advances each hand; your seat fixed; SB at top, Dealer at bottom
- * - Cards on LEFT; middle row shows [Position pill] + [Name] inline, Chen score text (hero only) under it
- * - Right column shows a BIG bet pill (amount only; adds SB/BB tag when applicable)
- * - Hotkeys: c/a/f/r, Enter=repeat, Space=new hand (web + optional native via react-native-key-command)
- * - Controls: instant redeal, adjustable feedback time, Show why toggle, Show Chen score toggle
- * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs, showScore
- * - Reset stats: ONLY resets totals/correct (keeps prefs)
+ * - Header right: one-line stats + gear button to toggle Settings panel (persisted)
+ * - Dealer advances each hand; hero seat fixed; SB at top, Dealer at bottom
+ * - Row: [Cards LEFT] · [Position pill + Name, Chen text (hero only) MIDDLE] · [BIG $ bet pill RIGHT (SB/BB tag)]
+ * - Actions: Check/Call/Fold/Raise (primary blue, equal width) + New hand button
+ * - Hotkeys: c/a/f/r, Enter=repeat last action, Space=new hand (web + native via react-native-key-command if present)
+ * - Settings panel (hidden by default): players, blinds, auto new, facing raise, feedback time, show why, show Chen score, reset stats
+ * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs, showScore, showSettings
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
- * - If "Show why" is ON, feedback row is always visible
  */
 
 type StorageLike = {
@@ -212,12 +211,12 @@ export default function TabIndex() {
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
   const [showWhy, setShowWhy] = useState(false);
-  const [showScore, setShowScore] = useState(true); // toggle to show/hide Chen score for hero
+  const [showScore, setShowScore] = useState(true);
+  const [showSettings, setShowSettings] = useState(false); // NEW
 
   const isCompact = Platform.OS !== "web";
 
   // hero row flash (fade) state
-  theTimerCleanup(); // (noop here—placeholder if you centralize timers later)
   const [heroFlash, setHeroFlash] = useState<"none" | "correct" | "incorrect">("none");
   const heroFlashOpacity = useRef(new Animated.Value(0)).current;
 
@@ -231,12 +230,13 @@ export default function TabIndex() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const [sWhy, sAuto, sFacing, sSecs, sScore] = await Promise.all([
+      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings] = await Promise.all([
         Storage.getItem("poker.showWhy"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
         Storage.getItem("poker.feedbackSecs"),
         Storage.getItem("poker.showScore"),
+        Storage.getItem("poker.showSettings"),
       ]);
       if (sWhy != null) setShowWhy(sWhy === "1");
       if (sAuto != null) setAutoNew(sAuto === "1");
@@ -246,6 +246,7 @@ export default function TabIndex() {
         if (!Number.isNaN(v)) setFeedbackSecs(v);
       }
       if (sScore != null) setShowScore(sScore === "1");
+      if (sSettings != null) setShowSettings(sSettings === "1");
       setReady(true);
     })();
   }, []);
@@ -256,6 +257,7 @@ export default function TabIndex() {
   useEffect(() => { Storage.setItem("poker.facingRaise", facingRaise ? "1" : "0"); }, [facingRaise]);
   useEffect(() => { Storage.setItem("poker.feedbackSecs", String(feedbackSecs)); }, [feedbackSecs]);
   useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
+  useEffect(() => { Storage.setItem("poker.showSettings", showSettings ? "1" : "0"); }, [showSettings]);
 
   function dealTable(n: number) {
     setHeroFlash("none");
@@ -363,7 +365,7 @@ export default function TabIndex() {
     if (autoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
-  // Bet label with SB/BB shorthand where applicable (with "$")
+  // Bet label with SB/BB shorthand (with "$")
   const betLabel = (p: Player) => {
     const tag = p.role === "SB" ? "SB" : p.role === "BB" ? "BB" : "";
     const amt = `$${p.bet}`;
@@ -404,7 +406,7 @@ export default function TabIndex() {
         ) : null}
       </View>
 
-      {/* RIGHT: BIG bet pill (amount only; adds SB/BB tag) */}
+      {/* RIGHT: BIG $ bet pill (amount only; adds SB/BB tag) */}
       <View style={styles.tailCol}>
         <Pill large text={betLabel(item)} />
       </View>
@@ -457,12 +459,22 @@ export default function TabIndex() {
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>
-      {/* Header with compact one-line stats */}
+      {/* Header with one-line stats and a gear button */}
       <View style={styles.header}>
         <Text style={styles.title}>Pre-Flop Trainer</Text>
-        <Text style={styles.headerStats} numberOfLines={1}>
-          {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
-        </Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.headerStats} numberOfLines={1}>
+            {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showSettings ? "Hide settings" : "Show settings"}
+            onPress={() => setShowSettings((s) => !s)}
+            style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57" />
+          </Pressable>
+        </View>
       </View>
 
       {/* Feedback row: always visible when Show why is ON; shows last action pill */}
@@ -498,68 +510,68 @@ export default function TabIndex() {
         <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
       </View>
 
-      {/* Controls (bottom) */}
-      <View style={styles.card}>
-        <View style={styles.controlsRow}>
-          <View style={styles.controlBlock}>
-            <Text style={styles.label}>Players</Text>
-            <View style={styles.stepper}>
-              <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
-              <Text style={styles.stepperNum}>{numPlayers}</Text>
-              <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
+      {/* Settings panel (toggle via gear) */}
+      {showSettings && (
+        <View style={styles.card}>
+          <View style={styles.controlsRow}>
+            <View style={styles.controlBlock}>
+              <Text style={styles.label}>Players</Text>
+              <View style={styles.stepper}>
+                <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
+                <Text style={styles.stepperNum}>{numPlayers}</Text>
+                <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
+              </View>
+            </View>
+            <View style={styles.controlBlock}>
+              <Text style={styles.label}>Big blind</Text>
+              <TextInput
+                value={String(bigBlind)}
+                onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
+                inputMode="numeric"
+                keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
+                style={styles.input}
+              />
             </View>
           </View>
-          <View style={styles.controlBlock}>
-            <Text style={styles.label}>Big blind</Text>
-            <TextInput
-              value={String(bigBlind)}
-              onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
-              inputMode="numeric"
-              keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
-              style={styles.input}
-            />
+
+          <View style={styles.controlsRow}>
+            <View style={styles.switchRow}><Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Auto new hand</Text></View>
+            <View style={styles.switchRow}><Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Facing a raise</Text></View>
           </View>
-        </View>
 
-        <View style={styles.controlsRow}>
-          <View style={styles.switchRow}><Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Auto new hand</Text></View>
-          <View style={styles.switchRow}><Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Facing a raise</Text></View>
-        </View>
-
-        <View style={styles.controlsRow}>
-          <View style={[styles.controlBlock, { width: "100%" }]}>
-            <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
-            <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
-              <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
-              <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
-              <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+          <View style={styles.controlsRow}>
+            <View style={[styles.controlBlock, { width: "100%" }]}>
+              <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
+              <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
+                <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
+                <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
+                <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+              </View>
+              <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
+                If "Show why" is ON, feedback stays visible; otherwise it hides after the delay above.
+              </Text>
             </View>
-            <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
-              If "Show why" is ON, feedback stays visible; otherwise it hides after the delay above.
-            </Text>
+          </View>
+
+          <View style={styles.controlsRow}>
+            <View style={styles.switchRow}>
+              <Switch value={showWhy} onValueChange={setShowWhy} />
+              <Text style={styles.switchLabel}>Show why (feedback)</Text>
+            </View>
+          </View>
+
+          <View style={styles.controlsRow}>
+            <View style={styles.switchRow}>
+              <Switch value={showScore} onValueChange={setShowScore} />
+              <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
+            </View>
+          </View>
+
+          <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+            <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
           </View>
         </View>
-
-        {/* Show why toggle (persisted) */}
-        <View style={styles.controlsRow}>
-          <View style={styles.switchRow}>
-            <Switch value={showWhy} onValueChange={setShowWhy} />
-            <Text style={styles.switchLabel}>Show why (feedback)</Text>
-          </View>
-        </View>
-
-        {/* Show Chen score toggle */}
-        <View style={styles.controlsRow}>
-          <View style={styles.switchRow}>
-            <Switch value={showScore} onValueChange={setShowScore} />
-            <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
-          </View>
-        </View>
-
-        <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-          <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
-        </View>
-      </View>
+      )}
 
       <Text style={styles.helper}>Educational trainer (not a full equity/GTO engine).</Text>
     </ScrollView>
@@ -588,8 +600,20 @@ const styles = StyleSheet.create({
   screen: { padding: 16, gap: 12 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8, maxWidth: "70%" },
   title: { fontSize: 22, fontWeight: "700" },
-  headerStats: { fontSize: 13, color: "#333", marginLeft: 12, flexShrink: 1, textAlign: "right" },
+  headerStats: { fontSize: 13, color: "#333", flexShrink: 1, textAlign: "right" },
+
+  gearBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: "#eef1ff",
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 38,
+  },
+  gearText: { fontSize: 18, color: "#2b2e57", fontWeight: "700" },
 
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
 
@@ -611,7 +635,7 @@ const styles = StyleSheet.create({
   cardsCol: { flexDirection: "row", gap: 6 },
 
   metaCol: { flex: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
   playerName: { fontWeight: "600" },
   playerSub: { color: "#666", fontSize: 12 },
 
@@ -631,8 +655,6 @@ const styles = StyleSheet.create({
 
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
-
-  // Bigger variant for Bet
   pillLarge: { paddingHorizontal: 12, paddingVertical: 6 },
   pillLargeText: { fontSize: 13, fontWeight: "700" },
 
@@ -646,6 +668,3 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 12, fontWeight: "600" },
 });
-
-// tiny helper if you later centralize timers; safe no-op now
-function theTimerCleanup() {}
