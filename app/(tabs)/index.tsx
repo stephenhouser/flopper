@@ -3,8 +3,16 @@ import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, Te
 
 /**
  * Drop this file in: app/(tabs)/index.tsx
- * Works with Expo Router's Tabs layout. No external UI libs required.
- * If your tabs path differs, place it in the corresponding tab's screen file.
+ * Expo Router Tabs compatible — Android, iOS, and Web.
+ * Features:
+ *  - Deals to 2–9 players, assigns Dealer/SB/BB
+ *  - Shows only your two hole cards; others hidden
+ *  - Actions: Check, Call, Fold, Raise
+ *  - Feedback using Chen pre-flop heuristic, scaled by table size & facing raise
+ *  - Dealer/button advances each hand; your seat stays fixed (seat 0)
+ *  - List is rotated so SB shows at the top and Dealer at the end
+ *  - Position labels (Dealer, SB, BB, UTG, MP, HJ, CO, …)
+ *  - Stats tracking: total, correct, accuracy %
  */
 
 // ---------------- Card / Deck helpers ----------------
@@ -102,7 +110,17 @@ type Player = {
   bet: number;
   cards: [CardT, CardT];
   isHero: boolean;
+  positionLabel?: string;
 };
+
+// Map table-relative index to common position label
+function labelForPos(posFromDealer: number, n: number): string {
+  if (posFromDealer === 0) return "Dealer"; // BTN
+  if (posFromDealer === 1) return "SB";
+  if (posFromDealer === 2) return "BB";
+  const rest = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO"]; // extend as needed
+  return rest[posFromDealer - 3] || `Seat ${posFromDealer}`;
+}
 
 // ---------------- UI pieces ----------------
 
@@ -142,62 +160,60 @@ export default function TabIndex() {
   const [facingRaise, setFacingRaise] = useState(false);
   const [heroAction, setHeroAction] = useState<"" | "check" | "call" | "fold" | "raise">("");
   const [result, setResult] = useState<string>("");
+  const [totalHands, setTotalHands] = useState(0);
+  const [correctHands, setCorrectHands] = useState(0);
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
-function dealTable(n:number){
-  let deck = shuffle(makeDeck());
+  function dealTable(n: number) {
+    let deck = shuffle(makeDeck());
 
-  // Keep hero fixed at the same seat every hand
-  const heroSeat = 0;
+    // Keep hero fixed at the same seat every hand
+    const heroSeat = 0;
 
-  // Advance a global button (dealer) seat each hand so your relative position changes
-  const g: any = (globalThis as any);
-  if (typeof g.__BTN_SEAT__ !== 'number') {
-    g.__BTN_SEAT__ = Math.floor(Math.random() * n); // random starting dealer
-  } else {
-    g.__BTN_SEAT__ = (g.__BTN_SEAT__ + 1) % n; // dealer advances each hand
+    // Advance a persistent dealer/button seat so your relative position changes
+    const g: any = (globalThis as any);
+    if (typeof g.__BTN_SEAT__ !== 'number') {
+      g.__BTN_SEAT__ = Math.floor(Math.random() * n); // random starting dealer
+    } else {
+      g.__BTN_SEAT__ = (g.__BTN_SEAT__ + 1) % n; // dealer advances each hand
+    }
+    const btn: number = g.__BTN_SEAT__;
+
+    const ps: Array<Player> = Array.from({ length: n }).map((_, i) => ({
+      id: i,
+      name: i === heroSeat ? "You" : `P${i + 1}`,
+      role: "" as Player["role"],
+      bet: 0,
+      cards: [deck.pop()!, deck.pop()!] as [CardT, CardT],
+      isHero: i === heroSeat,
+      positionLabel: "",
+    }));
+
+    // Assign roles and position labels based on current dealer (button)
+    ps.forEach((p, idx) => {
+      const pos = (idx - btn + n) % n; // 0=Dealer(BTN),1=SB,2=BB,3=UTG...
+      if (pos === 0) p.role = "Dealer";
+      else if (pos === 1) p.role = "SB";
+      else if (pos === 2) p.role = "BB";
+
+      p.positionLabel = labelForPos(pos, n);
+    });
+
+    // Set blinds
+    ps.forEach((p) => {
+      if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
+      if (p.role === "BB") p.bet = bigBlind;
+    });
+
+    // Rotate list so SB is first (top) and Dealer ends last
+    const sbIndex = ps.findIndex((p) => p.role === "SB");
+    const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
+
+    setPlayers(rotated);
+    setHeroAction("");
+    setResult("");
   }
-  const btn: number = g.__BTN_SEAT__;
-
-  const positionLabels = ["Dealer", "SB", "BB", "UTG", "MP", "HJ", "CO"];
-
-  const ps:Array<Player> = Array.from({ length:n }).map((_, i) => ({
-    id: i,
-    name: i === heroSeat ? "You" : `P${i+1}`,
-    role: "" as Player["role"],
-    bet: 0,
-    cards: [deck.pop()!, deck.pop()!] as [CardT, CardT],
-    isHero: i === heroSeat,
-    positionLabel: "" as string,
-  } as Player & { positionLabel: string }));
-
-  // Assign roles and position labels based on current dealer (button)
-  ps.forEach((p, idx) => {
-    const pos = (idx - btn + n) % n;
-    if (pos === 0) p.role = "Dealer";
-    else if (pos === 1) p.role = "SB";
-    else if (pos === 2) p.role = "BB";
-
-    // Assign position labels, cycling through available labels array
-    p.positionLabel = positionLabels[pos] || `Pos ${pos}`;
-  });
-
-  // Set blinds
-  ps.forEach((p) => {
-    if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
-    if (p.role === "BB") p.bet = bigBlind;
-  });
-
-  // Rotate list so SB is first (top) and Dealer ends last
-  const sbIndex = ps.findIndex((p) => p.role === "SB");
-  const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
-
-  setPlayers(rotated);
-  setHeroAction("");
-  setResult("");
-}
-
 
   function newHand() {
     dealTable(numPlayers);
@@ -222,12 +238,21 @@ function dealTable(n:number){
     setHeroAction(action);
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
+
+    setTotalHands((t) => t + 1);
+    setCorrectHands((c) => c + (correct ? 1 : 0));
+
+    const nextTotal = totalHands + 1;
+    const nextCorrect = correctHands + (correct ? 1 : 0);
+    const accuracy = nextTotal ? ((nextCorrect / nextTotal) * 100).toFixed(1) : "0.0";
+
     const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
     setResult(
-      correct
-        ? `Correct — Recommended: ${recommended.toUpperCase()}. ${why}`
-        : `Better play: ${recommended.toUpperCase()} — Your action: ${action.toUpperCase()}. ${why}`
+      (correct ? `Correct ✅ — ` : `Better play ❗ — `) +
+      `Recommended: ${recommended.toUpperCase()}. ${why}\n` +
+      `Stats: ${nextCorrect}/${nextTotal} correct (${accuracy}%)`
     );
+
     if (autoNew) setTimeout(() => newHand(), 900);
   }
 
@@ -242,7 +267,7 @@ function dealTable(n:number){
       </View>
       <View style={styles.metaCol}>
         <Text style={styles.playerName}>{item.name}</Text>
-        <Text style={styles.playerSub}>Bet: {item.bet}</Text>
+        <Text style={styles.playerSub}>Bet: {item.bet}  •  Pos: {item.positionLabel}</Text>
       </View>
       <View style={styles.tailCol}>
         {item.isHero ? (
@@ -254,6 +279,8 @@ function dealTable(n:number){
     </View>
   );
 
+  const accuracyPct = totalHands ? ((correctHands / totalHands) * 100).toFixed(1) : "0.0";
+
   return (
     <ScrollView contentContainerStyle={styles.screen}> 
       {/* Header */}
@@ -264,6 +291,39 @@ function dealTable(n:number){
         </View>
         <RowButton label="New hand" onPress={newHand} kind="outline" />
       </View>
+
+      {/* Quick Stats */}
+      <View style={styles.card}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Pill text={`Correct: ${correctHands}`} />
+          <Pill text={`Total: ${totalHands}`} />
+          <Pill text={`Accuracy: ${accuracyPct}%`} />
+        </View>
+      </View>
+
+      {/* Table */}
+      <FlatList
+        data={players}
+        keyExtractor={(p) => String(p.id)}
+        renderItem={renderPlayer}
+        contentContainerStyle={{ gap: 8 }}
+      />
+
+      {/* Actions */}
+      <View style={styles.actionsRow}> 
+        <RowButton label="Check" onPress={() => act("check")} />
+        <RowButton label="Call" onPress={() => act("call")} />
+        <RowButton label="Fold" onPress={() => act("fold")} kind="outline" />
+        <RowButton label="Raise" onPress={() => act("raise")} kind="primary" />
+      </View>
+
+      {/* Feedback */}
+      {heroAction ? (
+        <View style={styles.feedbackCard}>
+          <Text style={styles.feedbackText}>{result}</Text>
+          <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
+        </View>
+      ) : null}
 
       {/* Controls */}
       <View style={styles.card}> 
@@ -298,30 +358,6 @@ function dealTable(n:number){
           </View>
         </View>
       </View>
-
-      {/* Table */}
-      <FlatList
-        data={players}
-        keyExtractor={(p) => String(p.id)}
-        renderItem={renderPlayer}
-        contentContainerStyle={{ gap: 8 }}
-      />
-
-      {/* Actions */}
-      <View style={styles.actionsRow}> 
-        <RowButton label="Check" onPress={() => act("check")} />
-        <RowButton label="Call" onPress={() => act("call")} />
-        <RowButton label="Fold" onPress={() => act("fold")} kind="outline" />
-        <RowButton label="Raise" onPress={() => act("raise")} kind="primary" />
-      </View>
-
-      {/* Feedback */}
-      {heroAction ? (
-        <View style={styles.feedbackCard}>
-          <Text style={styles.feedbackText}>{result}</Text>
-          <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
-        </View>
-      ) : null}
 
       <Text style={styles.helper}>Educational trainer (not a full equity/GTO engine).</Text>
     </ScrollView>
