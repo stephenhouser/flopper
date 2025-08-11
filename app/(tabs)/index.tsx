@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -471,7 +472,7 @@ export default function TabIndex() {
             onPress={() => setShowSettings((s) => !s)}
             style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
           >
-            <Text style={styles.gearText}>{showSettings ? "✖︎" : "⚙︎"}</Text>
+            <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57"/>
           </Pressable>
         </View>
       </View>
