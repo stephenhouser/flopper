@@ -2,6 +2,8 @@
 
 An experiment in developing a card game training application.
 
+![flopper screen shot](flopper.png)
+
 Goals/Features include:
 
 - Texas Hold 'em pre-flop training (*work in progress*)

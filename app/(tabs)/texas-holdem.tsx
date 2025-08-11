@@ -356,7 +356,7 @@ export default function TexasHoldemTab() {
     setCorrectHands((c) => c + (correct ? 1 : 0));
 
     const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
-    setResult((correct ? `Correct — ` : `Better play — `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
+    setResult((correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
 
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
@@ -494,12 +494,11 @@ export default function TexasHoldemTab() {
       {/* Actions — left: C/A/F/R equal widths, right: New hand */}
       <View style={styles.actionsRow}>
         <View style={styles.actionsLeft}>
-          <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
-          <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
-          <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
           <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
+          <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
+          <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
+          <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
         </View>
-        <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
       </View>
 
       {/* Footer: helper text left, gear button right */}
@@ -574,6 +573,7 @@ export default function TexasHoldemTab() {
 
           <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
             <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
+            <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
           </View>
         </View>
       )}
