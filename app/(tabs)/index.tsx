@@ -1,4 +1,3 @@
-import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -212,7 +211,7 @@ export default function TabIndex() {
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
   const [showWhy, setShowWhy] = useState(false);
   const [showScore, setShowScore] = useState(true);
-  const [showSettings, setShowSettings] = useState(false); // NEW
+  const [showSettings, setShowSettings] = useState(false);
 
   const isCompact = Platform.OS !== "web";
 
@@ -396,10 +395,10 @@ export default function TabIndex() {
         <View style={styles.nameRow}>
           {!!item.positionLabel && (
             <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
-              <Text style={[styles.badgeText, isCompact && { fontSize: 11 }]}>{item.positionLabel}</Text>
+              <Text style={[styles.badgeText, isCompact && { fontSize: 13 }]}>{item.positionLabel}</Text>
             </View>
           )}
-          <Text style={[styles.playerName, isCompact && { fontSize: 14 }]}>{item.name}</Text>
+          <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
         </View>
         {item.isHero && showScore ? (
           <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Chen: {heroScore}</Text>
@@ -472,7 +471,7 @@ export default function TabIndex() {
             onPress={() => setShowSettings((s) => !s)}
             style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
           >
-            <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57" />
+            <Text style={styles.gearText}>{showSettings ? "✖︎" : "⚙︎"}</Text>
           </Pressable>
         </View>
       </View>
@@ -632,13 +631,16 @@ const styles = StyleSheet.create({
 
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
 
+  // LEFT cards
   cardsCol: { flexDirection: "row", gap: 6 },
 
+  // MIDDLE meta
   metaCol: { flex: 1 },
   nameRow: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
-  playerName: { fontWeight: "600" },
+  playerName: { fontWeight: "600", fontSize: 18 }, // BIGGER player name
   playerSub: { color: "#666", fontSize: 12 },
 
+  // RIGHT: big bet pill only
   tailCol: { alignItems: "flex-end", justifyContent: "center" },
 
   cardBox: { width: 50, height: 68, borderRadius: 10, borderWidth: 1, borderColor: "#ddd", alignItems: "center", justifyContent: "center", backgroundColor: "#fff" },
@@ -655,8 +657,10 @@ const styles = StyleSheet.create({
 
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
+
+  // Bigger variant for Bet (BIGGER text)
   pillLarge: { paddingHorizontal: 12, paddingVertical: 6 },
-  pillLargeText: { fontSize: 13, fontWeight: "700" },
+  pillLargeText: { fontSize: 16, fontWeight: "700" }, // was 13
 
   actionsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
   actionsLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
@@ -665,6 +669,7 @@ const styles = StyleSheet.create({
 
   helper: { color: "#666", fontSize: 12, textAlign: "center", marginTop: 6 },
 
+  // badge (BIGGER position text)
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  badgeText: { fontSize: 12, fontWeight: "600" },
+  badgeText: { fontSize: 14, fontWeight: "600" }, // was 12
 });
