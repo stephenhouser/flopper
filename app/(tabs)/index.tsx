@@ -12,8 +12,8 @@ import { FlatList, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, Te
  *  - Dealer/button advances each hand; your seat stays fixed (seat 0)
  *  - List is rotated so SB shows at the top and Dealer at the end
  *  - Position labels (Dealer, SB, BB, UTG, MP, HJ, CO, …)
- *  - Stats tracking: total, correct, accuracy % + always-on feedback
- *  - Controls at the bottom; changes trigger an immediate redeal
+ *  - Stats tracking: total, correct, accuracy %
+ *  - Controls at the bottom; reset-stats button
  */
 
 // ---------------- Card / Deck helpers ----------------
@@ -233,6 +233,12 @@ export default function TabIndex() {
     return recommendAction(heroScore, numPlayers, facingRaise);
   }, [heroScore, numPlayers, facingRaise]);
 
+  function resetStats() {
+    setTotalHands(0);
+    setCorrectHands(0);
+    setResult("Stats reset. Play the next hand to start tracking again.");
+  }
+
   function act(action: "check" | "call" | "fold" | "raise") {
     setHeroAction(action);
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
@@ -246,10 +252,7 @@ export default function TabIndex() {
     const accuracy = nextTotal ? ((nextCorrect / nextTotal) * 100).toFixed(1) : "0.0";
 
     const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
-    setResult(
-      (correct ? `Correct ✅ — ` : `Better play ❗ — `) +
-      `Recommended: ${recommended.toUpperCase()}. ${why}`
-    );
+    setResult((correct ? `Correct ✅ — ` : `Better play ❗ — `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
 
     if (autoNew) setTimeout(() => newHand(), 900);
   }
@@ -302,8 +305,6 @@ export default function TabIndex() {
           <Text style={styles.feedbackSub}>Basis: Chen heuristic with table-size & facing-raise adjustments.</Text>
         </View>
       </View>
-
-      {/* Table */}
       <FlatList
         data={players}
         keyExtractor={(p) => String(p.id)}
@@ -319,7 +320,7 @@ export default function TabIndex() {
         <RowButton label="Raise" onPress={() => act("raise")} kind="primary" />
       </View>
 
-      {/* Controls (moved to bottom; immediate redeal on change) */}
+      {/* Controls (bottom) */}
       <View style={styles.card}> 
         <View style={styles.controlsRow}>
           <View style={styles.controlBlock}>
@@ -350,6 +351,9 @@ export default function TabIndex() {
             <Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} />
             <Text style={styles.switchLabel}>Facing a raise</Text>
           </View>
+        </View>
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 6 }}>
+          <RowButton label="Reset stats" onPress={resetStats} kind="outline" />
         </View>
       </View>
 
@@ -413,8 +417,13 @@ const styles = StyleSheet.create({
 
   actionsRow: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
 
+  feedbackCard: { backgroundColor: "#fff", borderRadius: 14, padding: 12 },
   feedbackText: { fontWeight: "600" },
   feedbackSub: { color: "#666", marginTop: 4, fontSize: 12 },
 
   helper: { color: "#666", fontSize: 12, textAlign: "center", marginTop: 6 },
+
+  // (optional) styles used by role badges in list
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  badgeText: { fontSize: 12, fontWeight: "600" },
 });
