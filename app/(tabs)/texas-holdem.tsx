@@ -272,7 +272,7 @@ export default function TexasHoldemTab() {
   const [bigBlind, setBigBlind] = useState(2);
   const [autoNew, setAutoNew] = useState(true);
   const [players, setPlayers] = useState<Player[]>([]);
-  const [facingRaise, setFacingRaise] = useState(false);
+  const [facingRaise, setFacingRaise] = useState(true);
   const [heroAction, setHeroAction] = useState<"" | Action>("");
   const [lastAction, setLastAction] = useState<"" | Action>("");
   const [lastActionCorrect, setLastActionCorrect] = useState<boolean | null>(null);
@@ -624,6 +624,56 @@ export default function TexasHoldemTab() {
     setLastAction("");
     setLastActionCorrect(null);
     setResult(showWhy ? "Stats reset." : "");
+  }
+
+  async function resetAll() {
+    // Reset stats
+    setTotalHands(0);
+    setCorrectHands(0);
+    setLastAction("");
+    setLastActionCorrect(null);
+    
+    // Reset all settings to defaults
+    setShowWhy(false);
+    setAutoNew(true);
+    setFacingRaise(true);
+    setFeedbackSecs(1.0);
+    setShowScore(true);
+    setShowSettings(false);
+    setShowFlop(false);
+    setShowTurn(false);
+    setShowRiver(false);
+    setShowCommunityCards(false);
+    
+    // Clear all persisted data
+    const keys = [
+      "poker.showWhy",
+      "poker.autoNew", 
+      "poker.facingRaise",
+      "poker.feedbackSecs",
+      "poker.showScore",
+      "poker.showSettings",
+      "poker.showFlop",
+      "poker.showTurn",
+      "poker.showRiver",
+      "poker.showCommunityCards"
+    ];
+    
+    // Clear storage (set to default values)
+    await Promise.all([
+      Storage.setItem("poker.showWhy", "0"),
+      Storage.setItem("poker.autoNew", "1"),
+      Storage.setItem("poker.facingRaise", "1"),
+      Storage.setItem("poker.feedbackSecs", "1.0"),
+      Storage.setItem("poker.showScore", "1"),
+      Storage.setItem("poker.showSettings", "0"),
+      Storage.setItem("poker.showFlop", "0"),
+      Storage.setItem("poker.showTurn", "0"),
+      Storage.setItem("poker.showRiver", "0"),
+      Storage.setItem("poker.showCommunityCards", "0")
+    ]);
+    
+    setResult(showWhy ? "All settings and stats reset." : "");
   }
 
   function act(action: Action) {
@@ -1230,7 +1280,7 @@ export default function TexasHoldemTab() {
 
               <View style={styles.singleColumnRow}>
                 <View style={[styles.controlBlock, { width: "35%" }]}>
-                  <Text style={styles.label}>Big blind</Text>
+                  <Text style={styles.label}>Big blind (small blind is 1/2)</Text>
                   <View style={styles.currencyInputContainer}>
                     <Text style={styles.currencyPrefix}>$</Text>
                     <TextInput
@@ -1366,7 +1416,7 @@ export default function TexasHoldemTab() {
 
               {/* Hand scoring section break */}
               <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Hand scoring</Text>
+                <Text style={styles.sectionHeader}>Hand scoring (Chen method)</Text>
               </View>
 
               <View style={styles.singleColumnRow}>
@@ -1406,6 +1456,7 @@ export default function TexasHoldemTab() {
 
               <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
                 <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
+                <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
               </View>
             </View>
             </ScrollView>
