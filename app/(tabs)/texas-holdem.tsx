@@ -211,6 +211,7 @@ export default function TexasHoldemTab() {
   const [facingRaise, setFacingRaise] = useState(false);
   const [heroAction, setHeroAction] = useState<"" | Action>("");
   const [lastAction, setLastAction] = useState<"" | Action>("");
+  const [lastActionCorrect, setLastActionCorrect] = useState<boolean | null>(null);
   const [result, setResult] = useState<string>("");
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
@@ -338,6 +339,7 @@ export default function TexasHoldemTab() {
 
     setPlayers(rotated);
     setHeroAction("");
+    setLastActionCorrect(null);
     setShowAllCards(false);
     if (!showWhy) setResult("");
   }
@@ -356,6 +358,7 @@ export default function TexasHoldemTab() {
     setTotalHands(0);
     setCorrectHands(0);
     setLastAction("");
+    setLastActionCorrect(null);
     setResult(showWhy ? "Stats reset." : "");
   }
 
@@ -364,6 +367,7 @@ export default function TexasHoldemTab() {
     setLastAction(action);
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
+    setLastActionCorrect(correct);
 
     // Update hero's bet based on action
     const currentBet = Math.max(...players.map(p => p.bet));
@@ -562,17 +566,21 @@ export default function TexasHoldemTab() {
 
         {/* Feedback row: always visible when Show why is ON; shows last action pill and pot */}
         {showWhy && (
-          <View style={styles.card}>
+          <View style={[
+            styles.card,
+            lastActionCorrect === true && { backgroundColor: "#b9efd2" },
+            lastActionCorrect === false && { backgroundColor: "#f8c7cc" }
+          ]}>
             <View style={styles.feedbackRow}>
               <Text style={[styles.feedbackText, { flex: 1, paddingRight: 8 }]}>
                 {result || "Take an action to see feedback."}
               </Text>
               <View style={styles.feedbackRight}>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>Pot: ${totalPot}</Text>
+                  <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
                 </View>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+                  <Text style={styles.potText}>Pot: ${totalPot}</Text>
                 </View>
               </View>
             </View>
@@ -802,6 +810,7 @@ const styles = StyleSheet.create({
 
   pill: { backgroundColor: "#f1f1f6", paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   pillText: { fontSize: 11, color: "#444" },
+  potText: { fontSize: 14, fontWeight: "600", color: "#444" },
 
   // Bigger variant for Bet
   pillLarge: { paddingHorizontal: 12, paddingVertical: 6 },
