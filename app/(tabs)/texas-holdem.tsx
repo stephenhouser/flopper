@@ -221,7 +221,12 @@ export default function TexasHoldemTab() {
   const [showSettings, setShowSettings] = useState(false);
   const [showFlop, setShowFlop] = useState(false);
   const [flopCards, setFlopCards] = useState<[CardT, CardT, CardT] | null>(null);
+  const [turnCard, setTurnCard] = useState<CardT | null>(null);
+  const [riverCard, setRiverCard] = useState<CardT | null>(null);
+  const [currentStreet, setCurrentStreet] = useState<"preflop" | "flop" | "turn" | "river" | "complete">("preflop");
   const [showAllCards, setShowAllCards] = useState(false);
+  const [deck, setDeck] = useState<CardT[]>([]);
+  const [pot, setPot] = useState(0);
   const [showFeedbackTooltip, setShowFeedbackTooltip] = useState(false);
   const [showAutoNewTooltip, setShowAutoNewTooltip] = useState(false);
   const [showFacingRaiseTooltip, setShowFacingRaiseTooltip] = useState(false);
@@ -381,7 +386,7 @@ export default function TexasHoldemTab() {
     heroFlashOpacity.setValue(0);
     if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
 
-    let deck = shuffle(makeDeck());
+    let freshDeck = shuffle(makeDeck());
     const heroSeat = 0; // fixed hero seat
 
     // rotating dealer/button
@@ -396,7 +401,7 @@ export default function TexasHoldemTab() {
       name: i === heroSeat ? "You" : `P${i + 1}`,
       role: "" as Player["role"],
       bet: 0,
-      cards: [deck.pop()!, deck.pop()!] as [CardT, CardT],
+      cards: [freshDeck.pop()!, freshDeck.pop()!] as [CardT, CardT],
       isHero: i === heroSeat,
       positionLabel: "",
     }));
@@ -409,16 +414,29 @@ export default function TexasHoldemTab() {
       p.positionLabel = labelForPos(pos, n);
     });
 
+    // Set blinds and calculate initial pot
+    let initialPot = 0;
     ps.forEach((p) => {
-      if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
-      if (p.role === "BB") p.bet = bigBlind;
+      if (p.role === "SB") {
+        p.bet = Math.max(1, Math.floor(bigBlind / 2));
+        initialPot += p.bet;
+      }
+      if (p.role === "BB") {
+        p.bet = bigBlind;
+        initialPot += p.bet;
+      }
     });
 
     const sbIndex = ps.findIndex((p) => p.role === "SB");
     const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
 
-    // Don't deal flop cards immediately - wait for player action
+    // Reset all community cards and street state
     setFlopCards(null);
+    setTurnCard(null);
+    setRiverCard(null);
+    setCurrentStreet("preflop");
+    setDeck(freshDeck); // Store remaining deck
+    setPot(initialPot);
 
     setPlayers(rotated);
     setHeroAction("");
@@ -448,36 +466,105 @@ export default function TexasHoldemTab() {
   function act(action: Action) {
     setHeroAction(action);
     setLastAction(action);
-    const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
-    const correct = bucket === recommended;
+    
+    // For post-flop streets, we don't use Chen scoring
+    let correct = false;
+    let bucket = "";
+    
+    if (currentStreet === "preflop") {
+      bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
+      correct = bucket === recommended;
+    } else {
+      // For post-flop, simplified logic - this could be enhanced with more sophisticated analysis
+      correct = true; // For now, accept all post-flop actions as learning experiences
+      bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
+    }
+    
     setLastActionCorrect(correct);
 
     // Update hero's bet based on action
     const currentBet = Math.max(...players.map(p => p.bet));
+    const heroBet = players.find(p => p.isHero)?.bet || 0;
+    let betAmount = 0;
+    
+    if (action === "call") {
+      betAmount = currentBet;
+    } else if (action === "raise") {
+      if (currentBet === 0) {
+        // If no one has bet, raise to the big blind amount
+        betAmount = bigBlind;
+      } else {
+        // If there's already a bet, minimum raise is double the current bet
+        betAmount = Math.max(currentBet * 2, bigBlind * 2);
+      }
+    } else if (action === "check") {
+      betAmount = heroBet; // No change
+    }
+    // fold doesn't change bet amount
+    
     setPlayers(prevPlayers => 
       prevPlayers.map(p => {
         if (p.isHero) {
-          if (action === "call") {
-            return { ...p, bet: currentBet };
-          } else if (action === "raise") {
-            return { ...p, bet: currentBet * 2 };
-          }
+          return { ...p, bet: betAmount };
         }
         return p;
       })
     );
 
-    // Deal flop cards after first action if enabled and not already dealt, but not if folding
-    const shouldAutoNew = autoNew && !(showFlop && !flopCards && action !== "fold");
-
-    if (showFlop && !flopCards && action !== "fold") {
-      const deck = shuffle(makeDeck());
-      // Remove already dealt cards (2 per player)
-      const cardsDealt = players.length * 2;
-      for (let i = 0; i < cardsDealt; i++) {
-        deck.pop();
+    // Handle folding - end the hand
+    if (action === "fold") {
+      // Collect all current bets into the pot before ending
+      const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+      setPot(prevPot => prevPot + allBets);
+      setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+      setCurrentStreet("complete");
+      setShowAllCards(true);
+    } else {
+      // Deal next cards based on current street using the stored deck
+      if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
+        const newDeck = [...deck];
+        const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+        setFlopCards(flop);
+        setDeck(newDeck);
+        setCurrentStreet("flop");
+        
+        // Collect all bets into pot and reset for new betting round
+        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        setPot(prevPot => prevPot + allBets);
+        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+        
+      } else if (showFlop && currentStreet === "flop" && flopCards && !turnCard && deck.length >= 1) {
+        const newDeck = [...deck];
+        const turn = newDeck.pop()!;
+        setTurnCard(turn);
+        setDeck(newDeck);
+        setCurrentStreet("turn");
+        
+        // Collect all bets into pot and reset for new betting round
+        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        setPot(prevPot => prevPot + allBets);
+        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+        
+      } else if (showFlop && currentStreet === "turn" && turnCard && !riverCard && deck.length >= 1) {
+        const newDeck = [...deck];
+        const river = newDeck.pop()!;
+        setRiverCard(river);
+        setDeck(newDeck);
+        setCurrentStreet("river");
+        
+        // Collect all bets into pot and reset for new betting round
+        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        setPot(prevPot => prevPot + allBets);
+        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+        
+      } else if (showFlop && currentStreet === "river") {
+        // After river action, complete the hand and collect final bets
+        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        setPot(prevPot => prevPot + allBets);
+        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+        setCurrentStreet("complete");
+        setShowAllCards(true);
       }
-      setFlopCards([deck.pop()!, deck.pop()!, deck.pop()!] as [CardT, CardT, CardT]);
     }
 
     setHeroFlash(correct ? "correct" : "incorrect");
@@ -505,20 +592,32 @@ export default function TexasHoldemTab() {
       }).start();
     }
 
-    setTotalHands((t) => t + 1);
-    setCorrectHands((c) => c + (correct ? 1 : 0));
+    // Only count pre-flop hands in statistics
+    if (currentStreet === "preflop") {
+      setTotalHands((t) => t + 1);
+      setCorrectHands((c) => c + (correct ? 1 : 0));
+    }
 
-    const why = `score: ${heroScore} (Chen). ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
-    setResult((correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
+    let why = "";
+    if (currentStreet === "preflop") {
+      why = `score: ${heroScore} (Chen). ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
+    } else {
+      why = `${currentStreet} betting. Continue playing or fold.`;
+    }
+    
+    const resultText = currentStreet === "preflop" 
+      ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why}`
+      : `${currentStreet.toUpperCase()} action: ${action.toUpperCase()}. ${why}`;
+      
+    setResult(resultText);
 
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showWhy && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
     
-    // Don't auto deal new hand if flop setting is enabled (regardless of whether flop cards are currently shown)
-    // This prevents auto-deal when flop cards will be shown or are being shown
-    // const shouldAutoNew = autoNew && !flopCards;
+    // Auto new hand only when hand is complete and auto new is enabled
+    const shouldAutoNew = autoNew && currentStreet === "complete";
     if (shouldAutoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
@@ -582,7 +681,7 @@ export default function TexasHoldemTab() {
   const canCheck = heroBet >= currentBet;
   
   // Calculate total pot
-  const totalPot = players.reduce((sum, player) => sum + player.bet, 0);
+  const totalPot = pot + players.reduce((sum, player) => sum + player.bet, 0);
 
   /* --- Hotkeys (web): c/a/f/r, Enter repeat, Space new --- */
   useEffect(() => {
@@ -670,8 +769,8 @@ export default function TexasHoldemTab() {
           </View>
         )}
 
-        {/* Flop Cards Row */}
-        {showFlop && flopCards && (
+        {/* Community Cards Row */}
+        {showFlop && (flopCards || currentStreet !== "preflop") && (
           <View style={[styles.card, styles.flopCard]}>
             <View style={styles.flopRow}>
               <View style={styles.revealButton}>
@@ -682,11 +781,25 @@ export default function TexasHoldemTab() {
                 />
               </View>
               <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-                <PlayingCard card={flopCards[0]} compact={isCompact} />
-                <PlayingCard card={flopCards[1]} compact={isCompact} />
-                <PlayingCard card={flopCards[2]} compact={isCompact} />
+                {/* Flop Cards */}
+                {flopCards && (
+                  <>
+                    <PlayingCard card={flopCards[0]} compact={isCompact} />
+                    <PlayingCard card={flopCards[1]} compact={isCompact} />
+                    <PlayingCard card={flopCards[2]} compact={isCompact} />
+                  </>
+                )}
+                {/* Turn Card */}
+                {turnCard && <PlayingCard card={turnCard} compact={isCompact} />}
+                {/* River Card */}
+                {riverCard && <PlayingCard card={riverCard} compact={isCompact} />}
               </View>
-              <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="primary" />
+              <View style={styles.communityActions}>
+                <Text style={styles.streetLabel}>{currentStreet.toUpperCase()}</Text>
+                {currentStreet === "complete" && (
+                  <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="primary" />
+                )}
+              </View>
             </View>
           </View>
         )}
@@ -1050,6 +1163,9 @@ const styles = StyleSheet.create({
   flopCards: { flexDirection: "row", gap: 6 },
   flopButtons: { flexDirection: "row", gap: 8 },
   revealButton: { width: 80 },
+
+  communityActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  streetLabel: { fontSize: 14, fontWeight: "600", color: "#666", textTransform: "uppercase" },
 
   helper: { color: "#666", fontSize: 12 },
 
