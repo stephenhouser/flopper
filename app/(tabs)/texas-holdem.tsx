@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   gearText: { fontSize: 18, color: "#2b2e57", fontWeight: "700" },
 
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
-  flopCard: { backgroundColor: "#f8fdf8" },
+  flopCard: { backgroundColor: "#f0f6ff" },
 
   controlsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   controlBlock: { width: "48%" },
