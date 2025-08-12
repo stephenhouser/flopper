@@ -1879,9 +1879,8 @@ export default function TexasHoldemTab() {
                   disabled={!currentSession || currentSession.hands.length === 0}
                 />
                 <View style={{ flex: 1 }} />
-                <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
               </View>
-              
+
               {currentSession && (
                 <View style={styles.singleColumnRow}>
                   <Text style={styles.sessionInfo}>
@@ -1889,6 +1888,16 @@ export default function TexasHoldemTab() {
                   </Text>
                 </View>
               )}
+              
+              {/* Danger Zone section break */}
+              <View style={styles.sectionBreak}>
+                <Text style={styles.sectionHeader}>Danger Zone</Text>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
+                <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
+              </View>
+              
             </View>
             </ScrollView>
           </Animated.View>
