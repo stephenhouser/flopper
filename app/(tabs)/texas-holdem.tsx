@@ -472,10 +472,10 @@ export default function TexasHoldemTab() {
           <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
         </View>
         {item.isHero && showScore ? (
-          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Chen: {heroScore}</Text>
+          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore}</Text>
         ) : null}
         {!item.isHero && showAllCards && showScore ? (
-          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Chen: {chenScore(item.cards[0], item.cards[1])}</Text>
+          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])}</Text>
         ) : null}
       </View>
 
@@ -688,7 +688,7 @@ export default function TexasHoldemTab() {
               <View style={styles.controlsRow}>
                 <View style={styles.switchRow}>
                   <Switch value={showScore} onValueChange={setShowScore} />
-                  <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
+                  <Text style={styles.switchLabel}>Show score (your hand)</Text>
                 </View>
               </View>
 
