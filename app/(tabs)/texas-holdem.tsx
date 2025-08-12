@@ -727,8 +727,10 @@ export default function TexasHoldemTab() {
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         setCurrentStreet("complete");
-        // Don't automatically reveal all cards - let user choose
-        // setShowAllCards(true); // Remove this line
+        
+        // Reveal all other players' hands when reaching showdown on river
+        const allPlayerIds = new Set(players.map(p => p.id).filter(id => id !== hero?.id));
+        setRevealedPlayers(allPlayerIds);
         
         // Evaluate who won the hand
         if (hero && flopCards && turnCard && riverCard) {
