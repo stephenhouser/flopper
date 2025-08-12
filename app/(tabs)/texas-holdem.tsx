@@ -1346,10 +1346,10 @@ export default function TexasHoldemTab() {
           <View style={styles.nameRow2}>
             <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
             {item.isHero && showScore ? (
-              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore} (Chen)</Text>
+              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore}</Text>
             ) : null}
             {!item.isHero && isPlayerRevealed && showScore ? (
-              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])} (Chen)</Text>
+              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])}</Text>
             ) : null}
             </View>
         </View>
