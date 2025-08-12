@@ -284,6 +284,8 @@ export default function TexasHoldemTab() {
   const [showScore, setShowScore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showFlop, setShowFlop] = useState(false);
+  const [showTurn, setShowTurn] = useState(false);
+  const [showRiver, setShowRiver] = useState(false);
   const [flopCards, setFlopCards] = useState<[CardT, CardT, CardT] | null>(null);
   const [turnCard, setTurnCard] = useState<CardT | null>(null);
   const [riverCard, setRiverCard] = useState<CardT | null>(null);
@@ -297,6 +299,8 @@ export default function TexasHoldemTab() {
   const [showFacingRaiseTooltip, setShowFacingRaiseTooltip] = useState(false);
   const [showScoreTooltip, setShowScoreTooltip] = useState(false);
   const [showFlopTooltip, setShowFlopTooltip] = useState(false);
+  const [showTurnTooltip, setShowTurnTooltip] = useState(false);
+  const [showRiverTooltip, setShowRiverTooltip] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
   const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
 
@@ -335,6 +339,8 @@ export default function TexasHoldemTab() {
       setShowFacingRaiseTooltip(false);
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(false);
       setShowFeedbackTooltip(true);
     }
   };
@@ -348,6 +354,8 @@ export default function TexasHoldemTab() {
       setShowFacingRaiseTooltip(false);
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(false);
       setShowAutoNewTooltip(true);
     }
   };
@@ -361,6 +369,8 @@ export default function TexasHoldemTab() {
       setShowAutoNewTooltip(false);
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(false);
       setShowFacingRaiseTooltip(true);
     }
   };
@@ -374,6 +384,8 @@ export default function TexasHoldemTab() {
       setShowAutoNewTooltip(false);
       setShowFacingRaiseTooltip(false);
       setShowFlopTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(false);
       setShowScoreTooltip(true);
     }
   };
@@ -387,7 +399,39 @@ export default function TexasHoldemTab() {
       setShowAutoNewTooltip(false);
       setShowFacingRaiseTooltip(false);
       setShowScoreTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(false);
       setShowFlopTooltip(true);
+    }
+  };
+
+  const toggleTurnTooltip = () => {
+    if (showTurnTooltip) {
+      setShowTurnTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowAutoNewTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowScoreTooltip(false);
+      setShowFlopTooltip(false);
+      setShowRiverTooltip(false);
+      setShowTurnTooltip(true);
+    }
+  };
+
+  const toggleRiverTooltip = () => {
+    if (showRiverTooltip) {
+      setShowRiverTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowAutoNewTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowScoreTooltip(false);
+      setShowFlopTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(true);
     }
   };
 
@@ -398,6 +442,8 @@ export default function TexasHoldemTab() {
     setShowFacingRaiseTooltip(false);
     setShowScoreTooltip(false);
     setShowFlopTooltip(false);
+    setShowTurnTooltip(false);
+    setShowRiverTooltip(false);
   };
 
   // Settings modal animation
@@ -407,7 +453,7 @@ export default function TexasHoldemTab() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings, sFlop] = await Promise.all([
+      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings, sFlop, sTurn, sRiver] = await Promise.all([
         Storage.getItem("poker.showWhy"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
@@ -415,6 +461,8 @@ export default function TexasHoldemTab() {
         Storage.getItem("poker.showScore"),
         Storage.getItem("poker.showSettings"),
         Storage.getItem("poker.showFlop"),
+        Storage.getItem("poker.showTurn"),
+        Storage.getItem("poker.showRiver"),
       ]);
       if (sWhy != null) setShowWhy(sWhy === "1");
       if (sAuto != null) setAutoNew(sAuto === "1");
@@ -426,6 +474,8 @@ export default function TexasHoldemTab() {
       if (sScore != null) setShowScore(sScore === "1");
       if (sSettings != null) setShowSettings(sSettings === "1");
       if (sFlop != null) setShowFlop(sFlop === "1");
+      if (sTurn != null) setShowTurn(sTurn === "1");
+      if (sRiver != null) setShowRiver(sRiver === "1");
       setReady(true);
     })();
   }, []);
@@ -438,6 +488,8 @@ export default function TexasHoldemTab() {
   useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
   useEffect(() => { Storage.setItem("poker.showSettings", showSettings ? "1" : "0"); }, [showSettings]);
   useEffect(() => { Storage.setItem("poker.showFlop", showFlop ? "1" : "0"); }, [showFlop]);
+  useEffect(() => { Storage.setItem("poker.showTurn", showTurn ? "1" : "0"); }, [showTurn]);
+  useEffect(() => { Storage.setItem("poker.showRiver", showRiver ? "1" : "0"); }, [showRiver]);
 
   // Animate settings modal
   useEffect(() => {
@@ -617,7 +669,7 @@ export default function TexasHoldemTab() {
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         
-      } else if (showFlop && currentStreet === "flop" && flopCards && !turnCard && deck.length >= 1) {
+      } else if (showFlop && showTurn && currentStreet === "flop" && flopCards && !turnCard && deck.length >= 1) {
         const newDeck = [...deck];
         const turn = newDeck.pop()!;
         setTurnCard(turn);
@@ -629,7 +681,7 @@ export default function TexasHoldemTab() {
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         
-      } else if (showFlop && currentStreet === "turn" && turnCard && !riverCard && deck.length >= 1) {
+      } else if (showFlop && showTurn && showRiver && currentStreet === "turn" && turnCard && !riverCard && deck.length >= 1) {
         const newDeck = [...deck];
         const river = newDeck.pop()!;
         setRiverCard(river);
@@ -641,13 +693,14 @@ export default function TexasHoldemTab() {
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         
-      } else if (showFlop && currentStreet === "river") {
+      } else if (showFlop && showTurn && showRiver && currentStreet === "river") {
         // After river action, complete the hand and collect final bets
         const allBets = players.reduce((sum, p) => sum + p.bet, 0);
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         setCurrentStreet("complete");
-        setShowAllCards(true);
+        // Don't automatically reveal all cards - let user choose
+        // setShowAllCards(true); // Remove this line
         
         // Evaluate who won the hand
         if (hero && flopCards && turnCard && riverCard) {
@@ -656,6 +709,14 @@ export default function TexasHoldemTab() {
           const heroWon = didHeroWin(hero, otherPlayers, communityCards);
           setHeroWonHand(heroWon);
         }
+      } else {
+        // Hand ends early if settings don't allow further streets
+        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        setPot(prevPot => prevPot + allBets);
+        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+        setCurrentStreet("complete");
+        // Don't automatically reveal all cards - let user choose
+        // setShowAllCards(true); // Remove this line
       }
     }
 
@@ -710,11 +771,13 @@ export default function TexasHoldemTab() {
     
     // Auto new hand logic:
     // 1. If "Play flop" is OFF, deal new hand after any pre-flop action (skip post-flop)
-    // 2. If "Play flop" is ON, deal new hand when hand is complete (folded or finished river)
+    // 2. If enabled, deal new hand when hand is complete (folded or reached the furthest enabled street)
     const shouldAutoNew = autoNew && (
       (!showFlop && currentStreet === "preflop") || // Skip post-flop if flop play disabled
       (action === "fold") || // Always auto-deal after folding
-      (showFlop && currentStreet === "river") // Auto-deal after river when flop play enabled
+      (showFlop && !showTurn && currentStreet === "flop") || // Auto-deal after flop if turn disabled
+      (showFlop && showTurn && !showRiver && currentStreet === "turn") || // Auto-deal after turn if river disabled
+      (showFlop && showTurn && showRiver && currentStreet === "river") // Auto-deal after river when all enabled
     );
     if (shouldAutoNew) {
       dealTimerRef.current = setTimeout(() => newHand(), delay);
@@ -1039,6 +1102,32 @@ export default function TexasHoldemTab() {
                 </View>
               </>
             )}
+            {showTurnTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowTurnTooltip(false)}
+                />
+                <View style={styles.floatingTooltip}>
+                  <Text style={styles.tooltipText}>
+                    When enabled, play continues to the turn after flop betting (requires Play flop to be enabled).
+                  </Text>
+                </View>
+              </>
+            )}
+            {showRiverTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowRiverTooltip(false)}
+                />
+                <View style={styles.floatingTooltip}>
+                  <Text style={styles.tooltipText}>
+                    When enabled, play continues to the river after turn betting (requires Play flop and Play turn to be enabled).
+                  </Text>
+                </View>
+              </>
+            )}
             
             <View style={styles.card}>
               <View style={styles.controlsRow}>
@@ -1140,6 +1229,46 @@ export default function TexasHoldemTab() {
                       style={styles.infoIcon}
                     >
                       <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}>
+                  <Switch 
+                    value={showTurn} 
+                    onValueChange={(v) => { setShowTurn(v); dealTable(numPlayers); }} 
+                    disabled={!showFlop}
+                  />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={[styles.switchLabel, !showFlop && { color: "#999" }]}>Play turn</Text>
+                    <Pressable
+                      onPress={toggleTurnTooltip}
+                      style={styles.infoIcon}
+                      disabled={!showFlop}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color={showFlop ? "#666" : "#ccc"} />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}>
+                  <Switch 
+                    value={showRiver} 
+                    onValueChange={(v) => { setShowRiver(v); dealTable(numPlayers); }} 
+                    disabled={!showFlop || !showTurn}
+                  />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={[styles.switchLabel, (!showFlop || !showTurn) && { color: "#999" }]}>Play river</Text>
+                    <Pressable
+                      onPress={toggleRiverTooltip}
+                      style={styles.infoIcon}
+                      disabled={!showFlop || !showTurn}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color={(showFlop && showTurn) ? "#666" : "#ccc"} />
                     </Pressable>
                   </View>
                 </View>
