@@ -1238,21 +1238,6 @@ export default function TexasHoldemTab() {
 
               <View style={styles.singleColumnRow}>
                 <View style={styles.switchRow}>
-                  <Switch value={showWhy} onValueChange={setShowWhy} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show feedback</Text>
-                    <Pressable
-                      onPress={toggleFeedbackTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
                   <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
                   <View style={styles.labelWithIcon}>
                     <Text style={styles.switchLabel}>Play flop</Text>
@@ -1306,6 +1291,33 @@ export default function TexasHoldemTab() {
                 </View>
               </View>
 
+
+              <View style={styles.singleColumnRow}>
+                <View style={styles.switchRow}>
+                  <Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Automatically deal new hand</Text>
+                    <Pressable
+                      onPress={toggleAutoNewTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.singleColumnRow}>
+                <View style={[styles.controlBlock, { width: "100%" }]}>
+                  <Text style={styles.label}>Deal delay (seconds)</Text>
+                  <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
+                    <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
+                    <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
+                    <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+                  </View>
+                </View>
+              </View>
+
               <View style={styles.singleColumnRow}>
                 <View style={styles.switchRow}>
                   <Switch 
@@ -1316,6 +1328,21 @@ export default function TexasHoldemTab() {
                     <Text style={styles.switchLabel}>Always show community cards</Text>
                     <Pressable
                       onPress={toggleCommunityCardsTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+
+              <View style={styles.singleColumnRow}>
+                <View style={styles.switchRow}>
+                  <Switch value={showWhy} onValueChange={setShowWhy} />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Show feedback</Text>
+                    <Pressable
+                      onPress={toggleFeedbackTooltip}
                       style={styles.infoIcon}
                     >
                       <Ionicons name="information-circle-outline" size={16} color="#666" />
@@ -1354,35 +1381,8 @@ export default function TexasHoldemTab() {
                 </View>
               </View>
 
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Automatically deal new hand</Text>
-                    <Pressable
-                      onPress={toggleAutoNewTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={[styles.controlBlock, { width: "100%" }]}>
-                  <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
-                  <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
-                    <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
-                    <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
-                    <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
-                  </View>
-                </View>
-              </View>
-
               <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
                 <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
-                <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
               </View>
             </View>
           </Animated.View>
