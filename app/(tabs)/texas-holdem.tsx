@@ -364,6 +364,8 @@ export default function TexasHoldemTab() {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // New: gate street advancement until after feedback animation
+  const advanceStreetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
@@ -1017,44 +1019,52 @@ export default function TexasHoldemTab() {
     // Track action in hand history
     const currentBet = Math.max(...players.map(p => p.bet));
     const heroBet = players.find(p => p.isHero)?.bet || 0;
-    let betAmount = 0;
+    let betAmount = heroBet; // Default to current bet
     
     if (action === "call") {
-      betAmount = currentBet;
+      betAmount = currentBet; // Match the highest current bet
     } else if (action === "raise") {
       if (currentBet === 0) {
-        // If no one has bet, raise to the big blind amount
+        // If no one has bet, bet the big blind amount
         betAmount = bigBlind;
       } else {
-        // If there's already a bet, minimum raise is double the current bet
-        betAmount = Math.max(currentBet * 2, bigBlind * 2);
+        // If there's already a bet, minimum raise is to double the current bet
+        betAmount = currentBet + Math.max(currentBet, bigBlind);
       }
     } else if (action === "check") {
-      betAmount = heroBet; // No change
+      betAmount = heroBet; // No change in bet amount
     }
-    // fold doesn't change bet amount
+    // fold doesn't change bet amount, keep current bet
     
     // Track this action in hand history (only for valid streets)
     if (currentStreet !== "complete") {
       addActionToHistory(action, betAmount, currentStreet);
     }
     
-    setPlayers(prevPlayers => 
-      prevPlayers.map(p => {
-        if (p.isHero) {
-          return { ...p, bet: betAmount };
-        }
-        return p;
-      })
-    );
+    // Update players and calculate pot with the new hero bet amount
+    const updatedPlayers = players.map(p => {
+      if (p.isHero) {
+        return { ...p, bet: betAmount };
+      }
+      return p;
+    });
+
+    setPlayers(updatedPlayers);
+
+    // Calculate total pot with the updated hero bet
+    const updatedTotalPot = pot + updatedPlayers.reduce((sum, player) => sum + player.bet, 0);
 
     // Handle folding - end the hand
     if (action === "fold") {
       // Collect all current bets into the pot before ending
-      const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+      const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
       const finalPot = pot + allBets;
-      setPot(prevPot => prevPot + allBets);
-      setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+      // Delay settling bets so the bet remains visible until the feedback animation ends
+      const settleDelayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+      setTimeout(() => {
+        setPot(prevPot => prevPot + allBets);
+        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+      }, settleDelayMs);
       setCurrentStreet("complete");
       setFoldedHand(true);
       
@@ -1081,144 +1091,148 @@ export default function TexasHoldemTab() {
       }
       // Don't deal additional community cards when folding
     } else {
-      // Deal next cards based on current street using the stored deck
-      if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
-        const newDeck = [...deck];
-        const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
-        setFlopCards(flop);
-        setDeck(newDeck);
-        setCurrentStreet("flop");
-        
-        // Collect all bets into pot and reset for new betting round
-        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
-        setPot(prevPot => prevPot + allBets);
-        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
-        
-      } else if (showFlop && showTurn && currentStreet === "flop" && flopCards && !turnCard && deck.length >= 1) {
-        const newDeck = [...deck];
-        const turn = newDeck.pop()!;
-        setTurnCard(turn);
-        setDeck(newDeck);
-        setCurrentStreet("turn");
-        
-        // Collect all bets into pot and reset for new betting round
-        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
-        setPot(prevPot => prevPot + allBets);
-        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
-        
-      } else if (showFlop && showTurn && showRiver && currentStreet === "turn" && turnCard && !riverCard && deck.length >= 1) {
-        const newDeck = [...deck];
-        const river = newDeck.pop()!;
-        setRiverCard(river);
-        setDeck(newDeck);
-        setCurrentStreet("river");
-        
-        // Collect all bets into pot and reset for new betting round
-        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
-        setPot(prevPot => prevPot + allBets);
-        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
-        
-      } else if (showFlop && showTurn && showRiver && currentStreet === "river") {
-        // After river action, complete the hand and collect final bets
-        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
-        const finalPot = pot + allBets;
-        setPot(prevPot => prevPot + allBets);
-        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
-        setCurrentStreet("complete");
-        
-        // Reveal all other players' hands when reaching showdown on river
-        const allPlayerIds = new Set(players.map(p => p.id).filter(id => id !== hero?.id));
-        setRevealedPlayers(allPlayerIds);
-        
-        // Evaluate who won the hand
-        let heroWon: boolean | undefined = undefined;
-        if (hero && flopCards && turnCard && riverCard) {
-          const communityCards = [...flopCards, turnCard, riverCard];
-          const otherPlayers = players.filter(p => !p.isHero);
-          heroWon = didHeroWin(hero, otherPlayers, communityCards);
-          setHeroWonHand(heroWon);
-        }
-        
-        // Complete hand history
-        if (currentHandHistory && currentSession) {
-          const updatedHistory = {
-            ...currentHandHistory,
-            pot: finalPot,
-            result: "completed" as const,
-            heroWon,
-            communityCards: {
-              flop: flopCards!,
-              turn: turnCard!,
-              river: riverCard!
-            }
-          };
-          setCurrentSession(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              hands: [...prev.hands, updatedHistory]
-            };
-          });
-          setCurrentHandHistory(null);
-        }
-      } else {
-        // Hand ends early if settings don't allow further streets
-        const allBets = players.reduce((sum, p) => sum + p.bet, 0);
-        const finalPot = pot + allBets;
-        setPot(prevPot => prevPot + allBets);
-        setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
-        setCurrentStreet("complete");
-        
-        // Complete hand history for early ending hands
-        if (currentHandHistory && currentSession) {
-          const updatedHistory = {
-            ...currentHandHistory,
-            pot: finalPot,
-            result: "completed" as const,
-            communityCards: {
-              ...(flopCards && { flop: flopCards }),
-              ...(turnCard && { turn: turnCard }),
-              ...(riverCard && { river: riverCard })
-            }
-          };
-          setCurrentSession(prev => {
-            if (!prev) return prev;
-            return {
-              ...prev,
-              hands: [...prev.hands, updatedHistory]
-            };
-          });
-          setCurrentHandHistory(null);
-        }
-        
-        // If "Always show community cards" is enabled, deal missing cards for analysis
-        // But only if post-flop play is enabled (showFlop is true)
-        if (showCommunityCards && showFlop && deck.length > 0) {
-          let newDeck = [...deck];
-          
-          // Deal flop if not dealt yet
-          if (!flopCards && newDeck.length >= 3) {
-            const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
-            setFlopCards(flop);
-          }
-          
-          // Deal turn if not dealt yet
-          if (flopCards && !turnCard && newDeck.length >= 1) {
-            const turn = newDeck.pop()!;
-            setTurnCard(turn);
-          }
-          
-          // Deal river if not dealt yet
-          if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
-            const river = newDeck.pop()!;
-            setRiverCard(river);
-          }
-          
+      // Gate street advancement and bet reset until feedback flash completes
+      const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+      if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
+      advanceStreetTimerRef.current = setTimeout(() => {
+        // Deal next cards based on current street using the stored deck
+        if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
+          const newDeck = [...deck];
+          const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+          setFlopCards(flop);
           setDeck(newDeck);
+          setCurrentStreet("flop");
+          
+          // Collect all bets into pot and reset for new betting round
+          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
+          setPot(prevPot => prevPot + allBets);
+          setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+          
+        } else if (showFlop && showTurn && currentStreet === "flop" && flopCards && !turnCard && deck.length >= 1) {
+          const newDeck = [...deck];
+          const turn = newDeck.pop()!;
+          setTurnCard(turn);
+          setDeck(newDeck);
+          setCurrentStreet("turn");
+          
+          // Collect all bets into pot and reset for new betting round
+          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
+          setPot(prevPot => prevPot + allBets);
+          setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+          
+        } else if (showFlop && showTurn && showRiver && currentStreet === "turn" && turnCard && !riverCard && deck.length >= 1) {
+          const newDeck = [...deck];
+          const river = newDeck.pop()!;
+          setRiverCard(river);
+          setDeck(newDeck);
+          setCurrentStreet("river");
+          
+          // Collect all bets into pot and reset for new betting round
+          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
+          setPot(prevPot => prevPot + allBets);
+          setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+          
+        } else if (showFlop && showTurn && showRiver && currentStreet === "river") {
+          // After river action, complete the hand and collect final bets
+          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
+          const finalPot = pot + allBets;
+          setPot(prevPot => prevPot + allBets);
+          setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+          setCurrentStreet("complete");
+          
+          // Reveal all other players' hands when reaching showdown on river
+          const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
+          setRevealedPlayers(allPlayerIds);
+          
+          // Evaluate who won the hand
+          let heroWon: boolean | undefined = undefined;
+          if (hero && flopCards && turnCard && riverCard) {
+            const communityCards = [...flopCards, turnCard, riverCard];
+            const otherPlayers = updatedPlayers.filter(p => !p.isHero);
+            heroWon = didHeroWin(hero, otherPlayers, communityCards);
+            setHeroWonHand(heroWon);
+          }
+          
+          // Complete hand history
+          if (currentHandHistory && currentSession) {
+            const updatedHistory = {
+              ...currentHandHistory,
+              pot: finalPot,
+              result: "completed" as const,
+              heroWon,
+              communityCards: {
+                flop: flopCards!,
+                turn: turnCard!,
+                river: riverCard!
+              }
+            };
+            setCurrentSession(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                hands: [...prev.hands, updatedHistory]
+              };
+            });
+            setCurrentHandHistory(null);
+          }
+        } else {
+          // Hand ends early if settings don't allow further streets
+          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
+          const finalPot = pot + allBets;
+          setPot(prevPot => prevPot + allBets);
+          setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
+          setCurrentStreet("complete");
+          
+          // Complete hand history for early ending hands
+          if (currentHandHistory && currentSession) {
+            const updatedHistory = {
+              ...currentHandHistory,
+              pot: finalPot,
+              result: "completed" as const,
+              communityCards: {
+                ...(flopCards && { flop: flopCards }),
+                ...(turnCard && { turn: turnCard }),
+                ...(riverCard && { river: riverCard })
+              }
+            };
+            setCurrentSession(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                hands: [...prev.hands, updatedHistory]
+              };
+            });
+            setCurrentHandHistory(null);
+          }
+          
+          // If "Always show community cards" is enabled, deal missing cards for analysis
+          // But only if post-flop play is enabled (showFlop is true)
+          if (showCommunityCards && showFlop && deck.length > 0) {
+            let newDeck = [...deck];
+            
+            // Deal flop if not dealt yet
+            if (!flopCards && newDeck.length >= 3) {
+              const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+              setFlopCards(flop);
+            }
+            
+            // Deal turn if not dealt yet
+            if (flopCards && !turnCard && newDeck.length >= 1) {
+              const turn = newDeck.pop()!;
+              setTurnCard(turn);
+            }
+            
+            // Deal river if not dealt yet
+            if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
+              const river = newDeck.pop()!;
+              setRiverCard(river);
+            }
+            
+            setDeck(newDeck);
+          }
         }
-      }
+      }, delayMs);
     }
-
     setHeroFlash(correct ? "correct" : "incorrect");
     heroFlashOpacity.setValue(1);
     if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
@@ -1258,8 +1272,8 @@ export default function TexasHoldemTab() {
     }
     
     const resultText = currentStreet === "preflop" 
-      ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why} Pot: $${totalPot}.`
-      : `${currentStreet.toUpperCase()} Action: ${action.toUpperCase()}. ${why} Pot: $${totalPot}.`;
+      ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why} Pot: $${updatedTotalPot}.`
+      : `${currentStreet.toUpperCase()} Action: ${action.toUpperCase()}. ${why} Pot: $${updatedTotalPot}.`;
       
     setResult(resultText);
 
@@ -1681,7 +1695,7 @@ export default function TexasHoldemTab() {
                     <Text style={styles.currencyPrefix}>$</Text>
                     <TextInput
                       value={String(bigBlind)}
-                      onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
+                      onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(next); }}
                       inputMode="numeric"
                       keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
                       style={styles.currencyInput}
