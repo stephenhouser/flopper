@@ -741,6 +741,13 @@ export default function TexasHoldemTab() {
     };
     setCurrentSession(session);
     setCurrentHandHistory(null);
+    
+    // Reset accuracy statistics for the new session
+    setTotalHands(0);
+    setCorrectHands(0);
+    setLastAction("");
+    setLastActionCorrect(null);
+    setResult(showWhy ? "New session started. Stats reset." : "");
   }
 
   function createHandHistory(players: Player[]): HandHistory {
@@ -1728,22 +1735,12 @@ export default function TexasHoldemTab() {
                 </View>
               </View>
 
-              {/* Data Maintenance section break */}
+              {/* Data Management section break */}
               <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Data Maintenance</Text>
+                <Text style={styles.sectionHeader}>Data Management</Text>
               </View>
 
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-                <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
-                <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
-              </View>
-              
-              {/* Session Management section break */}
-              <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Session Management</Text>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
                 <RowButton 
                   label={<Text>New Session</Text>} 
                   onPress={startNewSession} 
@@ -1755,6 +1752,8 @@ export default function TexasHoldemTab() {
                   kind="outline"
                   disabled={!currentSession || currentSession.hands.length === 0}
                 />
+                <View style={{ flex: 1 }} />
+                <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
               </View>
               
               {currentSession && (
