@@ -493,6 +493,9 @@ export default function TexasHoldemTab() {
   const currentBet = Math.max(...players.map(p => p.bet));
   const heroBet = hero?.bet || 0;
   const canCheck = heroBet >= currentBet;
+  
+  // Calculate total pot
+  const totalPot = players.reduce((sum, player) => sum + player.bet, 0);
 
   /* --- Hotkeys (web): c/a/f/r, Enter repeat, Space new --- */
   useEffect(() => {
@@ -557,15 +560,20 @@ export default function TexasHoldemTab() {
           </View>
         </View>
 
-        {/* Feedback row: always visible when Show why is ON; shows last action pill */}
+        {/* Feedback row: always visible when Show why is ON; shows last action pill and pot */}
         {showWhy && (
           <View style={styles.card}>
             <View style={styles.feedbackRow}>
               <Text style={[styles.feedbackText, { flex: 1, paddingRight: 8 }]}>
                 {result || "Take an action to see feedback."}
               </Text>
-              <View style={styles.pill}>
-                <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+              <View style={styles.feedbackRight}>
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>Pot: ${totalPot}</Text>
+                </View>
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -804,6 +812,7 @@ const styles = StyleSheet.create({
 
   feedbackRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   feedbackText: { fontSize: 14, color: "#333" },
+  feedbackRight: { flexDirection: "row", alignItems: "center", gap: 8 },
 
   flopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   flopLabel: { fontSize: 16, fontWeight: "600", color: "#333" },
