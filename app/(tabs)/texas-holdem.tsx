@@ -227,7 +227,7 @@ export default function TexasHoldemTab() {
   const [showFacingRaiseTooltip, setShowFacingRaiseTooltip] = useState(false);
   const [showScoreTooltip, setShowScoreTooltip] = useState(false);
   const [showFlopTooltip, setShowFlopTooltip] = useState(false);
-  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
+
 
   const isCompact = Platform.OS !== "web";
 
@@ -251,8 +251,6 @@ export default function TexasHoldemTab() {
       setShowFacingRaiseTooltip(false);
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
-      // Position tooltip in a reasonable location within the settings modal
-      setTooltipPosition({ x: 50, y: 280 });
       setShowFeedbackTooltip(true);
     }
   };
@@ -266,7 +264,6 @@ export default function TexasHoldemTab() {
       setShowFacingRaiseTooltip(false);
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
-      setTooltipPosition({ x: 50, y: 150 });
       setShowAutoNewTooltip(true);
     }
   };
@@ -280,7 +277,6 @@ export default function TexasHoldemTab() {
       setShowAutoNewTooltip(false);
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
-      setTooltipPosition({ x: 50, y: 150 });
       setShowFacingRaiseTooltip(true);
     }
   };
@@ -294,7 +290,6 @@ export default function TexasHoldemTab() {
       setShowAutoNewTooltip(false);
       setShowFacingRaiseTooltip(false);
       setShowFlopTooltip(false);
-      setTooltipPosition({ x: 50, y: 340 });
       setShowScoreTooltip(true);
     }
   };
@@ -308,7 +303,6 @@ export default function TexasHoldemTab() {
       setShowAutoNewTooltip(false);
       setShowFacingRaiseTooltip(false);
       setShowScoreTooltip(false);
-      setTooltipPosition({ x: 50, y: 400 });
       setShowFlopTooltip(true);
     }
   };
@@ -750,11 +744,10 @@ export default function TexasHoldemTab() {
                   style={styles.tooltipBackdrop}
                   onPress={() => setShowFeedbackTooltip(false)}
                 />
-                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
                     When enabled, shows feedback after each action.
                   </Text>
-                  <View style={styles.tooltipArrow} />
                 </View>
               </>
             )}
@@ -764,11 +757,10 @@ export default function TexasHoldemTab() {
                   style={styles.tooltipBackdrop}
                   onPress={() => setShowAutoNewTooltip(false)}
                 />
-                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
                     When enabled, a new hand is automatically dealt after the feedback delay expires.
                   </Text>
-                  <View style={styles.tooltipArrow} />
                 </View>
               </>
             )}
@@ -778,11 +770,10 @@ export default function TexasHoldemTab() {
                   style={styles.tooltipBackdrop}
                   onPress={() => setShowFacingRaiseTooltip(false)}
                 />
-                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
                     Simulates a scenario where another player has already raised, requiring tighter hand selection.
                   </Text>
-                  <View style={styles.tooltipArrow} />
                 </View>
               </>
             )}
@@ -792,11 +783,10 @@ export default function TexasHoldemTab() {
                   style={styles.tooltipBackdrop}
                   onPress={() => setShowScoreTooltip(false)}
                 />
-                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
                     Shows your hand's Chen score, a quick evaluation system for pre-flop hand strength.
                   </Text>
-                  <View style={styles.tooltipArrow} />
                 </View>
               </>
             )}
@@ -806,11 +796,10 @@ export default function TexasHoldemTab() {
                   style={styles.tooltipBackdrop}
                   onPress={() => setShowFlopTooltip(false)}
                 />
-                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
                     When enabled, flop cards are revealed after your action (except fold), with options to reveal all hands.
                   </Text>
-                  <View style={styles.tooltipArrow} />
                 </View>
               </>
             )}
@@ -993,34 +982,20 @@ const styles = StyleSheet.create({
   },
   floatingTooltip: { 
     position: "absolute",
-    width: 250,
+    width: 320,
     backgroundColor: "#2d3748",
     borderRadius: 8,
-    padding: 12,
+    padding: 16,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 5,
     zIndex: 1000,
-  },
-  tooltipArrow: {
-    position: "absolute",
-    bottom: -6,
     left: "50%",
-    marginLeft: -6,
-    width: 0,
-    height: 0,
-    backgroundColor: "transparent",
-    borderStyle: "solid",
-    borderTopWidth: 6,
-    borderRightWidth: 6,
-    borderBottomWidth: 0,
-    borderLeftWidth: 6,
-    borderTopColor: "#2d3748",
-    borderRightColor: "transparent",
-    borderBottomColor: "transparent",
-    borderLeftColor: "transparent",
+    top: "50%",
+    marginLeft: -160, // Half of width to center horizontally
+    marginTop: -50,   // Adjust to center vertically over modal
   },
   tooltipText: { color: "#fff", fontSize: 12, lineHeight: 16 },
 
