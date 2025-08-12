@@ -216,6 +216,8 @@ export default function TexasHoldemTab() {
   const [showWhy, setShowWhy] = useState(false);
   const [showScore, setShowScore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
+  const [showFlop, setShowFlop] = useState(false);
+  const [flopCards, setFlopCards] = useState<[CardT, CardT, CardT] | null>(null);
 
   const isCompact = Platform.OS !== "web";
 
@@ -233,13 +235,14 @@ export default function TexasHoldemTab() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings] = await Promise.all([
+      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings, sFlop] = await Promise.all([
         Storage.getItem("poker.showWhy"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
         Storage.getItem("poker.feedbackSecs"),
         Storage.getItem("poker.showScore"),
         Storage.getItem("poker.showSettings"),
+        Storage.getItem("poker.showFlop"),
       ]);
       if (sWhy != null) setShowWhy(sWhy === "1");
       if (sAuto != null) setAutoNew(sAuto === "1");
@@ -250,6 +253,7 @@ export default function TexasHoldemTab() {
       }
       if (sScore != null) setShowScore(sScore === "1");
       if (sSettings != null) setShowSettings(sSettings === "1");
+      if (sFlop != null) setShowFlop(sFlop === "1");
       setReady(true);
     })();
   }, []);
@@ -261,6 +265,7 @@ export default function TexasHoldemTab() {
   useEffect(() => { Storage.setItem("poker.feedbackSecs", String(feedbackSecs)); }, [feedbackSecs]);
   useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
   useEffect(() => { Storage.setItem("poker.showSettings", showSettings ? "1" : "0"); }, [showSettings]);
+  useEffect(() => { Storage.setItem("poker.showFlop", showFlop ? "1" : "0"); }, [showFlop]);
 
   function dealTable(n: number) {
     setHeroFlash("none");
@@ -303,6 +308,9 @@ export default function TexasHoldemTab() {
     const sbIndex = ps.findIndex((p) => p.role === "SB");
     const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
 
+    // Don't deal flop cards immediately - wait for player action
+    setFlopCards(null);
+
     setPlayers(rotated);
     setHeroAction("");
     if (!showWhy) setResult("");
@@ -330,6 +338,19 @@ export default function TexasHoldemTab() {
     setLastAction(action);
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
+
+    // Deal flop cards after first action if enabled and not already dealt, but not if folding
+    const shouldAutoNew = autoNew && !(showFlop && !flopCards && action !== "fold");
+
+    if (showFlop && !flopCards && action !== "fold") {
+      const deck = shuffle(makeDeck());
+      // Remove already dealt cards (2 per player)
+      const cardsDealt = players.length * 2;
+      for (let i = 0; i < cardsDealt; i++) {
+        deck.pop();
+      }
+      setFlopCards([deck.pop()!, deck.pop()!, deck.pop()!] as [CardT, CardT, CardT]);
+    }
 
     setHeroFlash(correct ? "correct" : "incorrect");
     heroFlashOpacity.setValue(1);
@@ -366,7 +387,11 @@ export default function TexasHoldemTab() {
     if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showWhy && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-    if (autoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
+    
+    // Don't auto deal new hand if flop setting is enabled (regardless of whether flop cards are currently shown)
+    // This prevents auto-deal when flop cards will be shown or are being shown
+    // const shouldAutoNew = autoNew && !flopCards;
+    if (shouldAutoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
   // Bet label with SB/BB shorthand (with "$")
@@ -488,6 +513,21 @@ export default function TexasHoldemTab() {
         </View>
       )}
 
+      {/* Flop Cards Row */}
+      {showFlop && flopCards && (
+        <View style={[styles.card, styles.flopCard]}>
+          <View style={styles.flopRow}>
+            <Text style={styles.flopLabel}>Flop:</Text>
+            <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
+              <PlayingCard card={flopCards[0]} compact={isCompact} />
+              <PlayingCard card={flopCards[1]} compact={isCompact} />
+              <PlayingCard card={flopCards[2]} compact={isCompact} />
+            </View>
+            <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
+          </View>
+        </View>
+      )}
+
       {/* Table */}
       <FlatList
         data={players}
@@ -576,6 +616,13 @@ export default function TexasHoldemTab() {
             </View>
           </View>
 
+          <View style={styles.controlsRow}>
+            <View style={styles.switchRow}>
+              <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
+              <Text style={styles.switchLabel}>Show flop cards</Text>
+            </View>
+          </View>
+
           <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
             <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
             <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
@@ -609,6 +656,7 @@ const styles = StyleSheet.create({
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 22, fontWeight: "700" },
+  headerRight: { alignItems: "flex-end" },
   // headerStats: { fontSize: 13, color: "#333", flexShrink: 1, textAlign: "right" },
   headerStats: { fontSize: 13, flexShrink: 1, textAlign: "right" },
 
@@ -624,6 +672,7 @@ const styles = StyleSheet.create({
   gearText: { fontSize: 18, color: "#2b2e57", fontWeight: "700" },
 
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  flopCard: { backgroundColor: "#f8fdf8" },
 
   controlsRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 },
   controlBlock: { width: "48%" },
@@ -675,6 +724,11 @@ const styles = StyleSheet.create({
   actionsLeft: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
 
   feedbackRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
+  feedbackText: { fontSize: 14, color: "#333" },
+
+  flopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  flopLabel: { fontSize: 16, fontWeight: "600", color: "#333" },
+  flopCards: { flexDirection: "row", gap: 6 },
 
   helper: { color: "#666", fontSize: 12 },
 
