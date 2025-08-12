@@ -82,6 +82,70 @@ function cardToStr(c?: CardT) {
   return c ? `${c.rank}${c.suit}` : "";
 }
 
+/* ---------------- Hand Evaluation ---------------- */
+
+function getRankValue(rank: Rank): number {
+  const values: Record<Rank, number> = {
+    "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14
+  };
+  return values[rank];
+}
+
+function evaluateHand(holeCards: [CardT, CardT], communityCards: CardT[]): number {
+  const allCards = [...holeCards, ...communityCards];
+  
+  // Group by rank and suit
+  const ranks: Record<string, number> = {};
+  const suits: Record<string, number> = {};
+  
+  allCards.forEach(card => {
+    ranks[card.rank] = (ranks[card.rank] || 0) + 1;
+    suits[card.suit] = (suits[card.suit] || 0) + 1;
+  });
+  
+  const rankCounts = Object.values(ranks).sort((a, b) => b - a);
+  const isFlush = Object.values(suits).some(count => count >= 5);
+  
+  // Check for straight
+  const uniqueRanks = Object.keys(ranks).map(rank => getRankValue(rank as Rank)).sort((a, b) => a - b);
+  let isStraight = false;
+  for (let i = 0; i <= uniqueRanks.length - 5; i++) {
+    if (uniqueRanks[i + 4] - uniqueRanks[i] === 4) {
+      isStraight = true;
+      break;
+    }
+  }
+  // Check for A-2-3-4-5 straight (wheel)
+  if (uniqueRanks.includes(14) && uniqueRanks.includes(2) && uniqueRanks.includes(3) && uniqueRanks.includes(4) && uniqueRanks.includes(5)) {
+    isStraight = true;
+  }
+  
+  // Hand rankings (higher = better)
+  if (isStraight && isFlush) return 8; // Straight flush
+  if (rankCounts[0] === 4) return 7; // Four of a kind
+  if (rankCounts[0] === 3 && rankCounts[1] === 2) return 6; // Full house
+  if (isFlush) return 5; // Flush
+  if (isStraight) return 4; // Straight
+  if (rankCounts[0] === 3) return 3; // Three of a kind
+  if (rankCounts[0] === 2 && rankCounts[1] === 2) return 2; // Two pair
+  if (rankCounts[0] === 2) return 1; // One pair
+  return 0; // High card
+}
+
+function didHeroWin(hero: Player, otherPlayers: Player[], communityCards: CardT[]): boolean {
+  const heroHandValue = evaluateHand(hero.cards, communityCards);
+  
+  // Check if hero beats at least one other player
+  for (const player of otherPlayers) {
+    const playerHandValue = evaluateHand(player.cards, communityCards);
+    if (heroHandValue > playerHandValue) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 /* ---------------- Chen Formula heuristic ---------------- */
 
 const chenRankValue: Record<Rank, number> = {
@@ -233,6 +297,7 @@ export default function TexasHoldemTab() {
   const [showFacingRaiseTooltip, setShowFacingRaiseTooltip] = useState(false);
   const [showScoreTooltip, setShowScoreTooltip] = useState(false);
   const [showFlopTooltip, setShowFlopTooltip] = useState(false);
+  const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
 
 
   const isCompact = Platform.OS !== "web";
@@ -439,6 +504,7 @@ export default function TexasHoldemTab() {
     setDeck(freshDeck); // Store remaining deck
     setPot(initialPot);
     setFoldedHand(false);
+    setHeroWonHand(null);
 
     setPlayers(rotated);
     setHeroAction("");
@@ -568,6 +634,14 @@ export default function TexasHoldemTab() {
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         setCurrentStreet("complete");
         setShowAllCards(true);
+        
+        // Evaluate who won the hand
+        if (hero && flopCards && turnCard && riverCard) {
+          const communityCards = [...flopCards, turnCard, riverCard];
+          const otherPlayers = players.filter(p => !p.isHero);
+          const heroWon = didHeroWin(hero, otherPlayers, communityCards);
+          setHeroWonHand(heroWon);
+        }
       }
     }
 
@@ -776,7 +850,12 @@ export default function TexasHoldemTab() {
 
         {/* Community Cards Row */}
         {showFlop && (flopCards || currentStreet !== "preflop") && !foldedHand && (
-          <View style={[styles.card, styles.flopCard]}>
+          <View style={[
+            styles.card, 
+            styles.flopCard,
+            heroWonHand === true && { backgroundColor: "#b9efd2" }, // Green for win
+            heroWonHand === false && { backgroundColor: "#f8c7cc" }, // Red for loss
+          ]}>
             <View style={styles.flopRow}>
               <View style={styles.revealButton}>
                 <RowButton 
