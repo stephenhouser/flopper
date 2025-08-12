@@ -929,9 +929,38 @@ export default function TexasHoldemTab() {
         });
       }
       
+      // Show down section (only if hand was completed and not folded)
+      if (hand.result === "completed" && hand.communityCards.flop && hand.communityCards.turn && hand.communityCards.river) {
+        output += "*** SHOW DOWN ***\n";
+        
+        // Show final board
+        const finalBoard = [
+          ...hand.communityCards.flop,
+          hand.communityCards.turn,
+          hand.communityCards.river
+        ];
+        output += `Board [${finalBoard.map(cardToStr).join(' ')}]\n`;
+        
+        // Show all players' hole cards
+        hand.players.forEach(player => {
+          output += `${player.name}: shows [${cardToStr(player.cards[0])} ${cardToStr(player.cards[1])}]\n`;
+        });
+      }
+      
       // Summary
       output += "*** SUMMARY ***\n";
       output += `Total pot $${hand.pot}\n`;
+      
+      // Final board in summary (for completed hands)
+      if (hand.result === "completed" && hand.communityCards.flop && hand.communityCards.turn && hand.communityCards.river) {
+        const finalBoard = [
+          ...hand.communityCards.flop,
+          hand.communityCards.turn,
+          hand.communityCards.river
+        ];
+        output += `Board [${finalBoard.map(cardToStr).join(' ')}]\n`;
+      }
+      
       if (hand.result === "folded") {
         output += `${heroPlayer?.name} folded\n`;
       } else if (hand.heroWon !== undefined) {
