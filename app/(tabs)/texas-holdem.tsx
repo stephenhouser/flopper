@@ -1012,30 +1012,40 @@ export default function TexasHoldemTab() {
                 />
               </View>
               <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-                {/* Show empty card outlines when no cards are dealt yet but always show is enabled */}
-                {!flopCards && !turnCard && !riverCard && showCommunityCards ? (
-                  <>
-                    <PlayingCard hidden compact={isCompact} />
-                    <PlayingCard hidden compact={isCompact} />
-                    <PlayingCard hidden compact={isCompact} />
-                    <PlayingCard hidden compact={isCompact} />
-                    <PlayingCard hidden compact={isCompact} />
-                  </>
+                {/* Always show 5 cards: dealt cards in position, rest as outlines */}
+                {/* Flop Card 1 */}
+                {flopCards ? (
+                  <PlayingCard card={flopCards[0]} compact={isCompact} />
                 ) : (
-                  <>
-                    {/* Flop Cards */}
-                    {flopCards && (
-                      <>
-                        <PlayingCard card={flopCards[0]} compact={isCompact} />
-                        <PlayingCard card={flopCards[1]} compact={isCompact} />
-                        <PlayingCard card={flopCards[2]} compact={isCompact} />
-                      </>
-                    )}
-                    {/* Turn Card */}
-                    {turnCard && <PlayingCard card={turnCard} compact={isCompact} />}
-                    {/* River Card */}
-                    {riverCard && <PlayingCard card={riverCard} compact={isCompact} />}
-                  </>
+                  <PlayingCard hidden compact={isCompact} />
+                )}
+                
+                {/* Flop Card 2 */}
+                {flopCards ? (
+                  <PlayingCard card={flopCards[1]} compact={isCompact} />
+                ) : (
+                  <PlayingCard hidden compact={isCompact} />
+                )}
+                
+                {/* Flop Card 3 */}
+                {flopCards ? (
+                  <PlayingCard card={flopCards[2]} compact={isCompact} />
+                ) : (
+                  <PlayingCard hidden compact={isCompact} />
+                )}
+                
+                {/* Turn Card */}
+                {turnCard ? (
+                  <PlayingCard card={turnCard} compact={isCompact} />
+                ) : (
+                  <PlayingCard hidden compact={isCompact} />
+                )}
+                
+                {/* River Card */}
+                {riverCard ? (
+                  <PlayingCard card={riverCard} compact={isCompact} />
+                ) : (
+                  <PlayingCard hidden compact={isCompact} />
                 )}
               </View>
               <View style={styles.communityActions}>
@@ -1200,7 +1210,7 @@ export default function TexasHoldemTab() {
                 />
                 <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
-                    When enabled, community cards (flop, turn, river) are automatically revealed at the end of each hand for analysis.
+                    When enabled, the community cards row is always visible, showing dealt cards and empty outlines for undealt cards.
                   </Text>
                 </View>
               </>
