@@ -218,6 +218,7 @@ export default function TexasHoldemTab() {
   const [showSettings, setShowSettings] = useState(false);
   const [showFlop, setShowFlop] = useState(false);
   const [flopCards, setFlopCards] = useState<[CardT, CardT, CardT] | null>(null);
+  const [showAllCards, setShowAllCards] = useState(false);
 
   const isCompact = Platform.OS !== "web";
 
@@ -313,6 +314,7 @@ export default function TexasHoldemTab() {
 
     setPlayers(rotated);
     setHeroAction("");
+    setShowAllCards(false);
     if (!showWhy) setResult("");
   }
 
@@ -416,8 +418,8 @@ export default function TexasHoldemTab() {
 
       {/* LEFT: cards */}
       <View style={styles.cardsCol}>
-        <PlayingCard card={item.cards[0]} hidden={!item.isHero} compact={isCompact} />
-        <PlayingCard card={item.cards[1]} hidden={!item.isHero} compact={isCompact} />
+        <PlayingCard card={item.cards[0]} hidden={!item.isHero && !showAllCards} compact={isCompact} />
+        <PlayingCard card={item.cards[1]} hidden={!item.isHero && !showAllCards} compact={isCompact} />
       </View>
 
       {/* MIDDLE: [Position pill] + [Name] inline; Chen score text (hero only) under it */}
@@ -523,7 +525,14 @@ export default function TexasHoldemTab() {
               <PlayingCard card={flopCards[1]} compact={isCompact} />
               <PlayingCard card={flopCards[2]} compact={isCompact} />
             </View>
-            <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
+            <View style={styles.flopButtons}>
+              <RowButton 
+                label={<Text>{showAllCards ? "Hide cards" : "Show cards"}</Text>} 
+                onPress={() => setShowAllCards(!showAllCards)} 
+                kind="secondary" 
+              />
+              <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
+            </View>
           </View>
         </View>
       )}
@@ -729,6 +738,7 @@ const styles = StyleSheet.create({
   flopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   flopLabel: { fontSize: 16, fontWeight: "600", color: "#333" },
   flopCards: { flexDirection: "row", gap: 6 },
+  flopButtons: { flexDirection: "row", gap: 8 },
 
   helper: { color: "#666", fontSize: 12 },
 
