@@ -183,18 +183,21 @@ const RowButton: React.FC<{
   onPress: () => void;
   kind?: "primary" | "secondary" | "outline";
   equal?: boolean;
-}> = ({ label, onPress, kind = "secondary", equal = false }) => (
+  disabled?: boolean;
+}> = ({ label, onPress, kind = "secondary", equal = false, disabled = false }) => (
   <Pressable
-    onPress={onPress}
+    onPress={disabled ? undefined : onPress}
     style={({ pressed }) => [
       styles.btn,
       equal && styles.btnGrow,
       kind === "primary" && styles.btnPrimary,
       kind === "outline" && styles.btnOutline,
-      pressed && { opacity: 0.8 },
+      disabled && styles.btnDisabled,
+      !disabled && pressed && { opacity: 0.8 },
     ]}
+    disabled={disabled}
   >
-    <ThemedText style={[styles.btnText, kind === "primary" && { color: "#fff" }]}>{label}</ThemedText>
+    <ThemedText style={[styles.btnText, kind === "primary" && { color: "#fff" }, disabled && styles.btnTextDisabled]}>{label}</ThemedText>
   </Pressable>
 );
 
@@ -362,6 +365,21 @@ export default function TexasHoldemTab() {
     const bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
     const correct = bucket === recommended;
 
+    // Update hero's bet based on action
+    const currentBet = Math.max(...players.map(p => p.bet));
+    setPlayers(prevPlayers => 
+      prevPlayers.map(p => {
+        if (p.isHero) {
+          if (action === "call") {
+            return { ...p, bet: currentBet };
+          } else if (action === "raise") {
+            return { ...p, bet: currentBet * 2 };
+          }
+        }
+        return p;
+      })
+    );
+
     // Deal flop cards after first action if enabled and not already dealt, but not if folding
     const shouldAutoNew = autoNew && !(showFlop && !flopCards && action !== "fold");
 
@@ -470,6 +488,11 @@ export default function TexasHoldemTab() {
 
   const accuracyPct = totalHands ? ((correctHands / totalHands) * 100).toFixed(1) : "0.0";
   const formatAction = (a: "" | Action) => (a ? a[0].toUpperCase() + a.slice(1) : "—");
+
+  // Check if hero can check (no bet to call)
+  const currentBet = Math.max(...players.map(p => p.bet));
+  const heroBet = hero?.bet || 0;
+  const canCheck = heroBet >= currentBet;
 
   /* --- Hotkeys (web): c/a/f/r, Enter repeat, Space new --- */
   useEffect(() => {
@@ -582,7 +605,7 @@ export default function TexasHoldemTab() {
           <View style={styles.actionsLeft}>
             <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
             <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
-            <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
+            <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} disabled={!canCheck} />
             <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
           </View>
         </View>
@@ -762,7 +785,9 @@ const styles = StyleSheet.create({
   btn: { paddingVertical: 10, paddingHorizontal: 14, backgroundColor: "#eef1ff", borderRadius: 10, alignItems: "center" },
   btnPrimary: { backgroundColor: "#4f6df6" },
   btnOutline: { backgroundColor: "#fff", borderColor: "#d0d0e0", borderWidth: 1 },
+  btnDisabled: { backgroundColor: "#f5f5f5", opacity: 0.6 },
   btnText: { color: "#2b2e57", fontWeight: "600" },
+  btnTextDisabled: { color: "#999" },
   btnGrow: { flex: 1 },
 
   underlineLetter: { textDecorationLine: "underline" },
