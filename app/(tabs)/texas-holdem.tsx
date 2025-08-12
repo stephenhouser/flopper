@@ -950,7 +950,7 @@ export default function TexasHoldemTab() {
       const element = document.createElement("a");
       const file = new Blob([content], { type: 'text/plain' });
       element.href = URL.createObjectURL(file);
-      element.download = `poker_session_${currentSession?.id || 'unknown'}.txt`;
+      element.download = `flopper_holdem_${currentSession?.id || 'unknown'}.txt`;
       document.body.appendChild(element);
       element.click();
       document.body.removeChild(element);
