@@ -9,7 +9,8 @@ import BigButton from "../../components/BigButton";
 export default function HomeTab() {
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}>
         <ThemedView style={styles.headerBlock}>
           <ThemedText style={styles.title}>flopper</ThemedText>
           <ThemedText style={styles.subtitle}>the card game training app</ThemedText>
