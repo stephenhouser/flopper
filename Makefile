@@ -6,9 +6,6 @@
 run:
 	npx expo start
 
-# Run this to build the webapp in ./dist
-webapp:
-	npx expo export --platform web
-
+# deploy to github pages https://stephenhouser.com/flopper
 deploy:
 	npm run deploy

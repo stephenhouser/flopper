@@ -273,7 +273,8 @@ export default function TexasHoldemTab() {
     else g.__BTN_SEAT__ = (g.__BTN_SEAT__ + 1) % n;
     const btn: number = g.__BTN_SEAT__;
 
-    const ps: Array<Player> = Array.from({ length: n }).map((_, i) => ({
+    // const ps: Array<Player> = Array.from({ length: n }).map((_, i) => ({
+    const ps: Player[] = Array.from({ length: n }).map((_, i) => ({
       id: i,
       name: i === heroSeat ? "You" : `P${i + 1}`,
       role: "" as Player["role"],
@@ -442,7 +443,8 @@ export default function TexasHoldemTab() {
     if (Platform.OS === "web") return;
     let KeyCommand: any = null;
     try { KeyCommand = require("react-native-key-command"); } catch { return; }
-    const unsubscribers: Array<() => void> = [];
+    // const unsubscribers: Array<() => void> = [];
+    const unsubscribers: (() => void)[] = [];
     const add = (input: any, cb: () => void) => { try { const off = KeyCommand.addListener({ input }, cb); unsubscribers.push(off); } catch {} };
     add("c", () => act("check"));
     add("a", () => act("call"));
@@ -552,7 +554,7 @@ export default function TexasHoldemTab() {
                 <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
               </View>
               <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
-                If "Show why" is ON, feedback stays visible; otherwise it hides after the delay above.
+                If &ldquo;Show why&rdquo; is ON, feedback stays visible; otherwise it hides after the delay above.
               </Text>
             </View>
           </View>
