@@ -857,14 +857,14 @@ export default function TexasHoldemTab() {
 
     let why = "";
     if (currentStreet === "preflop") {
-      why = `score: ${heroScore} (Chen). ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
+      why = `Score: ${heroScore} (Chen). ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
     } else {
       why = `${currentStreet} betting. Continue playing or fold.`;
     }
     
     const resultText = currentStreet === "preflop" 
       ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why} Pot: $${totalPot}.`
-      : `${currentStreet.toUpperCase()} action: ${action.toUpperCase()}. ${why} Pot: $${totalPot}.`;
+      : `${currentStreet.toUpperCase()} Action: ${action.toUpperCase()}. ${why} Pot: $${totalPot}.`;
       
     setResult(resultText);
 
@@ -1033,10 +1033,14 @@ export default function TexasHoldemTab() {
             lastActionCorrect === false && { backgroundColor: "#f8c7cc" }
           ]}>
             <View style={styles.feedbackRow}>
-              <Text style={styles.lastActionText}>{formatAction(lastAction)}</Text>
-              <Text style={[styles.feedbackText]}>
+              <Text style={[styles.feedbackText, { flex: 1 }]}>
                 {result || "Take an action to see feedback."}
               </Text>
+              <View style={styles.feedbackRight}>
+                <View style={styles.pill}>
+                  <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+                </View>
+              </View>
             </View>
           </View>
         )}
