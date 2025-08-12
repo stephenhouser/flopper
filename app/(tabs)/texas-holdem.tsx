@@ -222,6 +222,12 @@ export default function TexasHoldemTab() {
   const [showFlop, setShowFlop] = useState(false);
   const [flopCards, setFlopCards] = useState<[CardT, CardT, CardT] | null>(null);
   const [showAllCards, setShowAllCards] = useState(false);
+  const [showFeedbackTooltip, setShowFeedbackTooltip] = useState(false);
+  const [showAutoNewTooltip, setShowAutoNewTooltip] = useState(false);
+  const [showFacingRaiseTooltip, setShowFacingRaiseTooltip] = useState(false);
+  const [showScoreTooltip, setShowScoreTooltip] = useState(false);
+  const [showFlopTooltip, setShowFlopTooltip] = useState(false);
+  const [tooltipPosition, setTooltipPosition] = useState({ x: 0, y: 0 });
 
   const isCompact = Platform.OS !== "web";
 
@@ -234,6 +240,87 @@ export default function TexasHoldemTab() {
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
+
+  // Function to toggle feedback tooltip
+  const toggleFeedbackTooltip = () => {
+    if (showFeedbackTooltip) {
+      setShowFeedbackTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowAutoNewTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowScoreTooltip(false);
+      setShowFlopTooltip(false);
+      // Position tooltip in a reasonable location within the settings modal
+      setTooltipPosition({ x: 50, y: 280 });
+      setShowFeedbackTooltip(true);
+    }
+  };
+
+  const toggleAutoNewTooltip = () => {
+    if (showAutoNewTooltip) {
+      setShowAutoNewTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowScoreTooltip(false);
+      setShowFlopTooltip(false);
+      setTooltipPosition({ x: 50, y: 150 });
+      setShowAutoNewTooltip(true);
+    }
+  };
+
+  const toggleFacingRaiseTooltip = () => {
+    if (showFacingRaiseTooltip) {
+      setShowFacingRaiseTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowAutoNewTooltip(false);
+      setShowScoreTooltip(false);
+      setShowFlopTooltip(false);
+      setTooltipPosition({ x: 50, y: 150 });
+      setShowFacingRaiseTooltip(true);
+    }
+  };
+
+  const toggleScoreTooltip = () => {
+    if (showScoreTooltip) {
+      setShowScoreTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowAutoNewTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowFlopTooltip(false);
+      setTooltipPosition({ x: 50, y: 340 });
+      setShowScoreTooltip(true);
+    }
+  };
+
+  const toggleFlopTooltip = () => {
+    if (showFlopTooltip) {
+      setShowFlopTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowAutoNewTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowScoreTooltip(false);
+      setTooltipPosition({ x: 50, y: 400 });
+      setShowFlopTooltip(true);
+    }
+  };
+
+  // Close all tooltips helper
+  const closeAllTooltips = () => {
+    setShowFeedbackTooltip(false);
+    setShowAutoNewTooltip(false);
+    setShowFacingRaiseTooltip(false);
+    setShowScoreTooltip(false);
+    setShowFlopTooltip(false);
+  };
 
   // Settings modal animation
   const settingsSlideAnim = useRef(new Animated.Value(0)).current;
@@ -290,6 +377,8 @@ export default function TexasHoldemTab() {
         easing: Easing.in(Easing.quad),
         useNativeDriver: true,
       }).start();
+      // Close all tooltips when settings modal is closed
+      closeAllTooltips();
     }
   }, [showSettings]);
 
@@ -653,6 +742,79 @@ export default function TexasHoldemTab() {
             ]}
           >
             <View style={styles.modalHandle} />
+            
+            {/* Floating tooltips */}
+            {showFeedbackTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowFeedbackTooltip(false)}
+                />
+                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                  <Text style={styles.tooltipText}>
+                    If "Show why" is ON, feedback stays visible; otherwise it hides after the delay above.
+                  </Text>
+                  <View style={styles.tooltipArrow} />
+                </View>
+              </>
+            )}
+            {showAutoNewTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowAutoNewTooltip(false)}
+                />
+                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                  <Text style={styles.tooltipText}>
+                    When enabled, a new hand is automatically dealt after the feedback delay expires.
+                  </Text>
+                  <View style={styles.tooltipArrow} />
+                </View>
+              </>
+            )}
+            {showFacingRaiseTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowFacingRaiseTooltip(false)}
+                />
+                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                  <Text style={styles.tooltipText}>
+                    Simulates a scenario where another player has already raised, requiring tighter hand selection.
+                  </Text>
+                  <View style={styles.tooltipArrow} />
+                </View>
+              </>
+            )}
+            {showScoreTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowScoreTooltip(false)}
+                />
+                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                  <Text style={styles.tooltipText}>
+                    Shows your hand's Chen score, a quick evaluation system for pre-flop hand strength.
+                  </Text>
+                  <View style={styles.tooltipArrow} />
+                </View>
+              </>
+            )}
+            {showFlopTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowFlopTooltip(false)}
+                />
+                <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
+                  <Text style={styles.tooltipText}>
+                    When enabled, flop cards are revealed after your action (except fold), with options to reveal all hands.
+                  </Text>
+                  <View style={styles.tooltipArrow} />
+                </View>
+              </>
+            )}
+            
             <View style={styles.card}>
               <View style={styles.controlsRow}>
                 <View style={styles.controlBlock}>
@@ -676,8 +838,30 @@ export default function TexasHoldemTab() {
               </View>
 
               <View style={styles.controlsRow}>
-                <View style={styles.switchRow}><Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Auto new hand</Text></View>
-                <View style={styles.switchRow}><Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Facing a raise</Text></View>
+                <View style={styles.switchRow}>
+                  <Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Auto new hand</Text>
+                    <Pressable
+                      onPress={toggleAutoNewTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
+                </View>
+                <View style={styles.switchRow}>
+                  <Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Facing a raise</Text>
+                    <Pressable
+                      onPress={toggleFacingRaiseTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
+                </View>
               </View>
 
               <View style={styles.controlsRow}>
@@ -688,30 +872,51 @@ export default function TexasHoldemTab() {
                     <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
                     <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
                   </View>
-                  <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
-                    If &ldquo;Show why&rdquo; is ON, feedback stays visible; otherwise it hides after the delay above.
-                  </Text>
                 </View>
               </View>
 
               <View style={styles.controlsRow}>
                 <View style={styles.switchRow}>
                   <Switch value={showWhy} onValueChange={setShowWhy} />
-                  <Text style={styles.switchLabel}>Show why (feedback)</Text>
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Show why (feedback)</Text>
+                    <Pressable
+                      onPress={toggleFeedbackTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
               <View style={styles.controlsRow}>
                 <View style={styles.switchRow}>
                   <Switch value={showScore} onValueChange={setShowScore} />
-                  <Text style={styles.switchLabel}>Show score (your hand)</Text>
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Show score (your hand)</Text>
+                    <Pressable
+                      onPress={toggleScoreTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
               <View style={styles.controlsRow}>
                 <View style={styles.switchRow}>
                   <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
-                  <Text style={styles.switchLabel}>Show flop cards</Text>
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Show flop cards</Text>
+                    <Pressable
+                      onPress={toggleFlopTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
+                  </View>
                 </View>
               </View>
 
@@ -776,6 +981,48 @@ const styles = StyleSheet.create({
 
   switchRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   switchLabel: { fontSize: 14 },
+  labelWithIcon: { flexDirection: "row", alignItems: "center", gap: 4 },
+  infoIcon: { padding: 2 },
+  tooltipBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 999,
+  },
+  floatingTooltip: { 
+    position: "absolute",
+    width: 250,
+    backgroundColor: "#2d3748",
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    zIndex: 1000,
+  },
+  tooltipArrow: {
+    position: "absolute",
+    bottom: -6,
+    left: "50%",
+    marginLeft: -6,
+    width: 0,
+    height: 0,
+    backgroundColor: "transparent",
+    borderStyle: "solid",
+    borderTopWidth: 6,
+    borderRightWidth: 6,
+    borderBottomWidth: 0,
+    borderLeftWidth: 6,
+    borderTopColor: "#2d3748",
+    borderRightColor: "transparent",
+    borderBottomColor: "transparent",
+    borderLeftColor: "transparent",
+  },
+  tooltipText: { color: "#fff", fontSize: 12, lineHeight: 16 },
 
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14, padding: 10, gap: 10, position: "relative", overflow: "hidden" },
   rowOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
