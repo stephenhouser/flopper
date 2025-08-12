@@ -13,11 +13,11 @@ export default function Root({ children }: PropsWithChildren) {
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
 
-		{/* Progressive Web App Tags */}
-		<meta name="mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-title" content="%WEB_TITLE%" />
-		<meta name="format-detection" content="telephone=no" />
+        {/* Progressive Web App Tags */}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="flopper" />
+        <meta name="format-detection" content="telephone=no" />
 
         {/* Link the PWA manifest file. */}
         <link rel="manifest" href="/manifest.json" />
