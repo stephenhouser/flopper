@@ -1,5 +1,4 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -232,6 +231,9 @@ export default function TexasHoldemTab() {
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
 
+  // Settings modal animation
+  const settingsSlideAnim = useRef(new Animated.Value(0)).current;
+
   // Load persisted prefs first, then deal first hand
   const [ready, setReady] = useState(false);
   useEffect(() => {
@@ -267,6 +269,25 @@ export default function TexasHoldemTab() {
   useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
   useEffect(() => { Storage.setItem("poker.showSettings", showSettings ? "1" : "0"); }, [showSettings]);
   useEffect(() => { Storage.setItem("poker.showFlop", showFlop ? "1" : "0"); }, [showFlop]);
+
+  // Animate settings modal
+  useEffect(() => {
+    if (showSettings) {
+      Animated.timing(settingsSlideAnim, {
+        toValue: 1,
+        duration: 300,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(settingsSlideAnim, {
+        toValue: 0,
+        duration: 250,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [showSettings]);
 
   function dealTable(n: number) {
     setHeroFlash("none");
@@ -495,14 +516,22 @@ export default function TexasHoldemTab() {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       {/* Header with one-line stats (no gear here) */}
-      <ThemedView style={styles.header}>
-        <ThemedText style={styles.title}>Texas Holdem</ThemedText>
-        <ThemedView style={styles.headerRight}>
-          <ThemedText style={styles.headerStats} numberOfLines={1}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Texas Holdem</Text>
+        <View style={styles.headerRight}>
+          <Text style={styles.headerStats} numberOfLines={1}>
             {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
-          </ThemedText>
-        </ThemedView>
-      </ThemedView>
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={showSettings ? "Hide settings" : "Show settings"}
+            onPress={() => setShowSettings((s) => !s)}
+            style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
+          >
+            <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57"/>
+          </Pressable>
+        </View>
+      </View>
 
       {/* Feedback row: always visible when Show why is ON; shows last action pill */}
       {showWhy && (
@@ -522,11 +551,13 @@ export default function TexasHoldemTab() {
       {showFlop && flopCards && (
         <View style={[styles.card, styles.flopCard]}>
           <View style={styles.flopRow}>
-            <RowButton 
-              label={<Text>{showAllCards ? "Hide" : "Reveal"}</Text>} 
-              onPress={() => setShowAllCards(!showAllCards)} 
-              kind="outline" 
-            />
+            <View style={styles.revealButton}>
+              <RowButton 
+                label={<Text>{showAllCards ? "Hide" : "Reveal"}</Text>} 
+                onPress={() => setShowAllCards(!showAllCards)} 
+                kind="outline" 
+              />
+            </View>
             <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
               <PlayingCard card={flopCards[0]} compact={isCompact} />
               <PlayingCard card={flopCards[1]} compact={isCompact} />
@@ -546,96 +577,109 @@ export default function TexasHoldemTab() {
       />
 
       {/* Actions — left: C/A/F/R equal widths, right: New hand */}
-      <ThemedView style={styles.actionsRow}>
-        <ThemedView style={styles.actionsLeft}>
+      <View style={styles.actionsRow}>
+        <View style={styles.actionsLeft}>
           <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
           <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
           <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
           <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
-        </ThemedView>
-      </ThemedView>
+        </View>
+      </View>
 
-      {/* Footer: helper text left, gear button right */}
-      <ThemedView style={styles.footerRow}>
-        <ThemedText style={styles.helper}>Educational trainer (not a full equity/GTO engine).</ThemedText>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={showSettings ? "Hide settings" : "Show settings"}
-          onPress={() => setShowSettings((s) => !s)}
-          style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
-        >
-          <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57"/>
-        </Pressable>
-      </ThemedView>
+      {/* Footer: helper text left */}
+      <View style={styles.footerRow}>
+        <Text style={styles.helper}>Educational trainer (not a full equity/GTO engine).</Text>
+      </View>
 
       {/* Settings panel (toggle via gear) */}
       {showSettings && (
-        <View style={styles.card}>
-          <View style={styles.controlsRow}>
-            <View style={styles.controlBlock}>
-              <ThemedText style={styles.label}>Players</ThemedText>
-              <View style={styles.stepper}>
-                <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
-                <Text style={styles.stepperNum}>{numPlayers}</Text>
-                <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
+        <View style={styles.modalOverlay}>
+          <Pressable 
+            style={styles.modalBackdrop} 
+            onPress={() => setShowSettings(false)}
+          />
+          <Animated.View 
+            style={[
+              styles.modalSheet,
+              {
+                transform: [{
+                  translateY: settingsSlideAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [600, 0],
+                  })
+                }]
+              }
+            ]}
+          >
+            <View style={styles.modalHandle} />
+            <View style={styles.card}>
+              <View style={styles.controlsRow}>
+                <View style={styles.controlBlock}>
+                  <ThemedText style={styles.label}>Players</ThemedText>
+                  <View style={styles.stepper}>
+                    <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
+                    <Text style={styles.stepperNum}>{numPlayers}</Text>
+                    <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
+                  </View>
+                </View>
+                <View style={styles.controlBlock}>
+                  <Text style={styles.label}>Big blind</Text>
+                  <TextInput
+                    value={String(bigBlind)}
+                    onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
+                    inputMode="numeric"
+                    keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
+                    style={styles.input}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}><Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Auto new hand</Text></View>
+                <View style={styles.switchRow}><Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Facing a raise</Text></View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={[styles.controlBlock, { width: "100%" }]}>
+                  <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
+                  <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
+                    <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
+                    <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
+                    <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+                  </View>
+                  <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
+                    If &ldquo;Show why&rdquo; is ON, feedback stays visible; otherwise it hides after the delay above.
+                  </Text>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}>
+                  <Switch value={showWhy} onValueChange={setShowWhy} />
+                  <Text style={styles.switchLabel}>Show why (feedback)</Text>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}>
+                  <Switch value={showScore} onValueChange={setShowScore} />
+                  <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}>
+                  <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
+                  <Text style={styles.switchLabel}>Show flop cards</Text>
+                </View>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
+                <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
               </View>
             </View>
-            <View style={styles.controlBlock}>
-              <Text style={styles.label}>Big blind</Text>
-              <TextInput
-                value={String(bigBlind)}
-                onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
-                inputMode="numeric"
-                keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
-                style={styles.input}
-              />
-            </View>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <View style={styles.switchRow}><Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Auto new hand</Text></View>
-            <View style={styles.switchRow}><Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} /><Text style={styles.switchLabel}>Facing a raise</Text></View>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <View style={[styles.controlBlock, { width: "100%" }]}>
-              <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
-              <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
-                <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
-                <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
-                <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
-              </View>
-              <Text style={{ color: "#666", fontSize: 12, marginTop: 4 }}>
-                If &ldquo;Show why&rdquo; is ON, feedback stays visible; otherwise it hides after the delay above.
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <View style={styles.switchRow}>
-              <Switch value={showWhy} onValueChange={setShowWhy} />
-              <Text style={styles.switchLabel}>Show why (feedback)</Text>
-            </View>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <View style={styles.switchRow}>
-              <Switch value={showScore} onValueChange={setShowScore} />
-              <Text style={styles.switchLabel}>Show Chen score (your hand)</Text>
-            </View>
-          </View>
-
-          <View style={styles.controlsRow}>
-            <View style={styles.switchRow}>
-              <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
-              <Text style={styles.switchLabel}>Show flop cards</Text>
-            </View>
-          </View>
-
-          <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
-            <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
-            <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
-          </View>
+          </Animated.View>
         </View>
       )}
 
@@ -664,10 +708,10 @@ const styles = StyleSheet.create({
   screen: { padding: 16, gap: 12 },
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  title: { fontSize: 22, fontWeight: "700" },
-  headerRight: { alignItems: "flex-end" },
+  title: { fontSize: 22, fontWeight: "700", color: "#000" },
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 8 },
   // headerStats: { fontSize: 13, color: "#333", flexShrink: 1, textAlign: "right" },
-  headerStats: { fontSize: 13, flexShrink: 1, textAlign: "right" },
+  headerStats: { fontSize: 13, flexShrink: 1, textAlign: "right", color: "#666" },
 
   gearBtn: {
     paddingHorizontal: 10,
@@ -739,18 +783,60 @@ const styles = StyleSheet.create({
   flopLabel: { fontSize: 16, fontWeight: "600", color: "#333" },
   flopCards: { flexDirection: "row", gap: 6 },
   flopButtons: { flexDirection: "row", gap: 8 },
+  revealButton: { width: 80 },
 
   helper: { color: "#666", fontSize: 12 },
 
-  // Footer row with helper left and gear on right
+  // Footer row with centered helper text
   footerRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    justifyContent: "center",
     marginTop: 6,
   },
 
   // badge
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 14, fontWeight: "600" },
+
+  // Modal styles
+  modalOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "flex-end",
+    zIndex: 1000,
+  },
+  modalBackdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+  },
+  modalSheet: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 8,
+    paddingBottom: 32,
+    paddingHorizontal: 20,
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: "#ddd",
+    borderRadius: 2,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
 });
