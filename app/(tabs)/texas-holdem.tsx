@@ -709,12 +709,12 @@ export default function TexasHoldemTab() {
     if (!showWhy && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
     
     // Auto new hand logic:
-    // 1. If "Show community cards" is OFF, deal new hand after any pre-flop action (skip post-flop)
-    // 2. If "Show community cards" is ON, deal new hand when hand is complete (folded or finished river)
+    // 1. If "Play flop" is OFF, deal new hand after any pre-flop action (skip post-flop)
+    // 2. If "Play flop" is ON, deal new hand when hand is complete (folded or finished river)
     const shouldAutoNew = autoNew && (
-      (!showFlop && currentStreet === "preflop") || // Skip post-flop if community cards disabled
+      (!showFlop && currentStreet === "preflop") || // Skip post-flop if flop play disabled
       (action === "fold") || // Always auto-deal after folding
-      (showFlop && currentStreet === "river") // Auto-deal after river when community cards enabled
+      (showFlop && currentStreet === "river") // Auto-deal after river when flop play enabled
     );
     if (shouldAutoNew) {
       dealTimerRef.current = setTimeout(() => newHand(), delay);
@@ -1034,7 +1034,7 @@ export default function TexasHoldemTab() {
                 />
                 <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
-                    When enabled, community cards are revealed after your action (except fold), with options to reveal all hands.
+                    When enabled, play continues to the flop, turn, and river after your pre-flop action (except fold).
                   </Text>
                 </View>
               </>
@@ -1134,7 +1134,7 @@ export default function TexasHoldemTab() {
                 <View style={styles.switchRow}>
                   <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
                   <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show community cards</Text>
+                    <Text style={styles.switchLabel}>Play flop</Text>
                     <Pressable
                       onPress={toggleFlopTooltip}
                       style={styles.infoIcon}
