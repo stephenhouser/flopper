@@ -1224,15 +1224,18 @@ export default function TexasHoldemTab() {
               </View>
 
               <View style={styles.singleColumnRow}>
-                <View style={styles.controlBlock}>
+                <View style={[styles.controlBlock, { width: "35%" }]}>
                   <Text style={styles.label}>Big blind</Text>
-                  <TextInput
-                    value={String(bigBlind)}
-                    onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
-                    inputMode="numeric"
-                    keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
-                    style={styles.input}
-                  />
+                  <View style={styles.currencyInputContainer}>
+                    <Text style={styles.currencyPrefix}>$</Text>
+                    <TextInput
+                      value={String(bigBlind)}
+                      onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
+                      inputMode="numeric"
+                      keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
+                      style={styles.currencyInput}
+                    />
+                  </View>
                 </View>
               </View>
 
@@ -1318,6 +1321,11 @@ export default function TexasHoldemTab() {
                 </View>
               </View>
 
+              {/* Feedback section break */}
+              <View style={styles.sectionBreak}>
+                <Text style={styles.sectionHeader}>Feedback</Text>
+              </View>
+
               <View style={styles.singleColumnRow}>
                 <View style={styles.switchRow}>
                   <Switch 
@@ -1351,6 +1359,11 @@ export default function TexasHoldemTab() {
                 </View>
               </View>
 
+              {/* Hand scoring section break */}
+              <View style={styles.sectionBreak}>
+                <Text style={styles.sectionHeader}>Hand scoring</Text>
+              </View>
+
               <View style={styles.singleColumnRow}>
                 <View style={styles.switchRow}>
                   <Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} />
@@ -1379,6 +1392,11 @@ export default function TexasHoldemTab() {
                     </Pressable>
                   </View>
                 </View>
+              </View>
+
+              {/* Data Maintenance section break */}
+              <View style={styles.sectionBreak}>
+                <Text style={styles.sectionHeader}>Data Maintenance</Text>
               </View>
 
               <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
@@ -1437,6 +1455,11 @@ const styles = StyleSheet.create({
   controlBlock: { width: "48%" },
   label: { fontSize: 12, color: "#555", marginBottom: 6 },
   input: { backgroundColor: "#f2f2f6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 16 },
+  currencyInputContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#f2f2f6", borderRadius: 10, paddingLeft: 10 },
+  currencyPrefix: { fontSize: 16, color: "#666", fontWeight: "600" },
+  currencyInput: { flex: 1, paddingHorizontal: 8, paddingVertical: 8, fontSize: 16 },
+  sectionBreak: { marginTop: 20, marginBottom: 8 },
+  sectionHeader: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
   stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
   stepperNum: { width: 60, textAlign: "center", fontSize: 16 },
 
