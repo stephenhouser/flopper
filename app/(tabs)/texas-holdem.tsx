@@ -435,6 +435,9 @@ export default function TexasHoldemTab() {
         {item.isHero && showScore ? (
           <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Chen: {heroScore}</Text>
         ) : null}
+        {!item.isHero && showAllCards && showScore ? (
+          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Chen: {chenScore(item.cards[0], item.cards[1])}</Text>
+        ) : null}
       </View>
 
       {/* RIGHT: BIG $ bet pill (amount only; adds SB/BB tag) */}
@@ -519,20 +522,17 @@ export default function TexasHoldemTab() {
       {showFlop && flopCards && (
         <View style={[styles.card, styles.flopCard]}>
           <View style={styles.flopRow}>
-            <Text style={styles.flopLabel}>Flop:</Text>
+            <RowButton 
+              label={<Text>{showAllCards ? "Hide" : "Reveal"}</Text>} 
+              onPress={() => setShowAllCards(!showAllCards)} 
+              kind="outline" 
+            />
             <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
               <PlayingCard card={flopCards[0]} compact={isCompact} />
               <PlayingCard card={flopCards[1]} compact={isCompact} />
               <PlayingCard card={flopCards[2]} compact={isCompact} />
             </View>
-            <View style={styles.flopButtons}>
-              <RowButton 
-                label={<Text>{showAllCards ? "Hide cards" : "Show cards"}</Text>} 
-                onPress={() => setShowAllCards(!showAllCards)} 
-                kind="secondary" 
-              />
-              <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="outline" />
-            </View>
+            <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="primary" />
           </View>
         </View>
       )}
