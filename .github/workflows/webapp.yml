@@ -7,6 +7,7 @@ on:
   
 jobs:
   gh-pages:
+    if: github.repository == 'stephenhouser/do-not-run'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
