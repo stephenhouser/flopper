@@ -697,7 +697,9 @@ export default function TexasHoldemTab() {
     // Auto new hand when hand is complete (either folded or finished) and auto new is enabled
     const handCompleted = action === "fold" || (showFlop && currentStreet === "river");
     const shouldAutoNew = autoNew && handCompleted;
-    if (shouldAutoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
+    if (shouldAutoNew) {
+      dealTimerRef.current = setTimeout(() => newHand(), delay);
+    }
   }
 
   // Bet label with SB/BB shorthand (with "$")
@@ -849,7 +851,7 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Community Cards Row */}
-        {showFlop && (flopCards || currentStreet !== "preflop") && !foldedHand && (
+        {showFlop && (flopCards || (currentStreet !== "preflop" && !foldedHand)) && (
           <View style={[
             styles.card, 
             styles.flopCard,
@@ -879,7 +881,7 @@ export default function TexasHoldemTab() {
                 {riverCard && <PlayingCard card={riverCard} compact={isCompact} />}
               </View>
               <View style={styles.communityActions}>
-                <Text style={styles.streetLabel}>{currentStreet.toUpperCase()}</Text>
+                <Text style={styles.streetLabel}>{foldedHand ? "FOLDED" : currentStreet.toUpperCase()}</Text>
               </View>
             </View>
           </View>
