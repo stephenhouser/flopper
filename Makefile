@@ -9,3 +9,6 @@ run:
 # Run this to build the webapp in ./dist
 webapp:
 	npx expo export --platform web
+
+deploy:
+	npm run deploy

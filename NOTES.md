@@ -1,5 +1,11 @@
 # Development Notes
 
+## Deploy to github pages
+
+<https://docs.expo.dev/guides/publishing-websites/#github-pages>
+
+## Progressive web app
+
 Expo Progressive web app -- to make "installable" on iOS and Android as an app on their home screen. Also works on desktop (I think)
 
 <https://docs.expo.dev/guides/progressive-web-apps/>
