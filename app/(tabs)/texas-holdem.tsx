@@ -1336,20 +1336,22 @@ export default function TexasHoldemTab() {
 
         {/* MIDDLE: [Position pill] + [Name] inline; Chen score text (hero only) under it */}
         <View style={styles.metaCol}>
-          <View style={styles.nameRow}>
+          <View style={styles.nameRow1}>
             {!!item.positionLabel && (
               <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
                 <Text style={[styles.badgeText, isCompact && { fontSize: 13 }]}>{item.positionLabel}</Text>
               </View>
             )}
-            <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
           </View>
-          {item.isHero && showScore ? (
-            <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore} (Chen)</Text>
-          ) : null}
-          {!item.isHero && isPlayerRevealed && showScore ? (
-            <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])} (Chen)</Text>
-          ) : null}
+          <View style={styles.nameRow2}>
+            <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
+            {item.isHero && showScore ? (
+              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore} (Chen)</Text>
+            ) : null}
+            {!item.isHero && isPlayerRevealed && showScore ? (
+              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])} (Chen)</Text>
+            ) : null}
+            </View>
         </View>
 
         {/* RIGHT: BIG $ bet pill (amount only; adds SB/BB tag) */}
@@ -1990,7 +1992,8 @@ const styles = StyleSheet.create({
 
   // MIDDLE meta
   metaCol: { flex: 1 },
-  nameRow: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
+  nameRow1: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
+  nameRow2: { flexDirection: "row", alignItems: "baseline", justifyContent: "flex-start", gap: 8, paddingLeft: 4, paddingTop: 3 }, // position pill + name inline
   playerName: { fontWeight: "600", fontSize: 18 },
   playerSub: { color: "#666", fontSize: 12 },
 
