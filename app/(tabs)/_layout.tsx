@@ -42,6 +42,13 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="omaha"
+        options={{
+          title: 'Omaha',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cards-playing-diamond-multiple" size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="blackjack"
         options={{
           title: 'Blackjack',

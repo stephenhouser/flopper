@@ -1,3 +1,6 @@
+import { ThemedText } from '@/components/ThemedText';
+import { ThemedView } from '@/components/ThemedView';
+
 import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -11,7 +14,7 @@ import {
   Switch,
   Text,
   TextInput,
-  View,
+  View
 } from "react-native";
 
 /**
@@ -146,11 +149,11 @@ function withHotkey(label: string, hotkey: string) {
   const i = label.toLowerCase().indexOf(hotkey.toLowerCase());
   if (i === -1) return <Text>{label}</Text>;
   return (
-    <Text>
+    <ThemedText>
       {label.slice(0, i)}
-      <Text style={styles.underlineLetter}>{label[i]}</Text>
+      <ThemedText style={styles.underlineLetter}>{label[i]}</ThemedText>
       {label.slice(i + 1)}
-    </Text>
+    </ThemedText>
   );
 }
 
@@ -192,7 +195,7 @@ const RowButton: React.FC<{
       pressed && { opacity: 0.8 },
     ]}
   >
-    <Text style={[styles.btnText, kind === "primary" && { color: "#fff" }]}>{label}</Text>
+    <ThemedText style={[styles.btnText, kind === "primary" && { color: "#fff" }]}>{label}</ThemedText>
   </Pressable>
 );
 
@@ -462,14 +465,14 @@ export default function TexasHoldemTab() {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       {/* Header with one-line stats (no gear here) */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Texas Holdem</Text>
-        <View style={styles.headerRight}>
-          <Text style={styles.headerStats} numberOfLines={1}>
+      <ThemedView style={styles.header}>
+        <ThemedText style={styles.title}>Texas Holdem</ThemedText>
+        <ThemedView style={styles.headerRight}>
+          <ThemedText style={styles.headerStats} numberOfLines={1}>
             {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
-          </Text>
-        </View>
-      </View>
+          </ThemedText>
+        </ThemedView>
+      </ThemedView>
 
       {/* Feedback row: always visible when Show why is ON; shows last action pill */}
       {showWhy && (
@@ -494,18 +497,18 @@ export default function TexasHoldemTab() {
       />
 
       {/* Actions — left: C/A/F/R equal widths, right: New hand */}
-      <View style={styles.actionsRow}>
-        <View style={styles.actionsLeft}>
+      <ThemedView style={styles.actionsRow}>
+        <ThemedView style={styles.actionsLeft}>
           <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
           <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
           <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
           <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
-        </View>
-      </View>
+        </ThemedView>
+      </ThemedView>
 
       {/* Footer: helper text left, gear button right */}
-      <View style={styles.footerRow}>
-        <Text style={styles.helper}>Educational trainer (not a full equity/GTO engine).</Text>
+      <ThemedView style={styles.footerRow}>
+        <ThemedText style={styles.helper}>Educational trainer (not a full equity/GTO engine).</ThemedText>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={showSettings ? "Hide settings" : "Show settings"}
@@ -514,14 +517,14 @@ export default function TexasHoldemTab() {
         >
           <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57"/>
         </Pressable>
-      </View>
+      </ThemedView>
 
       {/* Settings panel (toggle via gear) */}
       {showSettings && (
         <View style={styles.card}>
           <View style={styles.controlsRow}>
             <View style={styles.controlBlock}>
-              <Text style={styles.label}>Players</Text>
+              <ThemedText style={styles.label}>Players</ThemedText>
               <View style={styles.stepper}>
                 <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
                 <Text style={styles.stepperNum}>{numPlayers}</Text>
@@ -606,7 +609,8 @@ const styles = StyleSheet.create({
 
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   title: { fontSize: 22, fontWeight: "700" },
-  headerStats: { fontSize: 13, color: "#333", flexShrink: 1, textAlign: "right" },
+  // headerStats: { fontSize: 13, color: "#333", flexShrink: 1, textAlign: "right" },
+  headerStats: { fontSize: 13, flexShrink: 1, textAlign: "right" },
 
   gearBtn: {
     paddingHorizontal: 10,
