@@ -1012,22 +1012,31 @@ export default function TexasHoldemTab() {
                 />
               </View>
               <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-                {/* Show placeholder text when no cards are dealt yet but always show is enabled */}
-                {!flopCards && !turnCard && !riverCard && showCommunityCards && (
-                  <Text style={styles.streetLabel}>Community cards will appear here</Text>
-                )}
-                {/* Flop Cards */}
-                {flopCards && (
+                {/* Show empty card outlines when no cards are dealt yet but always show is enabled */}
+                {!flopCards && !turnCard && !riverCard && showCommunityCards ? (
                   <>
-                    <PlayingCard card={flopCards[0]} compact={isCompact} />
-                    <PlayingCard card={flopCards[1]} compact={isCompact} />
-                    <PlayingCard card={flopCards[2]} compact={isCompact} />
+                    <PlayingCard hidden compact={isCompact} />
+                    <PlayingCard hidden compact={isCompact} />
+                    <PlayingCard hidden compact={isCompact} />
+                    <PlayingCard hidden compact={isCompact} />
+                    <PlayingCard hidden compact={isCompact} />
+                  </>
+                ) : (
+                  <>
+                    {/* Flop Cards */}
+                    {flopCards && (
+                      <>
+                        <PlayingCard card={flopCards[0]} compact={isCompact} />
+                        <PlayingCard card={flopCards[1]} compact={isCompact} />
+                        <PlayingCard card={flopCards[2]} compact={isCompact} />
+                      </>
+                    )}
+                    {/* Turn Card */}
+                    {turnCard && <PlayingCard card={turnCard} compact={isCompact} />}
+                    {/* River Card */}
+                    {riverCard && <PlayingCard card={riverCard} compact={isCompact} />}
                   </>
                 )}
-                {/* Turn Card */}
-                {turnCard && <PlayingCard card={turnCard} compact={isCompact} />}
-                {/* River Card */}
-                {riverCard && <PlayingCard card={riverCard} compact={isCompact} />}
               </View>
               <View style={styles.communityActions}>
                 <Text style={styles.streetLabel}>{foldedHand ? "FOLDED" : currentStreet.toUpperCase()}</Text>
