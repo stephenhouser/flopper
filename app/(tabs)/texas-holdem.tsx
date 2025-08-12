@@ -198,6 +198,45 @@ type Player = {
 };
 type Action = "check" | "call" | "fold" | "raise";
 
+// Hand history types for session tracking
+type HandAction = {
+  player: string;
+  action: Action;
+  amount: number;
+  street: "preflop" | "flop" | "turn" | "river";
+  timestamp: number;
+};
+
+type HandHistory = {
+  handId: string;
+  timestamp: number;
+  players: Array<{
+    name: string;
+    position: string;
+    cards: [CardT, CardT];
+    isHero: boolean;
+  }>;
+  blinds: {
+    smallBlind: number;
+    bigBlind: number;
+  };
+  communityCards: {
+    flop?: [CardT, CardT, CardT];
+    turn?: CardT;
+    river?: CardT;
+  };
+  actions: HandAction[];
+  pot: number;
+  result: "folded" | "completed";
+  heroWon?: boolean;
+};
+
+type Session = {
+  id: string;
+  startTime: number;
+  hands: HandHistory[];
+};
+
 function labelForPos(posFromDealer: number, n: number): string {
   if (posFromDealer === 0) return "Dealer"; // BTN
   if (posFromDealer === 1) return "SB";
@@ -305,6 +344,10 @@ export default function TexasHoldemTab() {
   const [showCommunityCardsTooltip, setShowCommunityCardsTooltip] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
   const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
+
+  // Session-based hand history tracking
+  const [currentSession, setCurrentSession] = useState<Session | null>(null);
+  const [currentHandHistory, setCurrentHandHistory] = useState<HandHistory | null>(null);
 
   const isCompact = Platform.OS !== "web";
 
@@ -558,7 +601,7 @@ export default function TexasHoldemTab() {
     // const ps: Array<Player> = Array.from({ length: n }).map((_, i) => ({
     const ps: Player[] = Array.from({ length: n }).map((_, i) => ({
       id: i,
-      name: i === heroSeat ? "You" : `P${i + 1}`,
+      name: i === heroSeat ? "Hero" : `P${i + 1}`,
       role: "" as Player["role"],
       bet: 0,
       cards: [freshDeck.pop()!, freshDeck.pop()!] as [CardT, CardT],
@@ -606,11 +649,24 @@ export default function TexasHoldemTab() {
     setLastActionCorrect(null);
     setShowAllCards(false);
     if (!showWhy) setResult("");
+
+    // Initialize hand history for this new hand
+    if (currentSession) {
+      const handHistory = createHandHistory(rotated);
+      setCurrentHandHistory(handHistory);
+    }
   }
 
   function newHand() { dealTable(numPlayers); }
 
   useEffect(() => { if (ready) newHand(); }, [ready]);
+
+  // Initialize session when app starts
+  useEffect(() => {
+    if (ready && !currentSession) {
+      startNewSession();
+    }
+  }, [ready, currentSession]);
 
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
   const recommended = useMemo(
@@ -676,6 +732,175 @@ export default function TexasHoldemTab() {
     setResult(showWhy ? "All settings and stats reset." : "");
   }
 
+  // Session management functions
+  function startNewSession() {
+    const session: Session = {
+      id: `session_${Date.now()}`,
+      startTime: Date.now(),
+      hands: []
+    };
+    setCurrentSession(session);
+    setCurrentHandHistory(null);
+  }
+
+  function createHandHistory(players: Player[]): HandHistory {
+    const handId = `hand_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    return {
+      handId,
+      timestamp: Date.now(),
+      players: players.map(p => ({
+        name: p.name,
+        position: p.positionLabel || "",
+        cards: p.cards,
+        isHero: p.isHero
+      })),
+      blinds: {
+        smallBlind: Math.max(1, Math.floor(bigBlind / 2)),
+        bigBlind: bigBlind
+      },
+      communityCards: {},
+      actions: [],
+      pot: 0,
+      result: "folded"
+    };
+  }
+
+  function addActionToHistory(action: Action, amount: number, street: "preflop" | "flop" | "turn" | "river") {
+    if (!currentHandHistory || !hero) return;
+
+    const handAction: HandAction = {
+      player: hero.name,
+      action,
+      amount,
+      street,
+      timestamp: Date.now()
+    };
+
+    setCurrentHandHistory(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        actions: [...prev.actions, handAction]
+      };
+    });
+  }
+
+  function exportSessionToPokerStars(): string {
+    if (!currentSession || currentSession.hands.length === 0) {
+      return "No hands to export in current session.";
+    }
+
+    let output = "";
+    
+    currentSession.hands.forEach((hand, index) => {
+      const date = new Date(hand.timestamp);
+      const dateStr = date.toISOString().replace('T', ' ').split('.')[0];
+      
+      // Hand header
+      output += `PokerStars Hand #${hand.handId}: Hold'em No Limit ($${hand.blinds.smallBlind}/$${hand.blinds.bigBlind}) - ${dateStr} ET\n`;
+      output += `Table 'Training Table' 6-max Seat #1 is the button\n`;
+      
+      // Seat information
+      hand.players.forEach((player, seatIndex) => {
+        const seat = seatIndex + 1;
+        output += `Seat ${seat}: ${player.name} ($1000 in chips)\n`;
+      });
+      
+      // Blinds posting
+      const sbPlayer = hand.players.find(p => p.position === "SB");
+      const bbPlayer = hand.players.find(p => p.position === "BB");
+      if (sbPlayer) output += `${sbPlayer.name}: posts small blind $${hand.blinds.smallBlind}\n`;
+      if (bbPlayer) output += `${bbPlayer.name}: posts big blind $${hand.blinds.bigBlind}\n`;
+      
+      // Hole cards
+      output += "*** HOLE CARDS ***\n";
+      const heroPlayer = hand.players.find(p => p.isHero);
+      if (heroPlayer) {
+        output += `Dealt to ${heroPlayer.name} [${cardToStr(heroPlayer.cards[0])} ${cardToStr(heroPlayer.cards[1])}]\n`;
+      }
+      
+      // Pre-flop actions
+      const preflopActions = hand.actions.filter(a => a.street === "preflop");
+      preflopActions.forEach(action => {
+        const actionStr = action.action === "check" ? "checks" : 
+                        action.action === "call" ? `calls $${action.amount}` :
+                        action.action === "raise" ? `raises $${action.amount}` :
+                        "folds";
+        output += `${action.player}: ${actionStr}\n`;
+      });
+      
+      // Community cards and post-flop actions
+      if (hand.communityCards.flop) {
+        output += `*** FLOP *** [${hand.communityCards.flop.map(cardToStr).join(' ')}]\n`;
+        const flopActions = hand.actions.filter(a => a.street === "flop");
+        flopActions.forEach(action => {
+          const actionStr = action.action === "check" ? "checks" : 
+                          action.action === "call" ? `calls $${action.amount}` :
+                          action.action === "raise" ? `bets $${action.amount}` :
+                          "folds";
+          output += `${action.player}: ${actionStr}\n`;
+        });
+      }
+      
+      if (hand.communityCards.turn) {
+        output += `*** TURN *** [${hand.communityCards.flop?.map(cardToStr).join(' ')} ${cardToStr(hand.communityCards.turn)}]\n`;
+        const turnActions = hand.actions.filter(a => a.street === "turn");
+        turnActions.forEach(action => {
+          const actionStr = action.action === "check" ? "checks" : 
+                          action.action === "call" ? `calls $${action.amount}` :
+                          action.action === "raise" ? `bets $${action.amount}` :
+                          "folds";
+          output += `${action.player}: ${actionStr}\n`;
+        });
+      }
+      
+      if (hand.communityCards.river) {
+        output += `*** RIVER *** [${hand.communityCards.flop?.map(cardToStr).join(' ')} ${cardToStr(hand.communityCards.turn)} ${cardToStr(hand.communityCards.river)}]\n`;
+        const riverActions = hand.actions.filter(a => a.street === "river");
+        riverActions.forEach(action => {
+          const actionStr = action.action === "check" ? "checks" : 
+                          action.action === "call" ? `calls $${action.amount}` :
+                          action.action === "raise" ? `bets $${action.amount}` :
+                          "folds";
+          output += `${action.player}: ${actionStr}\n`;
+        });
+      }
+      
+      // Summary
+      output += "*** SUMMARY ***\n";
+      output += `Total pot $${hand.pot}\n`;
+      if (hand.result === "folded") {
+        output += `${heroPlayer?.name} folded\n`;
+      } else if (hand.heroWon !== undefined) {
+        output += hand.heroWon ? `${heroPlayer?.name} wins the pot\n` : `${heroPlayer?.name} loses the hand\n`;
+      }
+      
+      output += "\n\n";
+    });
+    
+    return output;
+  }
+
+  function downloadSessionExport() {
+    const content = exportSessionToPokerStars();
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const element = document.createElement("a");
+      const file = new Blob([content], { type: 'text/plain' });
+      element.href = URL.createObjectURL(file);
+      element.download = `poker_session_${currentSession?.id || 'unknown'}.txt`;
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    } else {
+      // For mobile, show content in alert for now
+      alert(content.length > 1000 ? 
+        `Session export ready (${content.length} characters). Feature to save files coming soon.` :
+        content
+      );
+    }
+  }
+
   function act(action: Action) {
     setHeroAction(action);
     setLastAction(action);
@@ -695,7 +920,7 @@ export default function TexasHoldemTab() {
     
     setLastActionCorrect(correct);
 
-    // Update hero's bet based on action
+    // Track action in hand history
     const currentBet = Math.max(...players.map(p => p.bet));
     const heroBet = players.find(p => p.isHero)?.bet || 0;
     let betAmount = 0;
@@ -715,6 +940,11 @@ export default function TexasHoldemTab() {
     }
     // fold doesn't change bet amount
     
+    // Track this action in hand history (only for valid streets)
+    if (currentStreet !== "complete") {
+      addActionToHistory(action, betAmount, currentStreet);
+    }
+    
     setPlayers(prevPlayers => 
       prevPlayers.map(p => {
         if (p.isHero) {
@@ -728,10 +958,33 @@ export default function TexasHoldemTab() {
     if (action === "fold") {
       // Collect all current bets into the pot before ending
       const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+      const finalPot = pot + allBets;
       setPot(prevPot => prevPot + allBets);
       setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
       setCurrentStreet("complete");
       setFoldedHand(true);
+      
+      // Complete hand history
+      if (currentHandHistory && currentSession) {
+        const updatedHistory = {
+          ...currentHandHistory,
+          pot: finalPot,
+          result: "folded" as const,
+          communityCards: {
+            ...(flopCards && { flop: flopCards }),
+            ...(turnCard && { turn: turnCard }),
+            ...(riverCard && { river: riverCard })
+          }
+        };
+        setCurrentSession(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            hands: [...prev.hands, updatedHistory]
+          };
+        });
+        setCurrentHandHistory(null);
+      }
       // Don't deal additional community cards when folding
     } else {
       // Deal next cards based on current street using the stored deck
@@ -774,6 +1027,7 @@ export default function TexasHoldemTab() {
       } else if (showFlop && showTurn && showRiver && currentStreet === "river") {
         // After river action, complete the hand and collect final bets
         const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        const finalPot = pot + allBets;
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         setCurrentStreet("complete");
@@ -783,11 +1037,35 @@ export default function TexasHoldemTab() {
         setRevealedPlayers(allPlayerIds);
         
         // Evaluate who won the hand
+        let heroWon: boolean | undefined = undefined;
         if (hero && flopCards && turnCard && riverCard) {
           const communityCards = [...flopCards, turnCard, riverCard];
           const otherPlayers = players.filter(p => !p.isHero);
-          const heroWon = didHeroWin(hero, otherPlayers, communityCards);
+          heroWon = didHeroWin(hero, otherPlayers, communityCards);
           setHeroWonHand(heroWon);
+        }
+        
+        // Complete hand history
+        if (currentHandHistory && currentSession) {
+          const updatedHistory = {
+            ...currentHandHistory,
+            pot: finalPot,
+            result: "completed" as const,
+            heroWon,
+            communityCards: {
+              flop: flopCards!,
+              turn: turnCard!,
+              river: riverCard!
+            }
+          };
+          setCurrentSession(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              hands: [...prev.hands, updatedHistory]
+            };
+          });
+          setCurrentHandHistory(null);
         }
       } else {
         // Hand ends early if settings don't allow further streets
@@ -1459,6 +1737,33 @@ export default function TexasHoldemTab() {
                 <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
                 <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
               </View>
+              
+              {/* Session Management section break */}
+              <View style={styles.sectionBreak}>
+                <Text style={styles.sectionHeader}>Session Management</Text>
+              </View>
+
+              <View style={{ flexDirection: "row", gap: 8, marginTop: 6 }}>
+                <RowButton 
+                  label={<Text>New Session</Text>} 
+                  onPress={startNewSession} 
+                  kind="outline" 
+                />
+                <RowButton 
+                  label={<Text>Export Session</Text>} 
+                  onPress={downloadSessionExport} 
+                  kind="outline"
+                  disabled={!currentSession || currentSession.hands.length === 0}
+                />
+              </View>
+              
+              {currentSession && (
+                <View style={styles.singleColumnRow}>
+                  <Text style={styles.sessionInfo}>
+                    Current session: {currentSession.hands.length} hands played
+                  </Text>
+                </View>
+              )}
             </View>
             </ScrollView>
           </Animated.View>
@@ -1661,5 +1966,10 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     alignSelf: "center",
     marginBottom: 16,
+  },
+  sessionInfo: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 4,
   },
 });
