@@ -797,7 +797,8 @@ export default function TexasHoldemTab() {
         setCurrentStreet("complete");
         
         // If "Always show community cards" is enabled, deal missing cards for analysis
-        if (showCommunityCards && deck.length > 0) {
+        // But only if post-flop play is enabled (showFlop is true)
+        if (showCommunityCards && showFlop && deck.length > 0) {
           let newDeck = [...deck];
           
           // Deal flop if not dealt yet
@@ -862,8 +863,8 @@ export default function TexasHoldemTab() {
     }
     
     const resultText = currentStreet === "preflop" 
-      ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why}`
-      : `${currentStreet.toUpperCase()} action: ${action.toUpperCase()}. ${why}`;
+      ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why} Pot: $${totalPot}.`
+      : `${currentStreet.toUpperCase()} action: ${action.toUpperCase()}. ${why} Pot: $${totalPot}.`;
       
     setResult(resultText);
 
@@ -1032,15 +1033,10 @@ export default function TexasHoldemTab() {
             lastActionCorrect === false && { backgroundColor: "#f8c7cc" }
           ]}>
             <View style={styles.feedbackRow}>
-              <Text style={styles.lastActionText}>Last: {formatAction(lastAction)}</Text>
-              <Text style={[styles.feedbackText, { flex: 1, paddingHorizontal: 8 }]}>
+              <Text style={styles.lastActionText}>{formatAction(lastAction)}</Text>
+              <Text style={[styles.feedbackText]}>
                 {result || "Take an action to see feedback."}
               </Text>
-              <View style={styles.feedbackRight}>
-                <View style={styles.pill}>
-                  <Text style={styles.potText}>Pot: ${totalPot}</Text>
-                </View>
-              </View>
             </View>
           </View>
         )}
