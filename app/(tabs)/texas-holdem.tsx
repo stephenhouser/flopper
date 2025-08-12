@@ -664,9 +664,22 @@ export default function TexasHoldemTab() {
   // Initialize session when app starts
   useEffect(() => {
     if (ready && !currentSession) {
-      startNewSession();
+      loadSessionFromStorage().then(savedSession => {
+        if (savedSession) {
+          setCurrentSession(savedSession);
+        } else {
+          startNewSession();
+        }
+      });
     }
   }, [ready, currentSession]);
+
+  // Save session to storage whenever it changes
+  useEffect(() => {
+    if (currentSession) {
+      saveSessionToStorage(currentSession);
+    }
+  }, [currentSession]);
 
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
   const recommended = useMemo(
@@ -729,6 +742,16 @@ export default function TexasHoldemTab() {
       Storage.setItem("poker.showCommunityCards", "0")
     ]);
     
+    // Clear session from storage and reset session state
+    await clearSessionFromStorage();
+    setCurrentSession(null);
+    setCurrentHandHistory(null);
+    
+    // Start a new session after clearing everything
+    setTimeout(() => {
+      startNewSession();
+    }, 100); // Small delay to ensure state is cleared first
+    
     setResult(showWhy ? "All settings and stats reset." : "");
   }
 
@@ -742,12 +765,44 @@ export default function TexasHoldemTab() {
     setCurrentSession(session);
     setCurrentHandHistory(null);
     
+    // Save new session to storage
+    saveSessionToStorage(session);
+    
     // Reset accuracy statistics for the new session
     setTotalHands(0);
     setCorrectHands(0);
     setLastAction("");
     setLastActionCorrect(null);
     setResult(showWhy ? "New session started. Stats reset." : "");
+  }
+
+  // Session persistence functions
+  async function saveSessionToStorage(session: Session) {
+    try {
+      await Storage.setItem("poker.currentSession", JSON.stringify(session));
+    } catch (error) {
+      console.warn("Failed to save session to storage:", error);
+    }
+  }
+
+  async function loadSessionFromStorage(): Promise<Session | null> {
+    try {
+      const sessionJson = await Storage.getItem("poker.currentSession");
+      if (sessionJson) {
+        return JSON.parse(sessionJson) as Session;
+      }
+    } catch (error) {
+      console.warn("Failed to load session from storage:", error);
+    }
+    return null;
+  }
+
+  async function clearSessionFromStorage() {
+    try {
+      await Storage.setItem("poker.currentSession", "");
+    } catch (error) {
+      console.warn("Failed to clear session from storage:", error);
+    }
   }
 
   function createHandHistory(players: Player[]): HandHistory {
