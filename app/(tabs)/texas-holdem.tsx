@@ -25,7 +25,7 @@ import {
  * - Actions: Check/Call/Fold/Raise (primary blue, equal width) + New hand button
  * - Hotkeys: c/a/f/r, Enter=repeat last action, Space=new hand (web + native via react-native-key-command if present)
  * - Settings panel (hidden by default): players, blinds, auto new, facing raise, feedback time, show why, show Chen score, reset stats
- * - Persisted prefs: showWhy, autoNew, facingRaise, feedbackSecs, showScore, showSettings
+ * - Persisted prefs: showFeedback, autoNew, facingRaise, feedbackSecs, showScore, showSettings
  * - Hero row flashes green/red; fade starts at 3/4 of feedback time
  */
 
@@ -325,7 +325,7 @@ export default function TexasHoldemTab() {
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
-  const [showWhy, setShowWhy] = useState(true);
+  const [showFeedback, setshowFeedback] = useState(true);
   const [showScore, setShowScore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showFlop, setShowFlop] = useState(false);
@@ -531,7 +531,7 @@ export default function TexasHoldemTab() {
   useEffect(() => {
     (async () => {
       const [sWhy, sAuto, sFacing, sSecs, sScore, sFlop, sTurn, sRiver, sCommunityCards] = await Promise.all([
-        Storage.getItem("poker.showWhy"),
+        Storage.getItem("poker.showFeedback"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
         Storage.getItem("poker.feedbackSecs"),
@@ -541,7 +541,7 @@ export default function TexasHoldemTab() {
         Storage.getItem("poker.showRiver"),
         Storage.getItem("poker.showCommunityCards"),
       ]);
-      if (sWhy != null) setShowWhy(sWhy === "1");
+      if (sWhy != null) setshowFeedback(sWhy === "1");
       if (sAuto != null) setAutoNew(sAuto === "1");
       if (sFacing != null) setFacingRaise(sFacing === "1");
       if (sSecs != null) {
@@ -558,7 +558,7 @@ export default function TexasHoldemTab() {
   }, []);
 
   // Persist prefs on change
-  useEffect(() => { Storage.setItem("poker.showWhy", showWhy ? "1" : "0"); }, [showWhy]);
+  useEffect(() => { Storage.setItem("poker.showFeedback", showFeedback ? "1" : "0"); }, [showFeedback]);
   useEffect(() => { Storage.setItem("poker.autoNew", autoNew ? "1" : "0"); }, [autoNew]);
   useEffect(() => { Storage.setItem("poker.facingRaise", facingRaise ? "1" : "0"); }, [facingRaise]);
   useEffect(() => { Storage.setItem("poker.feedbackSecs", String(feedbackSecs)); }, [feedbackSecs]);
@@ -650,7 +650,7 @@ export default function TexasHoldemTab() {
     setHeroAction("");
     setLastActionCorrect(null);
     setShowAllCards(false);
-    if (!showWhy) setResult("");
+    if (!showFeedback) setResult("");
 
     // Initialize hand history for this new hand
     if (currentSession) {
@@ -694,7 +694,7 @@ export default function TexasHoldemTab() {
     setCorrectHands(0);
     setLastAction("");
     setLastActionCorrect(null);
-    setResult(showWhy ? "Stats reset." : "");
+    setResult(showFeedback ? "Stats reset." : "");
   }
 
   async function resetAll() {
@@ -705,7 +705,7 @@ export default function TexasHoldemTab() {
     setLastActionCorrect(null);
     
     // Reset all settings to defaults
-    setShowWhy(true);
+    setshowFeedback(true);
     setAutoNew(true);
     setFacingRaise(true);
     setFeedbackSecs(1.0);
@@ -718,7 +718,7 @@ export default function TexasHoldemTab() {
     
     // Clear all persisted data
     const keys = [
-      "poker.showWhy",
+      "poker.showFeedback",
       "poker.autoNew", 
       "poker.facingRaise",
       "poker.feedbackSecs",
@@ -731,7 +731,7 @@ export default function TexasHoldemTab() {
     
     // Clear storage (set to default values)
     await Promise.all([
-      Storage.setItem("poker.showWhy", "1"),
+      Storage.setItem("poker.showFeedback", "1"),
       Storage.setItem("poker.autoNew", "1"),
       Storage.setItem("poker.facingRaise", "1"),
       Storage.setItem("poker.feedbackSecs", "1.0"),
@@ -752,7 +752,7 @@ export default function TexasHoldemTab() {
       startNewSession();
     }, 100); // Small delay to ensure state is cleared first
     
-    setResult(showWhy ? "All settings and stats reset." : "");
+    setResult(showFeedback ? "All settings and stats reset." : "");
   }
 
   // Session management functions
@@ -773,7 +773,7 @@ export default function TexasHoldemTab() {
     setCorrectHands(0);
     setLastAction("");
     setLastActionCorrect(null);
-    setResult(showWhy ? "New session started. Stats reset." : "");
+    setResult(showFeedback ? "New session started. Stats reset." : "");
   }
 
   // Session persistence functions
@@ -1275,7 +1275,7 @@ export default function TexasHoldemTab() {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
-    if (!showWhy && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
+    if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
     
     // Auto new hand logic:
     // 1. If "Play flop" is OFF, deal new hand after any pre-flop action (skip post-flop)
@@ -1432,7 +1432,7 @@ export default function TexasHoldemTab() {
         </View>
 
         {/* Feedback row: always visible when Show why is ON; shows last action pill and pot */}
-        {showWhy && (
+        {showFeedback && (
           <View style={[
             styles.card,
             lastActionCorrect === true && { backgroundColor: "#b9efd2" },
@@ -1808,7 +1808,7 @@ export default function TexasHoldemTab() {
 
               <View style={styles.singleColumnRow}>
                 <View style={styles.switchRow}>
-                  <Switch value={showWhy} onValueChange={setShowWhy} />
+                  <Switch value={showFeedback} onValueChange={setshowFeedback} />
                   <View style={styles.labelWithIcon}>
                     <Text style={styles.switchLabel}>Show feedback</Text>
                     <Pressable
