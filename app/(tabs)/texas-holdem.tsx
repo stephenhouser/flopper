@@ -880,9 +880,6 @@ export default function TexasHoldemTab() {
               </View>
               <View style={styles.communityActions}>
                 <Text style={styles.streetLabel}>{currentStreet.toUpperCase()}</Text>
-                {currentStreet === "complete" && (
-                  <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="primary" />
-                )}
               </View>
             </View>
           </View>
@@ -896,14 +893,23 @@ export default function TexasHoldemTab() {
           contentContainerStyle={{ gap: 8 }}
         />
 
-        {/* Actions — left: C/A/F/R equal widths, right: New hand */}
+        {/* Actions — show betting actions during play, new hand button when complete */}
         <View style={styles.actionsRow}>
-          <View style={styles.actionsLeft}>
-            <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
-            <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
-            <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} disabled={!canCheck} />
-            <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
-          </View>
+          {currentStreet === "complete" ? (
+            <RowButton 
+              label={<Text>New Hand</Text>} 
+              onPress={newHand} 
+              kind="primary" 
+              equal 
+            />
+          ) : (
+            <View style={styles.actionsLeft}>
+              <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
+              <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
+              <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} disabled={!canCheck} />
+              <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
+            </View>
+          )}
         </View>
 
         {/* Footer: helper text left */}
