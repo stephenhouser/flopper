@@ -530,13 +530,12 @@ export default function TexasHoldemTab() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings, sFlop, sTurn, sRiver, sCommunityCards] = await Promise.all([
+      const [sWhy, sAuto, sFacing, sSecs, sScore, sFlop, sTurn, sRiver, sCommunityCards] = await Promise.all([
         Storage.getItem("poker.showWhy"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
         Storage.getItem("poker.feedbackSecs"),
         Storage.getItem("poker.showScore"),
-        Storage.getItem("poker.showSettings"),
         Storage.getItem("poker.showFlop"),
         Storage.getItem("poker.showTurn"),
         Storage.getItem("poker.showRiver"),
@@ -550,7 +549,6 @@ export default function TexasHoldemTab() {
         if (!Number.isNaN(v)) setFeedbackSecs(v);
       }
       if (sScore != null) setShowScore(sScore === "1");
-      if (sSettings != null) setShowSettings(sSettings === "1");
       if (sFlop != null) setShowFlop(sFlop === "1");
       if (sTurn != null) setShowTurn(sTurn === "1");
       if (sRiver != null) setShowRiver(sRiver === "1");
@@ -565,7 +563,6 @@ export default function TexasHoldemTab() {
   useEffect(() => { Storage.setItem("poker.facingRaise", facingRaise ? "1" : "0"); }, [facingRaise]);
   useEffect(() => { Storage.setItem("poker.feedbackSecs", String(feedbackSecs)); }, [feedbackSecs]);
   useEffect(() => { Storage.setItem("poker.showScore", showScore ? "1" : "0"); }, [showScore]);
-  useEffect(() => { Storage.setItem("poker.showSettings", showSettings ? "1" : "0"); }, [showSettings]);
   useEffect(() => { Storage.setItem("poker.showFlop", showFlop ? "1" : "0"); }, [showFlop]);
   useEffect(() => { Storage.setItem("poker.showTurn", showTurn ? "1" : "0"); }, [showTurn]);
   useEffect(() => { Storage.setItem("poker.showRiver", showRiver ? "1" : "0"); }, [showRiver]);
@@ -726,7 +723,6 @@ export default function TexasHoldemTab() {
       "poker.facingRaise",
       "poker.feedbackSecs",
       "poker.showScore",
-      "poker.showSettings",
       "poker.showFlop",
       "poker.showTurn",
       "poker.showRiver",
@@ -740,7 +736,6 @@ export default function TexasHoldemTab() {
       Storage.setItem("poker.facingRaise", "1"),
       Storage.setItem("poker.feedbackSecs", "1.0"),
       Storage.setItem("poker.showScore", "1"),
-      Storage.setItem("poker.showSettings", "0"),
       Storage.setItem("poker.showFlop", "0"),
       Storage.setItem("poker.showTurn", "0"),
       Storage.setItem("poker.showRiver", "0"),
@@ -1697,7 +1692,7 @@ export default function TexasHoldemTab() {
                     <Text style={styles.currencyPrefix}>$</Text>
                     <TextInput
                       value={String(bigBlind)}
-                      onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(next); }}
+                      onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
                       inputMode="numeric"
                       keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
                       style={styles.currencyInput}
