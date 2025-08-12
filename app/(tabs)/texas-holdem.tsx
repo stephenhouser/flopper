@@ -298,7 +298,7 @@ export default function TexasHoldemTab() {
   const [showScoreTooltip, setShowScoreTooltip] = useState(false);
   const [showFlopTooltip, setShowFlopTooltip] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
-
+  const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
 
   const isCompact = Platform.OS !== "web";
 
@@ -311,6 +311,19 @@ export default function TexasHoldemTab() {
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hero = useMemo(() => players.find((p) => p.isHero), [players]);
+
+  // Function to toggle individual player card visibility
+  const togglePlayerReveal = (playerId: number) => {
+    setRevealedPlayers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
 
   // Function to toggle feedback tooltip
   const toggleFeedbackTooltip = () => {
@@ -505,6 +518,7 @@ export default function TexasHoldemTab() {
     setPot(initialPot);
     setFoldedHand(false);
     setHeroWonHand(null);
+    setRevealedPlayers(new Set()); // Reset revealed players
 
     setPlayers(rotated);
     setHeroAction("");
@@ -694,9 +708,14 @@ export default function TexasHoldemTab() {
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showWhy && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
     
-    // Auto new hand when hand is complete (either folded or finished) and auto new is enabled
-    const handCompleted = action === "fold" || (showFlop && currentStreet === "river");
-    const shouldAutoNew = autoNew && handCompleted;
+    // Auto new hand logic:
+    // 1. If "Show community cards" is OFF, deal new hand after any pre-flop action (skip post-flop)
+    // 2. If "Show community cards" is ON, deal new hand when hand is complete (folded or finished river)
+    const shouldAutoNew = autoNew && (
+      (!showFlop && currentStreet === "preflop") || // Skip post-flop if community cards disabled
+      (action === "fold") || // Always auto-deal after folding
+      (showFlop && currentStreet === "river") // Auto-deal after river when community cards enabled
+    );
     if (shouldAutoNew) {
       dealTimerRef.current = setTimeout(() => newHand(), delay);
     }
@@ -709,49 +728,61 @@ export default function TexasHoldemTab() {
     return tag ? `${amt} (${tag})` : amt;
   };
 
-  const renderPlayer = ({ item }: { item: Player }) => (
-    <View style={[styles.row, { padding: isCompact ? 8 : 10 }, item.isHero && styles.rowHero]}>
-      {/* Fade overlay only for hero */}
-      {item.isHero && heroFlash !== "none" && (
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            styles.rowOverlay,
-            { backgroundColor: heroFlash === "correct" ? "#b9efd2" : "#f8c7cc", opacity: heroFlashOpacity },
-          ]}
-        />
-      )}
+  const renderPlayer = ({ item }: { item: Player }) => {
+    const isPlayerRevealed = showAllCards || revealedPlayers.has(item.id);
+    
+    return (
+      <Pressable
+        onPress={!item.isHero ? () => togglePlayerReveal(item.id) : undefined}
+        style={({ pressed }) => [
+          styles.row,
+          { padding: isCompact ? 8 : 10 },
+          item.isHero && styles.rowHero,
+          !item.isHero && pressed && { opacity: 0.8 }
+        ]}
+      >
+        {/* Fade overlay only for hero */}
+        {item.isHero && heroFlash !== "none" && (
+          <Animated.View
+            pointerEvents="none"
+            style={[
+              styles.rowOverlay,
+              { backgroundColor: heroFlash === "correct" ? "#b9efd2" : "#f8c7cc", opacity: heroFlashOpacity },
+            ]}
+          />
+        )}
 
-      {/* LEFT: cards */}
-      <View style={styles.cardsCol}>
-        <PlayingCard card={item.cards[0]} hidden={!item.isHero && !showAllCards} compact={isCompact} />
-        <PlayingCard card={item.cards[1]} hidden={!item.isHero && !showAllCards} compact={isCompact} />
-      </View>
-
-      {/* MIDDLE: [Position pill] + [Name] inline; Chen score text (hero only) under it */}
-      <View style={styles.metaCol}>
-        <View style={styles.nameRow}>
-          {!!item.positionLabel && (
-            <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
-              <Text style={[styles.badgeText, isCompact && { fontSize: 13 }]}>{item.positionLabel}</Text>
-            </View>
-          )}
-          <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
+        {/* LEFT: cards */}
+        <View style={styles.cardsCol}>
+          <PlayingCard card={item.cards[0]} hidden={!item.isHero && !isPlayerRevealed} compact={isCompact} />
+          <PlayingCard card={item.cards[1]} hidden={!item.isHero && !isPlayerRevealed} compact={isCompact} />
         </View>
-        {item.isHero && showScore ? (
-          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore} (Chen)</Text>
-        ) : null}
-        {!item.isHero && showAllCards && showScore ? (
-          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])} (Chen)</Text>
-        ) : null}
-      </View>
 
-      {/* RIGHT: BIG $ bet pill (amount only; adds SB/BB tag) */}
-      <View style={styles.tailCol}>
-        <Pill large text={betLabel(item)} />
-      </View>
-    </View>
-  );
+        {/* MIDDLE: [Position pill] + [Name] inline; Chen score text (hero only) under it */}
+        <View style={styles.metaCol}>
+          <View style={styles.nameRow}>
+            {!!item.positionLabel && (
+              <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
+                <Text style={[styles.badgeText, isCompact && { fontSize: 13 }]}>{item.positionLabel}</Text>
+              </View>
+            )}
+            <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
+          </View>
+          {item.isHero && showScore ? (
+            <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore} (Chen)</Text>
+          ) : null}
+          {!item.isHero && isPlayerRevealed && showScore ? (
+            <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])} (Chen)</Text>
+          ) : null}
+        </View>
+
+        {/* RIGHT: BIG $ bet pill (amount only; adds SB/BB tag) */}
+        <View style={styles.tailCol}>
+          <Pill large text={betLabel(item)} />
+        </View>
+      </Pressable>
+    );
+  };
 
   const accuracyPct = totalHands ? ((correctHands / totalHands) * 100).toFixed(1) : "0.0";
   const formatAction = (a: "" | Action) => (a ? a[0].toUpperCase() + a.slice(1) : "—");
@@ -1003,7 +1034,7 @@ export default function TexasHoldemTab() {
                 />
                 <View style={styles.floatingTooltip}>
                   <Text style={styles.tooltipText}>
-                    When enabled, flop cards are revealed after your action (except fold), with options to reveal all hands.
+                    When enabled, community cards are revealed after your action (except fold), with options to reveal all hands.
                   </Text>
                 </View>
               </>
@@ -1103,7 +1134,7 @@ export default function TexasHoldemTab() {
                 <View style={styles.switchRow}>
                   <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
                   <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show flop cards</Text>
+                    <Text style={styles.switchLabel}>Show community cards</Text>
                     <Pressable
                       onPress={toggleFlopTooltip}
                       style={styles.infoIcon}
