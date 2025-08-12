@@ -623,16 +623,13 @@ export default function TexasHoldemTab() {
       p.positionLabel = labelForPos(pos, n);
     });
 
-    // Set blinds and calculate initial pot
-    let initialPot = 0;
+    // Set blinds - pot starts at 0, blinds are tracked in player.bet
     ps.forEach((p) => {
       if (p.role === "SB") {
         p.bet = Math.max(1, Math.floor(bigBlind / 2));
-        initialPot += p.bet;
       }
       if (p.role === "BB") {
         p.bet = bigBlind;
-        initialPot += p.bet;
       }
     });
 
@@ -645,7 +642,7 @@ export default function TexasHoldemTab() {
     setRiverCard(null);
     setCurrentStreet("preflop");
     setDeck(freshDeck); // Store remaining deck
-    setPot(initialPot);
+    setPot(0); // Start with 0, blinds are in player.bet
     setFoldedHand(false);
     setHeroWonHand(null);
     setRevealedPlayers(new Set()); // Reset revealed players
@@ -1167,9 +1164,32 @@ export default function TexasHoldemTab() {
       } else {
         // Hand ends early if settings don't allow further streets
         const allBets = players.reduce((sum, p) => sum + p.bet, 0);
+        const finalPot = pot + allBets;
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         setCurrentStreet("complete");
+        
+        // Complete hand history for early ending hands
+        if (currentHandHistory && currentSession) {
+          const updatedHistory = {
+            ...currentHandHistory,
+            pot: finalPot,
+            result: "completed" as const,
+            communityCards: {
+              ...(flopCards && { flop: flopCards }),
+              ...(turnCard && { turn: turnCard }),
+              ...(riverCard && { river: riverCard })
+            }
+          };
+          setCurrentSession(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              hands: [...prev.hands, updatedHistory]
+            };
+          });
+          setCurrentHandHistory(null);
+        }
         
         // If "Always show community cards" is enabled, deal missing cards for analysis
         // But only if post-flop play is enabled (showFlop is true)
