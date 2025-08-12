@@ -16,7 +16,7 @@ export default function Root({ children }: PropsWithChildren) {
 		{/* Progressive Web App Tags */}
 		<meta name="mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-title" content=">%WEB_TITLE%" />
+		<meta name="apple-mobile-web-app-title" content="%WEB_TITLE%" />
 		<meta name="format-detection" content="telephone=no" />
 
         {/* Link the PWA manifest file. */}
