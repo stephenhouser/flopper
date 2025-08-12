@@ -301,6 +301,8 @@ export default function TexasHoldemTab() {
   const [showFlopTooltip, setShowFlopTooltip] = useState(false);
   const [showTurnTooltip, setShowTurnTooltip] = useState(false);
   const [showRiverTooltip, setShowRiverTooltip] = useState(false);
+  const [showCommunityCards, setShowCommunityCards] = useState(false);
+  const [showCommunityCardsTooltip, setShowCommunityCardsTooltip] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
   const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
 
@@ -341,6 +343,7 @@ export default function TexasHoldemTab() {
       setShowFlopTooltip(false);
       setShowTurnTooltip(false);
       setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowFeedbackTooltip(true);
     }
   };
@@ -356,6 +359,7 @@ export default function TexasHoldemTab() {
       setShowFlopTooltip(false);
       setShowTurnTooltip(false);
       setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowAutoNewTooltip(true);
     }
   };
@@ -371,6 +375,7 @@ export default function TexasHoldemTab() {
       setShowFlopTooltip(false);
       setShowTurnTooltip(false);
       setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowFacingRaiseTooltip(true);
     }
   };
@@ -386,6 +391,7 @@ export default function TexasHoldemTab() {
       setShowFlopTooltip(false);
       setShowTurnTooltip(false);
       setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowScoreTooltip(true);
     }
   };
@@ -401,6 +407,7 @@ export default function TexasHoldemTab() {
       setShowScoreTooltip(false);
       setShowTurnTooltip(false);
       setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowFlopTooltip(true);
     }
   };
@@ -416,6 +423,7 @@ export default function TexasHoldemTab() {
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
       setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowTurnTooltip(true);
     }
   };
@@ -431,7 +439,24 @@ export default function TexasHoldemTab() {
       setShowScoreTooltip(false);
       setShowFlopTooltip(false);
       setShowTurnTooltip(false);
+      setShowCommunityCardsTooltip(false);
       setShowRiverTooltip(true);
+    }
+  };
+
+  const toggleCommunityCardsTooltip = () => {
+    if (showCommunityCardsTooltip) {
+      setShowCommunityCardsTooltip(false);
+    } else {
+      // Close all other tooltips
+      setShowFeedbackTooltip(false);
+      setShowAutoNewTooltip(false);
+      setShowFacingRaiseTooltip(false);
+      setShowScoreTooltip(false);
+      setShowFlopTooltip(false);
+      setShowTurnTooltip(false);
+      setShowRiverTooltip(false);
+      setShowCommunityCardsTooltip(true);
     }
   };
 
@@ -444,6 +469,7 @@ export default function TexasHoldemTab() {
     setShowFlopTooltip(false);
     setShowTurnTooltip(false);
     setShowRiverTooltip(false);
+    setShowCommunityCardsTooltip(false);
   };
 
   // Settings modal animation
@@ -453,7 +479,7 @@ export default function TexasHoldemTab() {
   const [ready, setReady] = useState(false);
   useEffect(() => {
     (async () => {
-      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings, sFlop, sTurn, sRiver] = await Promise.all([
+      const [sWhy, sAuto, sFacing, sSecs, sScore, sSettings, sFlop, sTurn, sRiver, sCommunityCards] = await Promise.all([
         Storage.getItem("poker.showWhy"),
         Storage.getItem("poker.autoNew"),
         Storage.getItem("poker.facingRaise"),
@@ -463,6 +489,7 @@ export default function TexasHoldemTab() {
         Storage.getItem("poker.showFlop"),
         Storage.getItem("poker.showTurn"),
         Storage.getItem("poker.showRiver"),
+        Storage.getItem("poker.showCommunityCards"),
       ]);
       if (sWhy != null) setShowWhy(sWhy === "1");
       if (sAuto != null) setAutoNew(sAuto === "1");
@@ -476,6 +503,7 @@ export default function TexasHoldemTab() {
       if (sFlop != null) setShowFlop(sFlop === "1");
       if (sTurn != null) setShowTurn(sTurn === "1");
       if (sRiver != null) setShowRiver(sRiver === "1");
+      if (sCommunityCards != null) setShowCommunityCards(sCommunityCards === "1");
       setReady(true);
     })();
   }, []);
@@ -490,6 +518,7 @@ export default function TexasHoldemTab() {
   useEffect(() => { Storage.setItem("poker.showFlop", showFlop ? "1" : "0"); }, [showFlop]);
   useEffect(() => { Storage.setItem("poker.showTurn", showTurn ? "1" : "0"); }, [showTurn]);
   useEffect(() => { Storage.setItem("poker.showRiver", showRiver ? "1" : "0"); }, [showRiver]);
+  useEffect(() => { Storage.setItem("poker.showCommunityCards", showCommunityCards ? "1" : "0"); }, [showCommunityCards]);
 
   // Animate settings modal
   useEffect(() => {
@@ -653,8 +682,31 @@ export default function TexasHoldemTab() {
       setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
       setCurrentStreet("complete");
       setFoldedHand(true);
-      // Don't show all cards when folding - keep them hidden
-      // setShowAllCards(true); // Remove this line
+      
+      // If "Always show community cards" is enabled, deal missing cards for analysis
+      if (showCommunityCards && deck.length > 0) {
+        let newDeck = [...deck];
+        
+        // Deal flop if not dealt yet
+        if (!flopCards && newDeck.length >= 3) {
+          const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+          setFlopCards(flop);
+        }
+        
+        // Deal turn if not dealt yet
+        if (flopCards && !turnCard && newDeck.length >= 1) {
+          const turn = newDeck.pop()!;
+          setTurnCard(turn);
+        }
+        
+        // Deal river if not dealt yet
+        if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
+          const river = newDeck.pop()!;
+          setRiverCard(river);
+        }
+        
+        setDeck(newDeck);
+      }
     } else {
       // Deal next cards based on current street using the stored deck
       if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
@@ -715,8 +767,31 @@ export default function TexasHoldemTab() {
         setPot(prevPot => prevPot + allBets);
         setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
         setCurrentStreet("complete");
-        // Don't automatically reveal all cards - let user choose
-        // setShowAllCards(true); // Remove this line
+        
+        // If "Always show community cards" is enabled, deal missing cards for analysis
+        if (showCommunityCards && deck.length > 0) {
+          let newDeck = [...deck];
+          
+          // Deal flop if not dealt yet
+          if (!flopCards && newDeck.length >= 3) {
+            const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+            setFlopCards(flop);
+          }
+          
+          // Deal turn if not dealt yet
+          if (flopCards && !turnCard && newDeck.length >= 1) {
+            const turn = newDeck.pop()!;
+            setTurnCard(turn);
+          }
+          
+          // Deal river if not dealt yet
+          if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
+            const river = newDeck.pop()!;
+            setRiverCard(river);
+          }
+          
+          setDeck(newDeck);
+        }
       }
     }
 
@@ -945,7 +1020,7 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Community Cards Row */}
-        {showFlop && (flopCards || (currentStreet !== "preflop" && !foldedHand)) && (
+        {((showFlop && (flopCards || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
           <View style={[
             styles.card, 
             styles.flopCard,
@@ -961,6 +1036,10 @@ export default function TexasHoldemTab() {
                 />
               </View>
               <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
+                {/* Show placeholder text when no cards are dealt yet but always show is enabled */}
+                {!flopCards && !turnCard && !riverCard && showCommunityCards && (
+                  <Text style={styles.streetLabel}>Community cards will appear here</Text>
+                )}
                 {/* Flop Cards */}
                 {flopCards && (
                   <>
@@ -1128,6 +1207,19 @@ export default function TexasHoldemTab() {
                 </View>
               </>
             )}
+            {showCommunityCardsTooltip && (
+              <>
+                <Pressable 
+                  style={styles.tooltipBackdrop}
+                  onPress={() => setShowCommunityCardsTooltip(false)}
+                />
+                <View style={styles.floatingTooltip}>
+                  <Text style={styles.tooltipText}>
+                    When enabled, community cards (flop, turn, river) are automatically revealed at the end of each hand for analysis.
+                  </Text>
+                </View>
+              </>
+            )}
             
             <View style={styles.card}>
               <View style={styles.controlsRow}>
@@ -1269,6 +1361,22 @@ export default function TexasHoldemTab() {
                       disabled={!showFlop || !showTurn}
                     >
                       <Ionicons name="information-circle-outline" size={16} color={(showFlop && showTurn) ? "#666" : "#ccc"} />
+                    </Pressable>
+                  </View>
+                </View>
+
+                <View style={styles.switchRow}>
+                  <Switch 
+                    value={showCommunityCards} 
+                    onValueChange={setShowCommunityCards} 
+                  />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Always show community cards</Text>
+                    <Pressable
+                      onPress={toggleCommunityCardsTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
                     </Pressable>
                   </View>
                 </View>
