@@ -514,84 +514,86 @@ export default function TexasHoldemTab() {
   }, [heroAction, newHand]);
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
-      {/* Header with one-line stats (no gear here) */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Texas Holdem</Text>
-        <View style={styles.headerRight}>
-          <Text style={styles.headerStats} numberOfLines={1}>
-            {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={showSettings ? "Hide settings" : "Show settings"}
-            onPress={() => setShowSettings((s) => !s)}
-            style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
-          >
-            <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57"/>
-          </Pressable>
-        </View>
-      </View>
-
-      {/* Feedback row: always visible when Show why is ON; shows last action pill */}
-      {showWhy && (
-        <View style={styles.card}>
-          <View style={styles.feedbackRow}>
-            <Text style={[styles.feedbackText, { flex: 1, paddingRight: 8 }]}>
-              {result || "Take an action to see feedback."}
+    <>
+      <ScrollView contentContainerStyle={styles.screen}>
+        {/* Header with one-line stats (no gear here) */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Texas Holdem</Text>
+          <View style={styles.headerRight}>
+            <Text style={styles.headerStats} numberOfLines={1}>
+              {correctHands}/{totalHands} • Accuracy: {accuracyPct}%
             </Text>
-            <View style={styles.pill}>
-              <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={showSettings ? "Hide settings" : "Show settings"}
+              onPress={() => setShowSettings((s) => !s)}
+              style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
+            >
+              <Ionicons name={showSettings ? "close" : "settings-outline"} size={18} color="#2b2e57"/>
+            </Pressable>
           </View>
         </View>
-      )}
 
-      {/* Flop Cards Row */}
-      {showFlop && flopCards && (
-        <View style={[styles.card, styles.flopCard]}>
-          <View style={styles.flopRow}>
-            <View style={styles.revealButton}>
-              <RowButton 
-                label={<Text>{showAllCards ? "Hide" : "Reveal"}</Text>} 
-                onPress={() => setShowAllCards(!showAllCards)} 
-                kind="outline" 
-              />
+        {/* Feedback row: always visible when Show why is ON; shows last action pill */}
+        {showWhy && (
+          <View style={styles.card}>
+            <View style={styles.feedbackRow}>
+              <Text style={[styles.feedbackText, { flex: 1, paddingRight: 8 }]}>
+                {result || "Take an action to see feedback."}
+              </Text>
+              <View style={styles.pill}>
+                <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+              </View>
             </View>
-            <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-              <PlayingCard card={flopCards[0]} compact={isCompact} />
-              <PlayingCard card={flopCards[1]} compact={isCompact} />
-              <PlayingCard card={flopCards[2]} compact={isCompact} />
+          </View>
+        )}
+
+        {/* Flop Cards Row */}
+        {showFlop && flopCards && (
+          <View style={[styles.card, styles.flopCard]}>
+            <View style={styles.flopRow}>
+              <View style={styles.revealButton}>
+                <RowButton 
+                  label={<Text>{showAllCards ? "Hide" : "Reveal"}</Text>} 
+                  onPress={() => setShowAllCards(!showAllCards)} 
+                  kind="outline" 
+                />
+              </View>
+              <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
+                <PlayingCard card={flopCards[0]} compact={isCompact} />
+                <PlayingCard card={flopCards[1]} compact={isCompact} />
+                <PlayingCard card={flopCards[2]} compact={isCompact} />
+              </View>
+              <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="primary" />
             </View>
-            <RowButton label={<Text>New hand</Text>} onPress={newHand} kind="primary" />
+          </View>
+        )}
+
+        {/* Table */}
+        <FlatList
+          data={players}
+          keyExtractor={(p) => String(p.id)}
+          renderItem={renderPlayer}
+          contentContainerStyle={{ gap: 8 }}
+        />
+
+        {/* Actions — left: C/A/F/R equal widths, right: New hand */}
+        <View style={styles.actionsRow}>
+          <View style={styles.actionsLeft}>
+            <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
+            <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
+            <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
+            <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
           </View>
         </View>
-      )}
 
-      {/* Table */}
-      <FlatList
-        data={players}
-        keyExtractor={(p) => String(p.id)}
-        renderItem={renderPlayer}
-        contentContainerStyle={{ gap: 8 }}
-      />
-
-      {/* Actions — left: C/A/F/R equal widths, right: New hand */}
-      <View style={styles.actionsRow}>
-        <View style={styles.actionsLeft}>
-          <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
-          <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
-          <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} />
-          <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
+        {/* Footer: helper text left */}
+        <View style={styles.footerRow}>
+          <Text style={styles.helper}>Educational trainer (not a full equity/GTO engine).</Text>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* Footer: helper text left */}
-      <View style={styles.footerRow}>
-        <Text style={styles.helper}>Educational trainer (not a full equity/GTO engine).</Text>
-      </View>
-
-      {/* Settings panel (toggle via gear) */}
+      {/* Settings panel (toggle via gear) - Outside ScrollView to prevent scroll bars */}
       {showSettings && (
         <View style={styles.modalOverlay}>
           <Pressable 
@@ -682,8 +684,7 @@ export default function TexasHoldemTab() {
           </Animated.View>
         </View>
       )}
-
-    </ScrollView>
+    </>
   );
 }
 
