@@ -9,3 +9,5 @@ run:
 # deploy to github pages https://stephenhouser.com/flopper
 deploy:
 	npm run deploy
+
+publish: deploy

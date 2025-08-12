@@ -1,9 +1,8 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
 
 import { router } from "expo-router";
 import React from "react";
-import { SafeAreaView, ScrollView, StyleSheet } from "react-native";
+import { SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
 import BigButton from "../../components/BigButton";
 
 export default function HomeTab() {
@@ -11,20 +10,20 @@ export default function HomeTab() {
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView
         contentContainerStyle={styles.container}>
-        <ThemedView style={styles.headerBlock}>
+        <View style={styles.headerBlock}>
           <ThemedText style={styles.title}>flopper</ThemedText>
           <ThemedText style={styles.subtitle}>the card game training app</ThemedText>
           <ThemedText style={styles.description}>
             Sharpen your decision-making for poker and blackjack with focused,
             bite-size drills. Pick a module below to start practicing.
           </ThemedText>
-        </ThemedView>
+        </View>
 
-        <ThemedView style={styles.buttons}>
+        <View style={styles.buttons}>
           <BigButton label="Texas Holdem" onPress={() => router.navigate("/(tabs)/texas-holdem")} />
           <BigButton label="Omaha" onPress={() => router.navigate("/(tabs)/omaha")} />
           <BigButton label="Blackjack" onPress={() => router.navigate("/(tabs)/blackjack")} />
-        </ThemedView>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

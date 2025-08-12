@@ -255,13 +255,13 @@ function labelForPos(posFromDealer: number, n: number): string {
 
 function withHotkey(label: string, hotkey: string) {
   const i = label.toLowerCase().indexOf(hotkey.toLowerCase());
-  if (i === -1) return <Text>{label}</Text>;
+  if (i === -1) return <ThemedText>{label}</ThemedText>;
   return (
-    <ThemedText>
+    <Text>
       {label.slice(0, i)}
-      <ThemedText style={styles.underlineLetter}>{label[i]}</ThemedText>
+      <Text style={styles.underlineLetter}>{label[i]}</Text>
       {label.slice(i + 1)}
-    </ThemedText>
+    </Text>
   );
 }
 
