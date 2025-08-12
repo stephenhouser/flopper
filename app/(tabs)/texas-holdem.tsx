@@ -1888,7 +1888,7 @@ export default function TexasHoldemTab() {
                   </Text>
                 </View>
               )}
-              
+
               {/* Danger Zone section break */}
               <View style={styles.sectionBreak}>
                 <Text style={styles.sectionHeader}>Danger Zone</Text>
@@ -1896,6 +1896,11 @@ export default function TexasHoldemTab() {
 
               <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
                 <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
+              </View>
+              <View style={styles.singleColumnRow}>
+                <Text style={styles.sessionInfo}>
+                  Resets all settings, clears current session, and starts a new hand.
+                </Text>
               </View>
               
             </View>
