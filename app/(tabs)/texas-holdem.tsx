@@ -1054,6 +1054,9 @@ export default function TexasHoldemTab() {
             heroWonHand === false && { backgroundColor: "#f8c7cc" }, // Red for loss
           ]}>
             <View style={styles.flopRow}>
+              <View style={styles.communityActions}>
+                <Text style={styles.streetLabel}>{foldedHand ? "FOLDED" : currentStreet.toUpperCase()}</Text>
+              </View>
               <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
                 {/* Always show 5 cards: dealt cards in position, rest as outlines */}
                 {/* Flop Card 1 */}
@@ -1092,7 +1095,7 @@ export default function TexasHoldemTab() {
                 )}
               </View>
               <View style={styles.communityActions}>
-                <Text style={styles.streetLabel}>{foldedHand ? "FOLDED" : currentStreet.toUpperCase()}</Text>
+                <Text style={styles.streetLabel}>Pot: ${totalPot}</Text>
               </View>
             </View>
           </View>
