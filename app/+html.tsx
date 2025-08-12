@@ -20,7 +20,7 @@ export default function Root({ children }: PropsWithChildren) {
         <meta name="format-detection" content="telephone=no" />
 
         {/* Link the PWA manifest file. */}
-        <link rel="manifest" href="/manifest.json" />
+        <link rel="manifest" href="manifest.json" />
 
         {/*
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
