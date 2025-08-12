@@ -1004,13 +1004,6 @@ export default function TexasHoldemTab() {
             heroWonHand === false && { backgroundColor: "#f8c7cc" }, // Red for loss
           ]}>
             <View style={styles.flopRow}>
-              <View style={styles.revealButton}>
-                <RowButton 
-                  label={<Text>{showAllCards ? "Hide" : "Reveal"}</Text>} 
-                  onPress={() => setShowAllCards(!showAllCards)} 
-                  kind="outline" 
-                />
-              </View>
               <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
                 {/* Always show 5 cards: dealt cards in position, rest as outlines */}
                 {/* Flop Card 1 */}
