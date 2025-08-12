@@ -752,7 +752,7 @@ export default function TexasHoldemTab() {
                 />
                 <View style={[styles.floatingTooltip, { left: tooltipPosition.x, top: tooltipPosition.y }]}>
                   <Text style={styles.tooltipText}>
-                    If "Show why" is ON, feedback stays visible; otherwise it hides after the delay above.
+                    When enabled, shows feedback after each action.
                   </Text>
                   <View style={styles.tooltipArrow} />
                 </View>
@@ -841,7 +841,7 @@ export default function TexasHoldemTab() {
                 <View style={styles.switchRow}>
                   <Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} />
                   <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Auto new hand</Text>
+                    <Text style={styles.switchLabel}>Automatically deal new hand</Text>
                     <Pressable
                       onPress={toggleAutoNewTooltip}
                       style={styles.infoIcon}
@@ -879,7 +879,7 @@ export default function TexasHoldemTab() {
                 <View style={styles.switchRow}>
                   <Switch value={showWhy} onValueChange={setShowWhy} />
                   <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show why (feedback)</Text>
+                    <Text style={styles.switchLabel}>Show feedback</Text>
                     <Pressable
                       onPress={toggleFeedbackTooltip}
                       style={styles.infoIcon}
@@ -894,7 +894,7 @@ export default function TexasHoldemTab() {
                 <View style={styles.switchRow}>
                   <Switch value={showScore} onValueChange={setShowScore} />
                   <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show score (your hand)</Text>
+                    <Text style={styles.switchLabel}>Show hand score</Text>
                     <Pressable
                       onPress={toggleScoreTooltip}
                       style={styles.infoIcon}
