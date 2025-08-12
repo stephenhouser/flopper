@@ -421,7 +421,7 @@ export default function TexasHoldemTab() {
     setTotalHands((t) => t + 1);
     setCorrectHands((c) => c + (correct ? 1 : 0));
 
-    const why = `Chen score: ${heroScore}. ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
+    const why = `score: ${heroScore} (Chen). ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.`;
     setResult((correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why}`);
 
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
@@ -472,10 +472,10 @@ export default function TexasHoldemTab() {
           <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
         </View>
         {item.isHero && showScore ? (
-          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore}</Text>
+          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore} (Chen)</Text>
         ) : null}
         {!item.isHero && showAllCards && showScore ? (
-          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])}</Text>
+          <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])} (Chen)</Text>
         ) : null}
       </View>
 
