@@ -1211,8 +1211,13 @@ export default function TexasHoldemTab() {
               </>
             )}
             
-            <View style={styles.card}>
-              <View style={styles.singleColumnRow}>
+            <ScrollView 
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              showsVerticalScrollIndicator={true}
+            >
+              <View style={styles.card}>
+                <View style={styles.singleColumnRow}>
                 <View style={styles.controlBlock}>
                   <ThemedText style={styles.label}>Players</ThemedText>
                   <View style={styles.stepper}>
@@ -1403,6 +1408,7 @@ export default function TexasHoldemTab() {
                 <RowButton label={<Text>Reset stats</Text>} onPress={resetStats} kind="outline" />
               </View>
             </View>
+            </ScrollView>
           </Animated.View>
         </View>
       )}
