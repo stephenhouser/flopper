@@ -601,7 +601,7 @@ export default function TexasHoldemTab() {
     // const ps: Array<Player> = Array.from({ length: n }).map((_, i) => ({
     const ps: Player[] = Array.from({ length: n }).map((_, i) => ({
       id: i,
-      name: i === heroSeat ? "Hero" : `P${i + 1}`,
+      name: i === heroSeat ? "Hero" : `Player ${i + 1}`,
       role: "" as Player["role"],
       bet: 0,
       cards: [freshDeck.pop()!, freshDeck.pop()!] as [CardT, CardT],
