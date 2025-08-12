@@ -1261,17 +1261,19 @@ export default function TexasHoldemTab() {
               </View>
 
               <View style={styles.controlsRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={showWhy} onValueChange={setShowWhy} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show feedback</Text>
-                    <Pressable
-                      onPress={toggleFeedbackTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
+                <View style={[styles.controlBlock, { width: "100%" }]}>
+                  <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
+                  <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
+                    <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
+                    <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
+                    <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
                   </View>
+                </View>
+              </View>
+
+              <View style={styles.controlsRow}>
+                <View style={styles.switchRow}>
+                  {/* Empty space on left */}
                 </View>
                 <View style={styles.switchRow}>
                   <Switch value={showScore} onValueChange={setShowScore} />
@@ -1288,12 +1290,19 @@ export default function TexasHoldemTab() {
               </View>
 
               <View style={styles.controlsRow}>
-                <View style={[styles.controlBlock, { width: "100%" }]}>
-                  <Text style={styles.label}>Feedback time (seconds) — also delays auto new hand</Text>
-                  <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
-                    <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
-                    <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
-                    <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+                <View style={styles.switchRow}>
+                  {/* Empty space on left */}
+                </View>
+                <View style={styles.switchRow}>
+                  <Switch value={showWhy} onValueChange={setShowWhy} />
+                  <View style={styles.labelWithIcon}>
+                    <Text style={styles.switchLabel}>Show feedback</Text>
+                    <Pressable
+                      onPress={toggleFeedbackTooltip}
+                      style={styles.infoIcon}
+                    >
+                      <Ionicons name="information-circle-outline" size={16} color="#666" />
+                    </Pressable>
                   </View>
                 </View>
               </View>
