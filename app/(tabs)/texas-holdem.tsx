@@ -82,6 +82,12 @@ function cardToStr(c?: CardT) {
   return c ? `${c.rank}${c.suit}` : "";
 }
 
+function cardToPokerStarsStr(c?: CardT) {
+  if (!c) return "";
+  const suitMap = { "♠": "s", "♥": "h", "♦": "d", "♣": "c" };
+  return `${c.rank}${suitMap[c.suit]}`;
+}
+
 /* ---------------- Hand Evaluation ---------------- */
 
 function getRankValue(rank: Rank): number {
@@ -879,7 +885,7 @@ export default function TexasHoldemTab() {
       output += "*** HOLE CARDS ***\n";
       const heroPlayer = hand.players.find(p => p.isHero);
       if (heroPlayer) {
-        output += `Dealt to ${heroPlayer.name} [${cardToStr(heroPlayer.cards[0])} ${cardToStr(heroPlayer.cards[1])}]\n`;
+        output += `Dealt to ${heroPlayer.name} [${cardToPokerStarsStr(heroPlayer.cards[0])} ${cardToPokerStarsStr(heroPlayer.cards[1])}]\n`;
       }
       
       // Pre-flop actions
@@ -894,7 +900,7 @@ export default function TexasHoldemTab() {
       
       // Community cards and post-flop actions
       if (hand.communityCards.flop) {
-        output += `*** FLOP *** [${hand.communityCards.flop.map(cardToStr).join(' ')}]\n`;
+        output += `*** FLOP *** [${hand.communityCards.flop.map(cardToPokerStarsStr).join(' ')}]\n`;
         const flopActions = hand.actions.filter(a => a.street === "flop");
         flopActions.forEach(action => {
           const actionStr = action.action === "check" ? "checks" : 
@@ -906,7 +912,7 @@ export default function TexasHoldemTab() {
       }
       
       if (hand.communityCards.turn) {
-        output += `*** TURN *** [${hand.communityCards.flop?.map(cardToStr).join(' ')} ${cardToStr(hand.communityCards.turn)}]\n`;
+        output += `*** TURN *** [${hand.communityCards.flop?.map(cardToPokerStarsStr).join(' ')} ${cardToPokerStarsStr(hand.communityCards.turn)}]\n`;
         const turnActions = hand.actions.filter(a => a.street === "turn");
         turnActions.forEach(action => {
           const actionStr = action.action === "check" ? "checks" : 
@@ -918,7 +924,7 @@ export default function TexasHoldemTab() {
       }
       
       if (hand.communityCards.river) {
-        output += `*** RIVER *** [${hand.communityCards.flop?.map(cardToStr).join(' ')} ${cardToStr(hand.communityCards.turn)} ${cardToStr(hand.communityCards.river)}]\n`;
+        output += `*** RIVER *** [${hand.communityCards.flop?.map(cardToPokerStarsStr).join(' ')} ${cardToPokerStarsStr(hand.communityCards.turn)} ${cardToPokerStarsStr(hand.communityCards.river)}]\n`;
         const riverActions = hand.actions.filter(a => a.street === "river");
         riverActions.forEach(action => {
           const actionStr = action.action === "check" ? "checks" : 
@@ -939,11 +945,11 @@ export default function TexasHoldemTab() {
           hand.communityCards.turn,
           hand.communityCards.river
         ];
-        output += `Board [${finalBoard.map(cardToStr).join(' ')}]\n`;
+        output += `Board [${finalBoard.map(cardToPokerStarsStr).join(' ')}]\n`;
         
         // Show all players' hole cards
         hand.players.forEach(player => {
-          output += `${player.name}: shows [${cardToStr(player.cards[0])} ${cardToStr(player.cards[1])}]\n`;
+          output += `${player.name}: shows [${cardToPokerStarsStr(player.cards[0])} ${cardToPokerStarsStr(player.cards[1])}]\n`;
         });
       }
       
@@ -958,7 +964,7 @@ export default function TexasHoldemTab() {
           hand.communityCards.turn,
           hand.communityCards.river
         ];
-        output += `Board [${finalBoard.map(cardToStr).join(' ')}]\n`;
+        output += `Board [${finalBoard.map(cardToPokerStarsStr).join(' ')}]\n`;
       }
       
       if (hand.result === "folded") {
