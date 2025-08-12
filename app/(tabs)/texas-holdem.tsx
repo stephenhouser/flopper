@@ -682,31 +682,7 @@ export default function TexasHoldemTab() {
       setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
       setCurrentStreet("complete");
       setFoldedHand(true);
-      
-      // If "Always show community cards" is enabled, deal missing cards for analysis
-      if (showCommunityCards && deck.length > 0) {
-        let newDeck = [...deck];
-        
-        // Deal flop if not dealt yet
-        if (!flopCards && newDeck.length >= 3) {
-          const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
-          setFlopCards(flop);
-        }
-        
-        // Deal turn if not dealt yet
-        if (flopCards && !turnCard && newDeck.length >= 1) {
-          const turn = newDeck.pop()!;
-          setTurnCard(turn);
-        }
-        
-        // Deal river if not dealt yet
-        if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
-          const river = newDeck.pop()!;
-          setRiverCard(river);
-        }
-        
-        setDeck(newDeck);
-      }
+      // Don't deal additional community cards when folding
     } else {
       // Deal next cards based on current street using the stored deck
       if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
