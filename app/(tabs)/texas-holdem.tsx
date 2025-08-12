@@ -1459,7 +1459,7 @@ const styles = StyleSheet.create({
   currencyPrefix: { fontSize: 16, color: "#666", fontWeight: "600" },
   currencyInput: { flex: 1, paddingHorizontal: 8, paddingVertical: 8, fontSize: 16 },
   sectionBreak: { marginTop: 20, marginBottom: 8 },
-  sectionHeader: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8 },
+  sectionHeader: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 8, paddingBottom: 4, borderBottomWidth: 1, borderBottomColor: "#e0e0e0" },
   stepper: { flexDirection: "row", alignItems: "center", gap: 8 },
   stepperNum: { width: 60, textAlign: "center", fontSize: 16 },
 
