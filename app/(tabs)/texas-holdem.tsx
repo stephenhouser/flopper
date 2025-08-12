@@ -1032,13 +1032,11 @@ export default function TexasHoldemTab() {
             lastActionCorrect === false && { backgroundColor: "#f8c7cc" }
           ]}>
             <View style={styles.feedbackRow}>
-              <Text style={[styles.feedbackText, { flex: 1, paddingRight: 8 }]}>
+              <Text style={styles.lastActionText}>Last: {formatAction(lastAction)}</Text>
+              <Text style={[styles.feedbackText, { flex: 1, paddingHorizontal: 8 }]}>
                 {result || "Take an action to see feedback."}
               </Text>
               <View style={styles.feedbackRight}>
-                <View style={styles.pill}>
-                  <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
-                </View>
                 <View style={styles.pill}>
                   <Text style={styles.potText}>Pot: ${totalPot}</Text>
                 </View>
@@ -1595,6 +1593,7 @@ const styles = StyleSheet.create({
 
   feedbackRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 },
   feedbackText: { fontSize: 14, color: "#333" },
+  lastActionText: { fontSize: 14, color: "#666", fontWeight: "600", minWidth: 80 },
   feedbackRight: { flexDirection: "row", alignItems: "center", gap: 8 },
 
   flopRow: { flexDirection: "row", alignItems: "center", gap: 12 },
