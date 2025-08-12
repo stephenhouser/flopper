@@ -280,7 +280,7 @@ export default function TexasHoldemTab() {
   const [totalHands, setTotalHands] = useState(0);
   const [correctHands, setCorrectHands] = useState(0);
   const [feedbackSecs, setFeedbackSecs] = useState(1.0);
-  const [showWhy, setShowWhy] = useState(false);
+  const [showWhy, setShowWhy] = useState(true);
   const [showScore, setShowScore] = useState(true);
   const [showSettings, setShowSettings] = useState(false);
   const [showFlop, setShowFlop] = useState(false);
@@ -634,7 +634,7 @@ export default function TexasHoldemTab() {
     setLastActionCorrect(null);
     
     // Reset all settings to defaults
-    setShowWhy(false);
+    setShowWhy(true);
     setAutoNew(true);
     setFacingRaise(true);
     setFeedbackSecs(1.0);
@@ -661,7 +661,7 @@ export default function TexasHoldemTab() {
     
     // Clear storage (set to default values)
     await Promise.all([
-      Storage.setItem("poker.showWhy", "0"),
+      Storage.setItem("poker.showWhy", "1"),
       Storage.setItem("poker.autoNew", "1"),
       Storage.setItem("poker.facingRaise", "1"),
       Storage.setItem("poker.feedbackSecs", "1.0"),
