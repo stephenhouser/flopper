@@ -227,6 +227,7 @@ export default function TexasHoldemTab() {
   const [showAllCards, setShowAllCards] = useState(false);
   const [deck, setDeck] = useState<CardT[]>([]);
   const [pot, setPot] = useState(0);
+  const [foldedHand, setFoldedHand] = useState(false);
   const [showFeedbackTooltip, setShowFeedbackTooltip] = useState(false);
   const [showAutoNewTooltip, setShowAutoNewTooltip] = useState(false);
   const [showFacingRaiseTooltip, setShowFacingRaiseTooltip] = useState(false);
@@ -437,6 +438,7 @@ export default function TexasHoldemTab() {
     setCurrentStreet("preflop");
     setDeck(freshDeck); // Store remaining deck
     setPot(initialPot);
+    setFoldedHand(false);
 
     setPlayers(rotated);
     setHeroAction("");
@@ -518,7 +520,9 @@ export default function TexasHoldemTab() {
       setPot(prevPot => prevPot + allBets);
       setPlayers(prevPlayers => prevPlayers.map(p => ({ ...p, bet: 0 })));
       setCurrentStreet("complete");
-      setShowAllCards(true);
+      setFoldedHand(true);
+      // Don't show all cards when folding - keep them hidden
+      // setShowAllCards(true); // Remove this line
     } else {
       // Deal next cards based on current street using the stored deck
       if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
@@ -616,8 +620,9 @@ export default function TexasHoldemTab() {
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showWhy && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
     
-    // Auto new hand only when hand is complete and auto new is enabled
-    const shouldAutoNew = autoNew && currentStreet === "complete";
+    // Auto new hand when hand is complete (either folded or finished) and auto new is enabled
+    const handCompleted = action === "fold" || (showFlop && currentStreet === "river");
+    const shouldAutoNew = autoNew && handCompleted;
     if (shouldAutoNew) dealTimerRef.current = setTimeout(() => newHand(), delay);
   }
 
@@ -770,7 +775,7 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Community Cards Row */}
-        {showFlop && (flopCards || currentStreet !== "preflop") && (
+        {showFlop && (flopCards || currentStreet !== "preflop") && !foldedHand && (
           <View style={[styles.card, styles.flopCard]}>
             <View style={styles.flopRow}>
               <View style={styles.revealButton}>
