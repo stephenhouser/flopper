@@ -300,41 +300,49 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
         dealTimerRef.current = setTimeout(() => newHand(), settleDelayMs);
       }
+    } else if (currentStreet === "river") {
+      // Complete immediately so we can display WIN/LOST during the feedback window
+      const s: PokerSettings = { showFlop, showTurn, showRiver };
+      const next = advanceStreet(s); // should transition to complete and settle bets
+
+      // Reveal opponents and compute hero result for display
+      const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
+      setRevealedPlayers(allPlayerIds);
+      let heroWon: boolean | undefined = undefined;
+      if (hero && board.flop && board.turn && board.river) {
+        const communityCards = [...board.flop, board.turn, board.river];
+        heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
+        setHeroWonHand(heroWon ?? null);
+      }
+
+      // Record history at completion with accurate pot
+      if (currentHandHistory && currentSession) {
+        const updatedHistory = {
+          ...currentHandHistory,
+          pot: getTotalPot(),
+          result: "completed" as const,
+          heroWon,
+          communityCards: { flop: board.flop!, turn: board.turn!, river: board.river! },
+        };
+        setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
+        setCurrentHandHistory(null);
+      }
+
+      // Now wait the single feedback delay before starting the next hand
+      if (autoNew) {
+        if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+        dealTimerRef.current = setTimeout(() => newHand(), Math.max(0, Math.round(feedbackSecs * 1000)));
+      }
     } else {
+      // Non-final streets: wait the feedback delay before dealing the next street
       const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
       advanceStreetTimerRef.current = setTimeout(() => {
         const s: PokerSettings = { showFlop, showTurn, showRiver };
         const next = advanceStreet(s);
 
-        if (currentStreet === "river" && next === "complete") {
-          const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
-          setRevealedPlayers(allPlayerIds);
-          let heroWon: boolean | undefined = undefined;
-          if (hero && board.flop && board.turn && board.river) {
-            const communityCards = [...board.flop, board.turn, board.river];
-            heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
-            setHeroWonHand(heroWon ?? null);
-          }
-          if (currentHandHistory && currentSession) {
-            const updatedHistory = {
-              ...currentHandHistory,
-              pot: getTotalPot(),
-              result: "completed" as const,
-              heroWon,
-              communityCards: { flop: board.flop!, turn: board.turn!, river: board.river! },
-            };
-            setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
-            setCurrentHandHistory(null);
-          }
-          // Auto-deal immediately after the single feedback delay (no extra delay step)
-          if (autoNew) {
-            if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-            dealTimerRef.current = null;
-            newHand();
-          }
-        } else if (next === "complete") {
-          // Non-river completion
+        if (next === "complete") {
+          // Non-river completion (e.g., skipping streets via settings)
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
@@ -372,7 +380,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, pot, recommended, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, triggerFlash, setCurrentSession, currentSession, communityFromBoard, getTotalPot]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, triggerFlash, setCurrentSession, currentSession, communityFromBoard, getTotalPot]);
 
   const canCheck = useMemo(() => {
     const currentBet = Math.max(...players.map(p => p.bet));

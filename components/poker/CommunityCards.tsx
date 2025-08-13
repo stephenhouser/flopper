@@ -1,22 +1,18 @@
 import PlayingCard from "@/components/poker/PlayingCard";
-import type { CardT } from "@/lib/cards";
 import React from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
-
-export type Street = "preflop" | "flop" | "turn" | "river" | "complete";
+import type { Board, Street } from "@/models/poker";
 
 type Props = {
   street: Street;
-  flop?: [CardT, CardT, CardT] | null;
-  turn?: CardT | null;
-  river?: CardT | null;
+  board: Board;
   totalPot: number;
   isCompact?: boolean;
   heroWon?: boolean | null;
   folded?: boolean;
 };
 
-const CommunityCards: React.FC<Props> = ({ street, flop, turn, river, totalPot, isCompact = Platform.OS !== "web", heroWon, folded }) => {
+const CommunityCards: React.FC<Props> = ({ street, board, totalPot, isCompact = Platform.OS !== "web", heroWon, folded }) => {
   const bgStyle = heroWon === true ? { backgroundColor: "#b9efd2" } : heroWon === false ? { backgroundColor: "#f8c7cc" } : undefined;
 
   // Determine left label: show FOLDED if folded; when complete and heroWon is known, show WIN/LOST; otherwise show street
@@ -33,11 +29,11 @@ const CommunityCards: React.FC<Props> = ({ street, flop, turn, river, totalPot, 
           <Text style={styles.streetLabel}>{leftLabel}</Text>
         </View>
         <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-          {flop ? <PlayingCard card={flop[0]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
-          {flop ? <PlayingCard card={flop[1]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
-          {flop ? <PlayingCard card={flop[2]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
-          {turn ? <PlayingCard card={turn} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
-          {river ? <PlayingCard card={river} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
+          {board.flop ? <PlayingCard card={board.flop[0]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
+          {board.flop ? <PlayingCard card={board.flop[1]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
+          {board.flop ? <PlayingCard card={board.flop[2]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
+          {board.turn ? <PlayingCard card={board.turn} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
+          {board.river ? <PlayingCard card={board.river} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
         </View>
         <View style={styles.communityActions}>
           <Text style={styles.streetLabel}>Pot: ${totalPot}</Text>

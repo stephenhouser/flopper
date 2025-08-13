@@ -320,9 +320,7 @@ export default function TexasHoldemTab() {
         {((showFlop && ((board.flop && board.flop.length === 3) || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
           <CommunityCards
             street={currentStreet}
-            flop={board.flop || undefined}
-            turn={board.turn || undefined}
-            river={board.river || undefined}
+            board={board}
             totalPot={totalPot}
             isCompact={isCompact}
             heroWon={heroWonHand}
