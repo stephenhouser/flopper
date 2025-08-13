@@ -1,6 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import RowButton from "@/components/ui/RowButton";
-import type { Session } from "@/models/poker";
+import type { Session, TrainerSettings } from "@/models/poker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
@@ -8,29 +8,32 @@ import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Switch, 
 export type SettingsSheetProps = {
   visible: boolean;
   onClose: () => void;
+  // Either pass unified settings or separate fields (back-compat)
+  settings?: TrainerSettings;
+  setSettings?: (s: TrainerSettings) => void | React.Dispatch<React.SetStateAction<TrainerSettings>>;
   // table config
-  numPlayers: number;
-  setNumPlayers: (n: number) => void;
-  bigBlind: number;
-  setBigBlind: (n: number) => void;
-  showFlop: boolean;
-  setShowFlop: (v: boolean) => void;
-  showTurn: boolean;
-  setShowTurn: (v: boolean) => void;
-  showRiver: boolean;
-  setShowRiver: (v: boolean) => void;
-  autoNew: boolean;
-  setAutoNew: (v: boolean) => void;
-  feedbackSecs: number;
-  setFeedbackSecs: React.Dispatch<React.SetStateAction<number>>;
-  showCommunityCards: boolean;
-  setShowCommunityCards: (v: boolean) => void;
-  showFeedback: boolean;
-  setShowFeedback: (v: boolean) => void;
-  facingRaise: boolean;
-  setFacingRaise: (v: boolean) => void;
-  showScore: boolean;
-  setShowScore: (v: boolean) => void;
+  numPlayers?: number;
+  setNumPlayers?: (n: number) => void;
+  bigBlind?: number;
+  setBigBlind?: (n: number) => void;
+  showFlop?: boolean;
+  setShowFlop?: (v: boolean) => void;
+  showTurn?: boolean;
+  setShowTurn?: (v: boolean) => void;
+  showRiver?: boolean;
+  setShowRiver?: (v: boolean) => void;
+  autoNew?: boolean;
+  setAutoNew?: (v: boolean) => void;
+  feedbackSecs?: number;
+  setFeedbackSecs?: React.Dispatch<React.SetStateAction<number>> | ((n: number) => void);
+  showCommunityCards?: boolean;
+  setShowCommunityCards?: (v: boolean) => void;
+  showFeedback?: boolean;
+  setShowFeedback?: (v: boolean) => void;
+  facingRaise?: boolean;
+  setFacingRaise?: (v: boolean) => void;
+  showScore?: boolean;
+  setShowScore?: (v: boolean) => void;
   currentSession: Session | null;
   onStartNewSession: () => void;
   onExportSession: () => void;
@@ -41,34 +44,98 @@ export type SettingsSheetProps = {
 const SettingsSheet: React.FC<SettingsSheetProps> = ({
   visible,
   onClose,
-  numPlayers,
-  setNumPlayers,
-  bigBlind,
-  setBigBlind,
-  showFlop,
-  setShowFlop,
-  showTurn,
-  setShowTurn,
-  showRiver,
-  setShowRiver,
-  autoNew,
-  setAutoNew,
-  feedbackSecs,
-  setFeedbackSecs,
-  showCommunityCards,
-  setShowCommunityCards,
-  showFeedback,
-  setShowFeedback,
-  facingRaise,
-  setFacingRaise,
-  showScore,
-  setShowScore,
+  settings,
+  setSettings,
+  numPlayers: _numPlayers,
+  setNumPlayers: _setNumPlayers,
+  bigBlind: _bigBlind,
+  setBigBlind: _setBigBlind,
+  showFlop: _showFlop,
+  setShowFlop: _setShowFlop,
+  showTurn: _showTurn,
+  setShowTurn: _setShowTurn,
+  showRiver: _showRiver,
+  setShowRiver: _setShowRiver,
+  autoNew: _autoNew,
+  setAutoNew: _setAutoNew,
+  feedbackSecs: _feedbackSecs,
+  setFeedbackSecs: _setFeedbackSecs,
+  showCommunityCards: _showCommunityCards,
+  setShowCommunityCards: _setShowCommunityCards,
+  showFeedback: _showFeedback,
+  setShowFeedback: _setShowFeedback,
+  facingRaise: _facingRaise,
+  setFacingRaise: _setFacingRaise,
+  showScore: _showScore,
+  setShowScore: _setShowScore,
   currentSession,
   onStartNewSession,
   onExportSession,
   onResetAll,
   dealTable,
 }) => {
+  // Resolve values and setters from unified or legacy props
+  const numPlayers = settings ? settings.numPlayers : (_numPlayers ?? 6);
+  const setNumPlayers = (n: number) => {
+    if (settings && setSettings) {
+      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, numPlayers: Math.max(2, Math.min(9, n)) }));
+      else (setSettings as (s: TrainerSettings) => void)({ ...settings, numPlayers: Math.max(2, Math.min(9, n)) });
+    } else {
+      _setNumPlayers?.(n);
+    }
+  };
+  const bigBlind = settings ? settings.bigBlind : (_bigBlind ?? 2);
+  const setBigBlind = (n: number) => {
+    if (settings && setSettings) {
+      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, bigBlind: Math.max(1, n) }));
+      else (setSettings as (s: TrainerSettings) => void)({ ...settings, bigBlind: Math.max(1, n) });
+    } else {
+      _setBigBlind?.(n);
+    }
+  };
+  const showFlop = settings ? settings.showFlop : (_showFlop ?? false);
+  const setShowFlop = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showFlop: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showFlop: v })) :
+    _setShowFlop?.(v);
+  const showTurn = settings ? settings.showTurn : (_showTurn ?? true);
+  const setShowTurn = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showTurn: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showTurn: v })) :
+    _setShowTurn?.(v);
+  const showRiver = settings ? settings.showRiver : (_showRiver ?? true);
+  const setShowRiver = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showRiver: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showRiver: v })) :
+    _setShowRiver?.(v);
+
+  const autoNew = settings ? settings.autoNew : (_autoNew ?? true);
+  const setAutoNew = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, autoNew: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, autoNew: v })) :
+    _setAutoNew?.(v);
+
+  const feedbackSecs = settings ? settings.feedbackSecs : (_feedbackSecs ?? 1);
+  const setFeedbackSecs = (n: number) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, feedbackSecs: Math.max(0, Math.min(10, n)) })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, feedbackSecs: Math.max(0, Math.min(10, n)) })) :
+    typeof _setFeedbackSecs === "function" ? (_setFeedbackSecs as (n: number) => void)(n) : undefined;
+
+  const showCommunityCards = settings ? settings.showCommunityCards : (_showCommunityCards ?? false);
+  const setShowCommunityCards = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showCommunityCards: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showCommunityCards: v })) :
+    _setShowCommunityCards?.(v);
+
+  const showFeedback = settings ? settings.showFeedback : (_showFeedback ?? true);
+  const setShowFeedback = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showFeedback: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showFeedback: v })) :
+    _setShowFeedback?.(v);
+
+  const facingRaise = settings ? settings.facingRaise : (_facingRaise ?? true);
+  const setFacingRaise = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, facingRaise: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, facingRaise: v })) :
+    _setFacingRaise?.(v);
+
+  const showScore = settings ? settings.showScore : (_showScore ?? true);
+  const setShowScore = (v: boolean) => settings && setSettings ?
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showScore: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showScore: v })) :
+    _setShowScore?.(v);
+
   // Tooltips internal state
   const [showFeedbackTooltip, setShowFeedbackTooltip] = useState(false);
   const [showAutoNewTooltip, setShowAutoNewTooltip] = useState(false);
@@ -274,12 +341,12 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
             </View>
 
             <View style={styles.singleColumnRow}>
-              <View style={[styles.controlBlock, { width: "100%" }]}>
+              <View style={[styles.controlBlock, { width: "100%" }]}> 
                 <Text style={styles.label}>Deal delay (seconds)</Text>
-                <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
-                  <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
+                <View style={[styles.stepper, { justifyContent: "flex-start" }]}> 
+                  <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs(Math.max(0, parseFloat((feedbackSecs - 0.5).toFixed(1))))} />
                   <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
-                  <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
+                  <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs(Math.min(10, parseFloat((feedbackSecs + 0.5).toFixed(1))))} />
                 </View>
               </View>
             </View>

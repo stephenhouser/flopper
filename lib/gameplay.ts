@@ -1,7 +1,8 @@
 import type { CardT } from "@/lib/cards";
 import { didHeroWin } from "@/lib/hand-eval";
 import { labelForPos } from "@/lib/positions";
-import type { Player, Settings, Street } from "@/models/poker";
+import type { Player, Street, Settings } from "@/models/poker";
+import { SMALL_BLIND_FACTOR, MIN_SMALL_BLIND } from "@/models/poker";
 
 // New: explicit community type used by some helpers
 export type Community = {
@@ -24,6 +25,10 @@ export function assignRolesAndPositions(n: number, btnIndex: number) {
 export function rotateToSmallBlindFirst(players: Player[]): Player[] {
   const sbIndex = players.findIndex((p) => p.role === "SB");
   return sbIndex >= 0 ? [...players.slice(sbIndex), ...players.slice(0, sbIndex)] : players;
+}
+
+export function smallBlindFromBigBlind(bb: number): number {
+  return Math.max(MIN_SMALL_BLIND, Math.floor(bb * SMALL_BLIND_FACTOR));
 }
 
 export function dealPlayers(
@@ -53,8 +58,9 @@ export function dealPlayers(
   });
 
   // Post blinds
+  const sb = smallBlindFromBigBlind(bigBlind);
   const withBlinds = players.map((p) => {
-    if (p.role === "SB") return { ...p, bet: Math.max(1, Math.floor(bigBlind / 2)) };
+    if (p.role === "SB") return { ...p, bet: sb };
     if (p.role === "BB") return { ...p, bet: bigBlind };
     return p;
   });

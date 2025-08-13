@@ -22,11 +22,13 @@ export function chenScore(c1: CardT, c2: CardT): number {
   return Math.round(score * 2) / 2;
 }
 
+export type ChenRecommendation = "raise" | "call/check" | "fold";
+
 export function recommendAction(
   score: number,
   numPlayers: number,
   facingRaise: boolean
-): "raise" | "call/check" | "fold" {
+): ChenRecommendation {
   const tableTightener = Math.max(0, (numPlayers - 6) * 0.7);
   if (facingRaise) {
     if (score >= 11 + tableTightener) return "raise";

@@ -32,6 +32,11 @@ export type Blinds = {
   bigBlind: number;
 };
 
+export const SMALL_BLIND_FACTOR = 0.5;
+export const MIN_SMALL_BLIND = 1;
+export const smallBlindFromBigBlind = (bb: number) =>
+  Math.max(MIN_SMALL_BLIND, Math.floor(bb * SMALL_BLIND_FACTOR));
+
 export type CommunityCards = {
   flop?: [CardT, CardT, CardT];
   turn?: CardT;
@@ -72,6 +77,31 @@ export const DEFAULT_SETTINGS: Settings = {
   showFlop: false,
   showTurn: true,
   showRiver: true,
+};
+
+// Trainer-level settings (superset of gameplay Settings)
+export type TrainerSettings = Settings & {
+  autoNew: boolean;
+  facingRaise: boolean;
+  showFeedback: boolean;
+  feedbackSecs: number; // seconds
+  showScore: boolean;
+  showCommunityCards: boolean;
+  // persisted table config
+  numPlayers: number;
+  bigBlind: number;
+};
+
+export const DEFAULT_TRAINER_SETTINGS: TrainerSettings = {
+  ...DEFAULT_SETTINGS,
+  autoNew: true,
+  facingRaise: true,
+  showFeedback: true,
+  feedbackSecs: 1.0,
+  showScore: true,
+  showCommunityCards: false,
+  numPlayers: 6,
+  bigBlind: 2,
 };
 
 export const DEFAULT_BLINDS: Blinds = { smallBlind: 1, bigBlind: 2 };

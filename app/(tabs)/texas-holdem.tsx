@@ -16,6 +16,7 @@ import {
 import { cardToPokerStarsStr } from "@/lib/cards";
 import Storage from "@/lib/storage";
 import type { Action, Player } from "@/models/poker";
+import { DEFAULT_TRAINER_SETTINGS } from "@/models/poker";
 
 // Import extracted UI components
 import CommunityCards from "@/components/poker/CommunityCards";
@@ -56,6 +57,7 @@ export default function TexasHoldemTab() {
     showTurn, setShowTurn,
     showRiver, setShowRiver,
     showCommunityCards, setShowCommunityCards,
+    settings, setSettings,
 
     // game state
     players, currentStreet, flopCards, turnCard, riverCard,
@@ -213,30 +215,9 @@ export default function TexasHoldemTab() {
   }
 
   async function resetAll() {
-    // Reset settings to defaults via hook setters
-    setShowFeedback(true);
-    setAutoNew(true);
-    setFacingRaise(true);
-    setFeedbackSecs(1.0);
-    setShowScore(true);
+    // Reset unified settings to defaults and close settings panel
+    setSettings({ ...DEFAULT_TRAINER_SETTINGS });
     setShowSettings(false);
-    setShowFlop(false);
-    setShowTurn(true);
-    setShowRiver(true);
-    setShowCommunityCards(false);
-
-    // Persist defaults
-    await Promise.all([
-      Storage.setItem("poker.showFeedback", "1"),
-      Storage.setItem("poker.autoNew", "1"),
-      Storage.setItem("poker.facingRaise", "1"),
-      Storage.setItem("poker.feedbackSecs", "1.0"),
-      Storage.setItem("poker.showScore", "1"),
-      Storage.setItem("poker.showFlop", "0"),
-      Storage.setItem("poker.showTurn", "1"),
-      Storage.setItem("poker.showRiver", "1"),
-      Storage.setItem("poker.showCommunityCards", "0"),
-    ]);
 
     // Clear session from storage and reset session state
     await Storage.setItem("poker.currentSession", "");
@@ -396,28 +377,10 @@ export default function TexasHoldemTab() {
       <SettingsSheet
         visible={showSettings}
         onClose={() => setShowSettings(false)}
-        numPlayers={numPlayers}
-        setNumPlayers={setNumPlayers}
-        bigBlind={bigBlind}
-        setBigBlind={setBigBlind}
-        showFlop={showFlop}
-        setShowFlop={setShowFlop}
-        showTurn={showTurn}
-        setShowTurn={setShowTurn}
-        showRiver={showRiver}
-        setShowRiver={setShowRiver}
-        autoNew={autoNew}
-        setAutoNew={setAutoNew}
-        feedbackSecs={feedbackSecs}
-        setFeedbackSecs={setFeedbackSecs}
-        showCommunityCards={showCommunityCards}
-        setShowCommunityCards={setShowCommunityCards}
-        showFeedback={showFeedback}
-        setShowFeedback={setShowFeedback}
-        facingRaise={facingRaise}
-        setFacingRaise={setFacingRaise}
-        showScore={showScore}
-        setShowScore={setShowScore}
+        // Unified settings API
+        settings={settings}
+        setSettings={setSettings}
+        // Legacy/session controls
         currentSession={currentSession}
         onStartNewSession={startNewSession}
         onExportSession={downloadSessionExport}
