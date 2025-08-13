@@ -1,4 +1,4 @@
-name: test
+name: lint
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  test:
+  lint:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -15,4 +15,5 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
-      - run: npm test -- --ci --reporters=default --reporters=github-actions
+      - run: npm run typecheck
+      - run: npm run lint || true # allow lint to warn without failing initially

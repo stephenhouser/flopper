@@ -1,4 +1,4 @@
-name: Publish flopper webapp to gh-pages
+name: webapp
 on:
   push:
     branches:
