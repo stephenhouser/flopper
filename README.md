@@ -4,11 +4,9 @@
 
 An experiment in building a focused poker training application with Expo + React Native + TypeScript. Runs on the web (PWA) and can run on iOS/Android.
 
-<button href="https://stephenhouser.com/flopper">Play Now!</button>
-
 ![flopper screen shot](flopper.png)
 
-<button href="https://stephenhouser.com/flopper">Play Now!</button>
+[Play Now!](https://stephenhouser.com/flopper)
 
 Quick links: [TODO.md](./TODO.md) • [NOTES.md](./NOTES.md)
 
