@@ -1,10 +1,12 @@
 # Flopper — a poker training app
 
-[![CI](https://github.com/stephenhouser/flopper/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/stephenhouser/flopper/actions/workflows/test.yml)
+[![Test](https://github.com/stephenhouser/flopper/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/stephenhouser/flopper/actions/workflows/test.yml)
+
+[![Webapp](https://github.com/stephenhouser/flopper/actions/workflows/webapp.yml/badge.svg?branch=main)](https://github.com/stephenhouser/flopper/actions/workflows/webapp.yml)
 
 An experiment in building a focused poker training application with Expo + React Native + TypeScript. Runs on the web (PWA) and can run on iOS/Android.
 
-![flopper screen shot](flopper.png)
+[![flopper screen shot](flopper.png)](https://stephenhouser.com/flopper)
 
 [Play Now!](https://stephenhouser.com/flopper)
 
