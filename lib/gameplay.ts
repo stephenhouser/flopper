@@ -1,13 +1,7 @@
 import type { CardT } from "@/lib/cards";
 import { didHeroWin } from "@/lib/hand-eval";
 import { labelForPos } from "@/lib/positions";
-import type { Player, Street } from "@/models/poker";
-
-export type Settings = {
-  showFlop: boolean;
-  showTurn: boolean;
-  showRiver: boolean;
-};
+import type { Player, Settings, Street } from "@/models/poker";
 
 // New: explicit community type used by some helpers
 export type Community = {

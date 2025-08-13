@@ -51,3 +51,16 @@ export type Session = {
   startTime: number;
   hands: HandHistory[];
 };
+
+// New: Centralized settings used by gameplay and UI
+export type Settings = {
+  showFlop: boolean;
+  showTurn: boolean;
+  showRiver: boolean;
+};
+
+export const DEFAULT_SETTINGS: Settings = {
+  showFlop: false,
+  showTurn: true,
+  showRiver: true,
+};

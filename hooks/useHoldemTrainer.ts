@@ -1,22 +1,16 @@
-import { makeDeck, shuffle, type CardT } from "@/lib/cards";
 import { chenScore, recommendAction } from "@/lib/chen";
 // Removed unused import didHeroWin after refactor to gameplay helpers
 // import { didHeroWin } from "@/lib/hand-eval";
 // Removed unused import labelForPos after refactor to gameplay helpers
 // import { labelForPos } from "@/lib/positions";
+import useGameEngine from "@/hooks/useGameEngine";
 import {
 	computeHeroResult as gpComputeHeroResult,
-	dealFlopFromDeck as gpDealFlop,
-	dealPlayers as gpDealPlayers,
-	dealRiverFromDeck as gpDealRiver,
-	dealTurnFromDeck as gpDealTurn,
+	// ...existing code...
 	minRaise as gpMinRaise,
-	nextStreet as gpNextStreet,
-	settleBetsIntoPot as gpSettleBetsIntoPot,
-	type Settings as GameplaySettings,
 } from "@/lib/gameplay";
 import Storage from "@/lib/storage";
-import type { Action, HandAction, HandHistory, Player, Session, Street } from "@/models/poker";
+import type { Action, HandAction, HandHistory, Player, Settings as PokerSettings, Session, Street } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Platform } from "react-native";
 
@@ -41,14 +35,23 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const [showRiver, setShowRiver] = useState(false);
   const [showCommunityCards, setShowCommunityCards] = useState(false);
 
-  // Game state
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [deck, setDeck] = useState<CardT[]>([]);
-  const [currentStreet, setCurrentStreet] = useState<Street>("preflop");
-  const [pot, setPot] = useState(0);
-  const [flopCards, setFlopCards] = useState<[CardT, CardT, CardT] | null>(null);
-  const [turnCard, setTurnCard] = useState<CardT | null>(null);
-  const [riverCard, setRiverCard] = useState<CardT | null>(null);
+  // Game engine state
+  const {
+    players: engPlayers,
+    setPlayers: setEngPlayers,
+    deck,
+    street: currentStreet,
+    pot,
+    flop: flopCards,
+    turn: turnCard,
+    river: riverCard,
+    totalPot,
+    dealTable: engineDealTable,
+    advanceStreet,
+    completeHand,
+  } = useGameEngine();
+
+  // UI-level state
   const [showAllCards, setShowAllCards] = useState(false);
   const [foldedHand, setFoldedHand] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
@@ -76,6 +79,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceStreetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const players = engPlayers;
+  const setPlayers = setEngPlayers;
 
   const hero = useMemo(() => players.find(p => p.isHero), [players]);
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
@@ -147,38 +153,23 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     heroFlashOpacity.setValue(0);
     if (fadeTimerRef.current) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
 
-    let freshDeck = shuffle(makeDeck());
     const heroSeat = 0;
+    const dealt = engineDealTable(n, bigBlind, { heroSeat });
 
-    const g: any = (globalThis as any);
-    if (typeof g.__BTN_SEAT__ !== "number") g.__BTN_SEAT__ = Math.floor(Math.random() * n);
-    else g.__BTN_SEAT__ = (g.__BTN_SEAT__ + 1) % n;
-    const btn: number = g.__BTN_SEAT__;
-
-    // Use gameplay helper to construct players (includes roles, blinds, and SB-first rotation)
-    const { players: dealtPlayers, deck: nextDeck } = gpDealPlayers(n, freshDeck, bigBlind, heroSeat, btn);
-
-    setFlopCards(null);
-    setTurnCard(null);
-    setRiverCard(null);
-    setCurrentStreet("preflop");
-    setDeck(nextDeck);
-    setPot(0);
+    setShowAllCards(false);
     setFoldedHand(false);
     setHeroWonHand(null);
     setRevealedPlayers(new Set());
 
-    setPlayers(dealtPlayers);
     setHeroAction("");
     setLastActionCorrect(null);
-    setShowAllCards(false);
     if (!showFeedback) setResult("");
 
     if (currentSession) {
-      const hh = createHandHistory(dealtPlayers);
+      const hh = createHandHistory(dealt.players);
       setCurrentHandHistory(hh);
     }
-  }, [bigBlind, currentSession, heroFlashOpacity, showFeedback]);
+  }, [bigBlind, currentSession, engineDealTable, heroFlashOpacity, showFeedback]);
 
   const newHand = useCallback(() => dealTable(numPlayers), [dealTable, numPlayers]);
 
@@ -253,10 +244,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       const finalPot = pot + allBets;
       const settleDelayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       setTimeout(() => {
-        setPot(prev => prev + allBets);
-        setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
+        completeHand();
       }, settleDelayMs);
-      setCurrentStreet("complete");
       setFoldedHand(true);
 
       if (currentHandHistory && currentSession) {
@@ -278,38 +267,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
       advanceStreetTimerRef.current = setTimeout(() => {
-        const settings: GameplaySettings = { showFlop, showTurn, showRiver };
-        const next = gpNextStreet(currentStreet, settings);
+        const settings: PokerSettings = { showFlop, showTurn, showRiver };
+        const next = advanceStreet(settings);
 
-        if (currentStreet === "preflop" && next === "flop" && deck.length >= 3) {
-          const { flop, deck: newDeck } = gpDealFlop(deck);
-          setFlopCards(flop);
-          setDeck(newDeck);
-          setCurrentStreet("flop");
-          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
-          setPot(newPot);
-          setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-        } else if (currentStreet === "flop" && next === "turn" && flopCards && deck.length >= 1) {
-          const { turn, deck: newDeck } = gpDealTurn(deck);
-          setTurnCard(turn);
-          setDeck(newDeck);
-          setCurrentStreet("turn");
-          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
-          setPot(newPot);
-          setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-        } else if (currentStreet === "turn" && next === "river" && turnCard && deck.length >= 1) {
-          const { river, deck: newDeck } = gpDealRiver(deck);
-          setRiverCard(river);
-          setDeck(newDeck);
-          setCurrentStreet("river");
-          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
-          setPot(newPot);
-          setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-        } else if (next === "complete" && currentStreet === "river") {
-          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
-          setPot(newPot);
-          setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-          setCurrentStreet("complete");
+        if (currentStreet === "river" && next === "complete") {
           const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
           setRevealedPlayers(allPlayerIds);
           let heroWon: boolean | undefined = undefined;
@@ -321,7 +282,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
-              pot: newPot,
+              pot: pot + updatedPlayers.reduce((s, p) => s + p.bet, 0),
               result: "completed" as const,
               heroWon,
               communityCards: { flop: flopCards!, turn: turnCard!, river: riverCard! },
@@ -335,43 +296,18 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
             if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
             dealTimerRef.current = setTimeout(() => newHand(), delayMs);
           }
-        } else {
-          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
-          setPot(newPot);
-          setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-          setCurrentStreet("complete");
+        } else if (next === "complete") {
+          // Non-river completion
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
-              pot: newPot,
+              pot: pot + updatedPlayers.reduce((s, p) => s + p.bet, 0),
               result: "completed" as const,
               communityCards: { ...(flopCards && { flop: flopCards }), ...(turnCard && { turn: turnCard }), ...(riverCard && { river: riverCard }) },
             };
             setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
             setCurrentHandHistory(null);
           }
-          if (showCommunityCards && showFlop && deck.length > 0) {
-            let newDeck = [...deck];
-            if (!flopCards && newDeck.length >= 3) {
-              const dealt = gpDealFlop(newDeck);
-              setFlopCards(dealt.flop);
-              newDeck = dealt.deck;
-            }
-            // Only deal turn if Turn is enabled
-            if (showTurn && flopCards && !turnCard && newDeck.length >= 1) {
-              const dealt = gpDealTurn(newDeck);
-              setTurnCard(dealt.turn);
-              newDeck = dealt.deck;
-            }
-            // Only deal river if River is enabled (and turn exists)
-            if (showRiver && flopCards && turnCard && !riverCard && newDeck.length >= 1) {
-              const dealt = gpDealRiver(newDeck);
-              setRiverCard(dealt.river);
-              newDeck = dealt.deck;
-            }
-            setDeck(newDeck);
-          }
-          // Non-river completions: still respect autoNew using the same feedback delay
           if (autoNew) {
             const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
             if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
@@ -415,15 +351,13 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     // Remove generic auto-new scheduling; we'll schedule precisely when a hand completes
     // const shouldAutoNew = ... (removed)
     // if (shouldAutoNew) { dealTimerRef.current = setTimeout(() => newHand(), delay); }
-  }, [autoNew, bigBlind, currentHandHistory, currentStreet, dealTimerRef, deck, facingRaise, feedbackSecs, flopCards, hero, heroScore, newHand, numPlayers, players, pot, recommended, riverCard, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, turnCard]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, flopCards, hero, heroScore, newHand, numPlayers, players, pot, recommended, riverCard, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, turnCard]);
 
   const canCheck = useMemo(() => {
     const currentBet = Math.max(...players.map(p => p.bet));
     const heroBet = hero?.bet || 0;
     return heroBet >= currentBet;
   }, [players, hero]);
-
-  const totalPot = useMemo(() => pot + players.reduce((sum, player) => sum + player.bet, 0), [players, pot]);
 
   const togglePlayerReveal = useCallback((playerId: number) => {
     setRevealedPlayers(prev => {
