@@ -285,7 +285,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
         setCurrentHandHistory(null);
       }
-      // After fold, auto-deal after the feedback delay as before
+      // After fold, auto-deal after the feedback delay (single-step flow)
       if (autoNew) {
         if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
         dealTimerRef.current = setTimeout(() => newHand(), settleDelayMs);
@@ -317,11 +317,11 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
             setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
             setCurrentHandHistory(null);
           }
-          // Linger with WIN/LOST visible for the full feedback delay before auto-deal
+          // Auto-deal immediately after the single feedback delay (no extra delay step)
           if (autoNew) {
-            const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
             if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-            dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+            dealTimerRef.current = null;
+            newHand();
           }
         } else if (next === "complete") {
           // Non-river completion
@@ -335,10 +335,11 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
             setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
             setCurrentHandHistory(null);
           }
+          // Auto-deal immediately after the single feedback delay (no extra delay step)
           if (autoNew) {
-            const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
             if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-            dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+            dealTimerRef.current = null;
+            newHand();
           }
         }
       }, delayMs);
