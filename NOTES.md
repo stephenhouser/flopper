@@ -286,18 +286,3 @@ Avoid recalculating totalPot/betLabel per render where unnecessary.
 Readability
 Replace magic numbers with constants (MAX_PLAYERS, FEEDBACK_MIN/MAX).
 Document the hand progression state machine with comments/tests.
-
-## Refactor Plan Progress
-
-Recent updates:
-
-- Added Jest with ts-jest config and initial unit tests for `lib/gameplay.ts` core helpers.
-- Configured npm scripts: `npm test`, `npm run test:watch`.
-- Kept editor typechecking clean by excluding `__tests__` from tsconfig (ts-jest compiles tests separately).
-
-Next steps:
-
-- Add tests for `hooks/useGameEngine` (advanceStreet, settle on completion, rotation of button).
-- Use `STREET_ORDER`/`HAND_STATE_MACHINE` in docs/tests for nextStreet behavior.
-- Adopt `Board` in engine return shape in a future refactor.
-- Memoize components/callbacks where useful and harden types.
