@@ -1,6 +1,6 @@
 import type { CardT } from "@/lib/cards";
-import { labelForPos } from "@/lib/positions";
 import { didHeroWin } from "@/lib/hand-eval";
+import { labelForPos } from "@/lib/positions";
 import type { Player, Street } from "@/models/poker";
 
 export type Settings = {

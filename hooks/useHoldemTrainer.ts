@@ -4,21 +4,21 @@ import { chenScore, recommendAction } from "@/lib/chen";
 // import { didHeroWin } from "@/lib/hand-eval";
 // Removed unused import labelForPos after refactor to gameplay helpers
 // import { labelForPos } from "@/lib/positions";
+import {
+	computeHeroResult as gpComputeHeroResult,
+	dealFlopFromDeck as gpDealFlop,
+	dealPlayers as gpDealPlayers,
+	dealRiverFromDeck as gpDealRiver,
+	dealTurnFromDeck as gpDealTurn,
+	minRaise as gpMinRaise,
+	nextStreet as gpNextStreet,
+	settleBetsIntoPot as gpSettleBetsIntoPot,
+	type Settings as GameplaySettings,
+} from "@/lib/gameplay";
 import Storage from "@/lib/storage";
 import type { Action, HandAction, HandHistory, Player, Session, Street } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Platform } from "react-native";
-import {
-  dealPlayers as gpDealPlayers,
-  minRaise as gpMinRaise,
-  nextStreet as gpNextStreet,
-  computeHeroResult as gpComputeHeroResult,
-  type Settings as GameplaySettings,
-  settleBetsIntoPot as gpSettleBetsIntoPot,
-  dealFlopFromDeck as gpDealFlop,
-  dealTurnFromDeck as gpDealTurn,
-  dealRiverFromDeck as gpDealRiver,
-} from "@/lib/gameplay";
 
 export type UseHoldemTrainerOptions = {
   initialNumPlayers?: number;
@@ -105,8 +105,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       }
       if (sScore != null) setShowScore(sScore === "1");
       if (sFlop != null) setShowFlop(sFlop === "1");
-      if (sTurn != null) setShowTurn(sTurn === "1");
-      if (sRiver != null) setShowRiver(sRiver === "1");
+      if (sTurn != null) setShowTurn(sTurn === "0");
+      if (sRiver != null) setShowRiver(sRiver === "0");
       if (sCommunity != null) setShowCommunityCards(sCommunity === "1");
       setReady(true);
     })();
@@ -353,18 +353,21 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           if (showCommunityCards && showFlop && deck.length > 0) {
             let newDeck = [...deck];
             if (!flopCards && newDeck.length >= 3) {
-              const { flop } = gpDealFlop(newDeck);
-              // gpDealFlop copies deck; since we're managing newDeck separately, pull cards directly
-              const a = newDeck.pop()!; const b = newDeck.pop()!; const c = newDeck.pop()!;
-              setFlopCards([a, b, c]);
+              const dealt = gpDealFlop(newDeck);
+              setFlopCards(dealt.flop);
+              newDeck = dealt.deck;
             }
-            if (flopCards && !turnCard && newDeck.length >= 1) {
-              const { turn } = gpDealTurn(newDeck);
-              setTurnCard(turn);
+            // Only deal turn if Turn is enabled
+            if (showTurn && flopCards && !turnCard && newDeck.length >= 1) {
+              const dealt = gpDealTurn(newDeck);
+              setTurnCard(dealt.turn);
+              newDeck = dealt.deck;
             }
-            if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
-              const { river } = gpDealRiver(newDeck);
-              setRiverCard(river);
+            // Only deal river if River is enabled (and turn exists)
+            if (showRiver && flopCards && turnCard && !riverCard && newDeck.length >= 1) {
+              const dealt = gpDealRiver(newDeck);
+              setRiverCard(dealt.river);
+              newDeck = dealt.deck;
             }
             setDeck(newDeck);
           }
