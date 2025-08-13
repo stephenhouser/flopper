@@ -8,7 +8,7 @@ import {
 	nextStreet as gpNextStreet,
 	settleBetsIntoPot as gpSettleBets,
 } from "@/lib/gameplay";
-import type { Player, Settings, Street } from "@/models/poker";
+import type { Board, Player, Settings, Street } from "@/models/poker";
 import { useCallback, useMemo, useRef, useState } from "react";
 
 export type GameEngineState = {
@@ -16,9 +16,7 @@ export type GameEngineState = {
   deck: CardT[];
   street: Street;
   pot: number;
-  flop: [CardT, CardT, CardT] | null;
-  turn: CardT | null;
-  river: CardT | null;
+  board: Board;
 };
 
 export default function useGameEngine() {
@@ -26,17 +24,13 @@ export default function useGameEngine() {
   const [deck, setDeck] = useState<CardT[]>([]);
   const [street, setStreet] = useState<Street>("preflop");
   const [pot, setPot] = useState(0);
-  const [flop, setFlop] = useState<[CardT, CardT, CardT] | null>(null);
-  const [turn, setTurn] = useState<CardT | null>(null);
-  const [river, setRiver] = useState<CardT | null>(null);
+  const [board, setBoard] = useState<Board>({ flop: null, turn: null, river: null });
 
   // Keep button index across hands
   const buttonIndexRef = useRef<number | null>(null);
 
   const resetBoard = useCallback(() => {
-    setFlop(null);
-    setTurn(null);
-    setRiver(null);
+    setBoard({ flop: null, turn: null, river: null });
   }, []);
 
   const dealTable = useCallback((n: number, bigBlind: number, opts?: { heroSeat?: number }): { players: Player[]; deck: CardT[] } => {
@@ -64,34 +58,34 @@ export default function useGameEngine() {
   }, [players, pot]);
 
   const dealFlop = useCallback(() => {
-    if (deck.length < 3 || flop) return false;
+    if (deck.length < 3 || board.flop) return false;
     const { flop: f, deck: d } = gpDealFlop(deck);
-    setFlop(f);
     setDeck(d);
     setStreet("flop");
+    setBoard((b) => ({ ...b, flop: f }));
     settleBets();
     return true;
-  }, [deck, flop, settleBets]);
+  }, [deck, board.flop, settleBets]);
 
   const dealTurn = useCallback(() => {
-    if (deck.length < 1 || !flop || turn) return false;
+    if (deck.length < 1 || !board.flop || board.turn) return false;
     const { turn: t, deck: d } = gpDealTurn(deck);
-    setTurn(t);
     setDeck(d);
     setStreet("turn");
+    setBoard((b) => ({ ...b, turn: t }));
     settleBets();
     return true;
-  }, [deck, flop, turn, settleBets]);
+  }, [deck, board.flop, board.turn, settleBets]);
 
   const dealRiver = useCallback(() => {
-    if (deck.length < 1 || !turn || river) return false;
+    if (deck.length < 1 || !board.turn || board.river) return false;
     const { river: r, deck: d } = gpDealRiver(deck);
-    setRiver(r);
     setDeck(d);
     setStreet("river");
+    setBoard((b) => ({ ...b, river: r }));
     settleBets();
     return true;
-  }, [deck, turn, river, settleBets]);
+  }, [deck, board.turn, board.river, settleBets]);
 
   const advanceStreet = useCallback((settings: Settings): Street => {
     const next = gpNextStreet(street, settings);
@@ -119,7 +113,7 @@ export default function useGameEngine() {
 
   return {
     // state
-    players, deck, street, pot, flop, turn, river,
+    players, deck, street, pot, board,
 
     // derived
     totalPot,

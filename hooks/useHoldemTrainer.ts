@@ -14,7 +14,7 @@ import {
 } from "@/lib/gameplay";
 import Storage from "@/lib/storage";
 import type { Action, HandAction, HandHistory, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
-import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
+import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
@@ -29,19 +29,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   // Settings (persisted as a single object)
   const [settings, setSettings, settingsReady] = usePersistedState<TrainerSettings>(
     SETTINGS_STORAGE_KEY,
-    {
-      showFlop: false,
-      showTurn: true,
-      showRiver: true,
-      autoNew: true,
-      facingRaise: true,
-      showFeedback: true,
-      feedbackSecs: 1.0,
-      showScore: true,
-      showCommunityCards: false,
-      numPlayers: 6,
-      bigBlind: 2,
-    }
+    { ...DEFAULT_TRAINER_SETTINGS }
   );
 
   const numPlayers = settingsReady ? settings.numPlayers ?? initialNumPlayers : initialNumPlayers;
@@ -75,9 +63,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     deck,
     street: currentStreet,
     pot,
-    flop: flopCards,
-    turn: turnCard,
-    river: riverCard,
+    // ...existing code...
+    board,
     totalPot,
     dealTable: engineDealTable,
     advanceStreet,
@@ -119,6 +106,13 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const hero = useMemo(() => players.find(p => p.isHero), [players]);
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
   const recommended = useMemo(() => recommendAction(heroScore, numPlayers, facingRaise), [heroScore, numPlayers, facingRaise]);
+
+  // Helper to transform board into communityCards payloads
+  const communityFromBoard = useCallback(() => ({
+    ...(board.flop && { flop: board.flop }),
+    ...(board.turn && { turn: board.turn }),
+    ...(board.river && { river: board.river }),
+  }), [board.flop, board.turn, board.river]);
 
   const startNewSession = useCallback(() => {
     const session = beginSession();
@@ -211,9 +205,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (!currentSession) return;
     if (players.length > 0) return;
     if (deck.length > 0) return;
-    if (flopCards || turnCard || riverCard) return;
+    if (board.flop || board.turn || board.river) return;
     dealTable(numPlayers);
-  }, [settingsReady, sessionReady, currentSession, players.length, deck.length, flopCards, turnCard, riverCard, dealTable, numPlayers]);
+  }, [settingsReady, sessionReady, currentSession, players.length, deck.length, board.flop, board.turn, board.river, dealTable, numPlayers]);
 
   function createHandHistory(ps: Player[]): HandHistory {
     const handId = `hand_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -221,7 +215,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       handId,
       timestamp: Date.now(),
       players: ps.map(p => ({ name: p.name, position: p.positionLabel || "", cards: p.cards, isHero: p.isHero })),
-      blinds: { smallBlind: Math.max(1, Math.floor(bigBlind / 2)), bigBlind },
+      blinds: { smallBlind: smallBlindFromBigBlind(bigBlind), bigBlind },
       communityCards: {},
       actions: [],
       pot: 0,
@@ -286,7 +280,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           ...currentHandHistory,
           pot: finalPot,
           result: "folded" as const,
-          communityCards: { ...(flopCards && { flop: flopCards }), ...(turnCard && { turn: turnCard }), ...(riverCard && { river: riverCard }) },
+          communityCards: communityFromBoard(),
         };
         setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
         setCurrentHandHistory(null);
@@ -307,8 +301,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
           setRevealedPlayers(allPlayerIds);
           let heroWon: boolean | undefined = undefined;
-          if (hero && flopCards && turnCard && riverCard) {
-            const communityCards = [...flopCards, turnCard, riverCard];
+          if (hero && board.flop && board.turn && board.river) {
+            const communityCards = [...board.flop, board.turn, board.river];
             heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
             setHeroWonHand(heroWon ?? null);
           }
@@ -318,7 +312,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
               pot: pot + updatedPlayers.reduce((s, p) => s + p.bet, 0),
               result: "completed" as const,
               heroWon,
-              communityCards: { flop: flopCards!, turn: turnCard!, river: riverCard! },
+              communityCards: { flop: board.flop!, turn: board.turn!, river: board.river! },
             };
             setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
             setCurrentHandHistory(null);
@@ -336,7 +330,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
               ...currentHandHistory,
               pot: pot + updatedPlayers.reduce((s, p) => s + p.bet, 0),
               result: "completed" as const,
-              communityCards: { ...(flopCards && { flop: flopCards }), ...(turnCard && { turn: turnCard }), ...(riverCard && { river: riverCard }) },
+              communityCards: communityFromBoard(),
             };
             setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
             setCurrentHandHistory(null);
@@ -367,7 +361,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, flopCards, hero, heroScore, newHand, numPlayers, players, pot, recommended, riverCard, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, turnCard, triggerFlash, setCurrentSession, currentSession]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, pot, recommended, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, triggerFlash, setCurrentSession, currentSession, communityFromBoard]);
 
   const canCheck = useMemo(() => {
     const currentBet = Math.max(...players.map(p => p.bet));
@@ -406,7 +400,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     settings, setSettings,
 
     // game state
-    players, currentStreet, pot, flopCards, turnCard, riverCard,
+    players, currentStreet, pot,
+    // ...existing code...
+    board,
     showAllCards, setShowAllCards,
     foldedHand, heroWonHand,
     revealedPlayers, togglePlayerReveal,

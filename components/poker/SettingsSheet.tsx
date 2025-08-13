@@ -1,7 +1,7 @@
 import { ThemedText } from "@/components/ThemedText";
 import RowButton from "@/components/ui/RowButton";
 import type { Session, TrainerSettings } from "@/models/poker";
-import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS } from "@/models/poker";
+import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SMALL_BLIND_FACTOR } from "@/models/poker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
@@ -181,6 +181,8 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
 
   if (!visible) return null;
 
+  const sbPct = Math.round(SMALL_BLIND_FACTOR * 100);
+
   return (
     <View style={styles.modalOverlay}>
       <Pressable style={styles.modalBackdrop} onPress={onClose} />
@@ -270,21 +272,21 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
               <View className="controlBlock" style={styles.controlBlock}>
                 <ThemedText style={styles.label}>Players</ThemedText>
                 <View style={styles.stepper}>
-                  <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
+                  <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(MIN_PLAYERS, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
                   <Text style={styles.stepperNum}>{numPlayers}</Text>
-                  <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
+                  <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(MAX_PLAYERS, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
                 </View>
               </View>
             </View>
 
             <View style={styles.singleColumnRow}>
               <View style={[styles.controlBlock, { width: "35%" }]}> 
-                <Text style={styles.label}>Big blind (small blind is 1/2)</Text>
+                <Text style={styles.label}>Big blind (small blind is {sbPct}%)</Text>
                 <View style={styles.currencyInputContainer}>
                   <Text style={styles.currencyPrefix}>$</Text>
                   <TextInput
                     value={String(bigBlind)}
-                    onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
+                    onChangeText={(t) => { const next = Math.max(MIN_BIG_BLIND, Number(t.replace(/[^0-9]/g, "")) || MIN_BIG_BLIND); setBigBlind(next); dealTable(numPlayers); }}
                     inputMode="numeric"
                     keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
                     style={styles.currencyInput}

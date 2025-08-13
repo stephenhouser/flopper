@@ -3,7 +3,14 @@
   "compilerOptions": {
     "types": ["jest", "node"],
     "jsx": "react-jsx",
-    "module": "CommonJS"
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
   },
   "include": ["**/*.ts", "**/*.tsx"],
   "exclude": ["node_modules", ".expo"]

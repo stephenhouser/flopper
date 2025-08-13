@@ -16,7 +16,7 @@ import {
 import { cardToPokerStarsStr } from "@/lib/cards";
 import Storage from "@/lib/storage";
 import type { Action, Player } from "@/models/poker";
-import { DEFAULT_TRAINER_SETTINGS } from "@/models/poker";
+import { DEFAULT_TRAINER_SETTINGS, SESSION_STORAGE_KEY } from "@/models/poker";
 
 // Import extracted UI components
 import CommunityCards from "@/components/poker/CommunityCards";
@@ -60,7 +60,7 @@ export default function TexasHoldemTab() {
     settings, setSettings,
 
     // game state
-    players, currentStreet, flopCards, turnCard, riverCard,
+    players, currentStreet, board,
     foldedHand, heroWonHand,
     revealedPlayers, togglePlayerReveal,
 
@@ -220,7 +220,7 @@ export default function TexasHoldemTab() {
     setShowSettings(false);
 
     // Clear session from storage and reset session state
-    await Storage.setItem("poker.currentSession", "");
+    await Storage.setItem(SESSION_STORAGE_KEY, "");
     setCurrentSession(null);
     setCurrentHandHistory(null);
 
@@ -306,7 +306,7 @@ export default function TexasHoldemTab() {
               </Text>
               <View style={styles.feedbackRight}>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>Last: {formatAction(lastAction)}</Text>
+                  <Text style={styles.pillText}>Last: {formatAction(heroAction)}</Text>
                 </View>
               </View>
             </View>
@@ -314,12 +314,12 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Community Cards Row (uses extracted component) */}
-        {((showFlop && (flopCards || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
+        {((showFlop && ((board.flop && board.flop.length === 3) || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
           <CommunityCards
             street={currentStreet}
-            flop={flopCards || undefined}
-            turn={turnCard || undefined}
-            river={riverCard || undefined}
+            flop={board.flop || undefined}
+            turn={board.turn || undefined}
+            river={board.river || undefined}
             totalPot={totalPot}
             isCompact={isCompact}
             heroWon={heroWonHand}

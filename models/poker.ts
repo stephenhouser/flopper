@@ -147,3 +147,4 @@ export const DEFAULT_BIG_BLIND = DEFAULT_TRAINER_SETTINGS.bigBlind;
 
 // Storage keys
 export const SETTINGS_STORAGE_KEY = "poker.trainerSettings.v1" as const;
+export const SESSION_STORAGE_KEY = "poker.currentSession" as const;
