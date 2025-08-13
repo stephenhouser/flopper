@@ -104,9 +104,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         if (!Number.isNaN(v)) setFeedbackSecs(v);
       }
       if (sScore != null) setShowScore(sScore === "1");
-      if (sFlop != null) setShowFlop(sFlop === "1");
-      if (sTurn != null) setShowTurn(sTurn === "0");
-      if (sRiver != null) setShowRiver(sRiver === "0");
+      if (sFlop != null) setShowFlop(sFlop === "0");
+      if (sTurn != null) setShowTurn(sTurn === "1");
+      if (sRiver != null) setShowRiver(sRiver === "1");
       if (sCommunity != null) setShowCommunityCards(sCommunity === "1");
       setReady(true);
     })();

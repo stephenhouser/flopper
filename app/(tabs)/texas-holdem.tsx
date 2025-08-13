@@ -221,8 +221,8 @@ export default function TexasHoldemTab() {
     setShowScore(true);
     setShowSettings(false);
     setShowFlop(false);
-    setShowTurn(false);
-    setShowRiver(false);
+    setShowTurn(true);
+    setShowRiver(true);
     setShowCommunityCards(false);
 
     // Persist defaults
@@ -233,8 +233,8 @@ export default function TexasHoldemTab() {
       Storage.setItem("poker.feedbackSecs", "1.0"),
       Storage.setItem("poker.showScore", "1"),
       Storage.setItem("poker.showFlop", "0"),
-      Storage.setItem("poker.showTurn", "0"),
-      Storage.setItem("poker.showRiver", "0"),
+      Storage.setItem("poker.showTurn", "1"),
+      Storage.setItem("poker.showRiver", "1"),
       Storage.setItem("poker.showCommunityCards", "0"),
     ]);
 
