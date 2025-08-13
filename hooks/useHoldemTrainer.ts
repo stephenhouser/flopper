@@ -69,6 +69,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     dealTable: engineDealTable,
     advanceStreet,
     completeHand,
+    getTotalPot,
   } = useGameEngine();
 
   // UI-level state
@@ -274,11 +275,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     const updatedPlayers = players.map(p => (p.isHero ? { ...p, bet: betAmount } : p));
     setPlayers(updatedPlayers);
 
-    const updatedTotalPot = pot + updatedPlayers.reduce((sum, player) => sum + player.bet, 0);
+    const updatedTotalPot = getTotalPot();
 
     if (action === "fold") {
-      const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
-      const finalPot = pot + allBets;
+      const finalPot = getTotalPot();
       const settleDelayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       setTimeout(() => {
         completeHand();
@@ -319,7 +319,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
-              pot: pot + updatedPlayers.reduce((s, p) => s + p.bet, 0),
+              pot: getTotalPot(),
               result: "completed" as const,
               heroWon,
               communityCards: { flop: board.flop!, turn: board.turn!, river: board.river! },
@@ -338,7 +338,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
-              pot: pot + updatedPlayers.reduce((s, p) => s + p.bet, 0),
+              pot: getTotalPot(),
               result: "completed" as const,
               communityCards: communityFromBoard(),
             };
@@ -372,7 +372,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, pot, recommended, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, triggerFlash, setCurrentSession, currentSession, communityFromBoard]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, pot, recommended, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, triggerFlash, setCurrentSession, currentSession, communityFromBoard, getTotalPot]);
 
   const canCheck = useMemo(() => {
     const currentBet = Math.max(...players.map(p => p.bet));

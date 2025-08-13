@@ -132,6 +132,13 @@ export default function useGameEngine() {
 
   const totalPot = useMemo(() => pot + players.reduce((s, p) => s + (p.bet || 0), 0), [pot, players]);
 
+  // Getter using refs for up-to-date value inside delayed callbacks
+  const getTotalPot = useCallback(() => {
+    const curPot = potRef.current;
+    const bets = playersRef.current.reduce((s, p) => s + (p.bet || 0), 0);
+    return curPot + bets;
+  }, []);
+
   return {
     // state
     players, deck, street, pot, board,
@@ -150,5 +157,8 @@ export default function useGameEngine() {
 
     // setters for players (for hero action updates)
     setPlayers,
+
+    // util
+    getTotalPot,
   } as const;
 }
