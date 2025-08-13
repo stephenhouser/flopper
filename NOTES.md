@@ -220,3 +220,69 @@ Consolidate styles shared across poker components.
 Add unit tests for lib/cards, lib/chen, lib/hand-eval, and hooks/useHoldemTrainer.
 
 ** This completely broke the game, no players, cards, or any hands show on the screen"
+
+# update fix
+
+Fix applied:
+
+Added an auto-deal on mount in the hook so a hand is dealt as soon as settings are loaded and a session exists.
+Placed the effect after dealTable/newHand definitions to avoid temporal-dead-zone issues.
+File changed:
+
+useHoldemTrainer.ts
+New effect: when ready, a session exists, and there are no players/deck/community cards yet, call dealTable(numPlayers).
+No TypeScript errors after the change.
+Why this fixes it:
+
+After the refactor, nothing triggered the initial deal. The FlatList had no players until the first action. The new effect restores the previous behavior by dealing automatically once initialization completes.
+Validate:
+
+Launch the app; the table should show a dealt hand immediately.
+Toggle settings and start a new session; a fresh hand should auto-deal.
+Actions and hotkeys should work as before.
+
+## what are your recomended next steps
+
+Here’s a short, prioritized plan.
+
+Isolate gameplay engine
+Create lib/gameplay.ts with pure functions: rotatePositions, dealPlayers, collectBetsIntoPot, resetBets, nextStreet, minRaise, settleResult.
+Make hooks/useGameEngine.ts wrap those and expose: state, newHand, act, advanceStreet. Remove globalThis.BTN_SEAT and keep buttonIndex in a ref that advances per hand.
+Split the big hook
+hooks/useSession.ts: load/save session, currentHandHistory, addActionToHistory, startNewSession, exportPokerStars.
+hooks/useFlash.ts: manages flash state + opacity + timers.
+hooks/useHotkeys.ts: register web/native keys, accepts callbacks map.
+Keep hooks/useHoldemTrainer as a thin orchestrator composing the above.
+Settings consolidation
+Define a Settings type and use usePersistedState for each setting (or one Settings object).
+Pass a single settings object + onChange(settings) to SettingsSheet, instead of many props.
+Tooltip cleanup
+Replace many booleans with one activeTooltip: 'feedback' | 'autoNew' | 'facingRaise' | 'score' | 'flop' | 'turn' | 'river' | 'community'.
+Optional: components/ui/Tooltip for reuse.
+Component memoization and props
+React.memo PlayerRow and PlayingCard.
+Ensure stable props: memoize betLabel and other callbacks, avoid passing new inline functions to each row.
+Types hardening
+Centralize unions in poker.ts (Street, Action, Result).
+Add Settings type and a GameState type.
+Remove remaining anys; type timers and refs.
+Tests
+Add Jest + @testing-library/react-native for components; Vitest/Jest for pure libs.
+Cover lib/cards, lib/chen, lib/hand-eval, lib/positions, lib/gameplay.
+Add basic tests for useGameEngine and useSession (react-hooks testing library).
+Storage robustness
+Wrap Storage JSON parse/stringify with try/catch and versioned keys.
+Add simple migration guard for future changes.
+Styling and theming
+Consolidate shared styles (poker/styles.ts), reuse Colors.ts, ensure dark mode compatibility.
+Remove duplicate style fragments in screen vs components.
+DX and CI
+Add npm scripts: lint, format, test, typecheck.
+Configure ESLint + Prettier for TS/React Native.
+Optional: GitHub Actions for typecheck/lint/test on PRs.
+Performance polish
+FlatList: provide keyExtractor, initialNumToRender, windowSize; consider getItemLayout for fixed-height rows.
+Avoid recalculating totalPot/betLabel per render where unnecessary.
+Readability
+Replace magic numbers with constants (MAX_PLAYERS, FEEDBACK_MIN/MAX).
+Document the hand progression state machine with comments/tests.

@@ -14,6 +14,10 @@ import {
   nextStreet as gpNextStreet,
   computeHeroResult as gpComputeHeroResult,
   type Settings as GameplaySettings,
+  settleBetsIntoPot as gpSettleBetsIntoPot,
+  dealFlopFromDeck as gpDealFlop,
+  dealTurnFromDeck as gpDealTurn,
+  dealRiverFromDeck as gpDealRiver,
 } from "@/lib/gameplay";
 
 export type UseHoldemTrainerOptions = {
@@ -209,6 +213,12 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   }
 
   const act = useCallback((action: Action) => {
+    // Clear any previously scheduled auto-new to avoid overlap
+    if (dealTimerRef.current) {
+      clearTimeout(dealTimerRef.current);
+      dealTimerRef.current = null;
+    }
+
     setHeroAction(action);
     setLastAction(action);
 
@@ -272,36 +282,32 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         const next = gpNextStreet(currentStreet, settings);
 
         if (currentStreet === "preflop" && next === "flop" && deck.length >= 3) {
-          const newDeck = [...deck];
-          const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
+          const { flop, deck: newDeck } = gpDealFlop(deck);
           setFlopCards(flop);
           setDeck(newDeck);
           setCurrentStreet("flop");
-          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
-          setPot(prev => prev + allBets);
+          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
+          setPot(newPot);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
         } else if (currentStreet === "flop" && next === "turn" && flopCards && deck.length >= 1) {
-          const newDeck = [...deck];
-          const turn = newDeck.pop()!;
+          const { turn, deck: newDeck } = gpDealTurn(deck);
           setTurnCard(turn);
           setDeck(newDeck);
           setCurrentStreet("turn");
-          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
-          setPot(prev => prev + allBets);
+          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
+          setPot(newPot);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
         } else if (currentStreet === "turn" && next === "river" && turnCard && deck.length >= 1) {
-          const newDeck = [...deck];
-          const river = newDeck.pop()!;
+          const { river, deck: newDeck } = gpDealRiver(deck);
           setRiverCard(river);
           setDeck(newDeck);
           setCurrentStreet("river");
-          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
-          setPot(prev => prev + allBets);
+          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
+          setPot(newPot);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
         } else if (next === "complete" && currentStreet === "river") {
-          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
-          const finalPot = pot + allBets;
-          setPot(prev => prev + allBets);
+          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
+          setPot(newPot);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
           setCurrentStreet("complete");
           const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
@@ -315,7 +321,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
-              pot: finalPot,
+              pot: newPot,
               result: "completed" as const,
               heroWon,
               communityCards: { flop: flopCards!, turn: turnCard!, river: riverCard! },
@@ -330,15 +336,14 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
             dealTimerRef.current = setTimeout(() => newHand(), delayMs);
           }
         } else {
-          const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
-          const finalPot = pot + allBets;
-          setPot(prev => prev + allBets);
+          const { pot: newPot } = gpSettleBetsIntoPot(pot, updatedPlayers);
+          setPot(newPot);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
           setCurrentStreet("complete");
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
               ...currentHandHistory,
-              pot: finalPot,
+              pot: newPot,
               result: "completed" as const,
               communityCards: { ...(flopCards && { flop: flopCards }), ...(turnCard && { turn: turnCard }), ...(riverCard && { river: riverCard }) },
             };
@@ -348,15 +353,17 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           if (showCommunityCards && showFlop && deck.length > 0) {
             let newDeck = [...deck];
             if (!flopCards && newDeck.length >= 3) {
-              const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
-              setFlopCards(flop);
+              const { flop } = gpDealFlop(newDeck);
+              // gpDealFlop copies deck; since we're managing newDeck separately, pull cards directly
+              const a = newDeck.pop()!; const b = newDeck.pop()!; const c = newDeck.pop()!;
+              setFlopCards([a, b, c]);
             }
             if (flopCards && !turnCard && newDeck.length >= 1) {
-              const turn = newDeck.pop()!;
+              const { turn } = gpDealTurn(newDeck);
               setTurnCard(turn);
             }
             if (flopCards && turnCard && !riverCard && newDeck.length >= 1) {
-              const river = newDeck.pop()!;
+              const { river } = gpDealRiver(newDeck);
               setRiverCard(river);
             }
             setDeck(newDeck);
@@ -398,7 +405,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     setResult(resultText);
 
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
-    if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+    // Do NOT clear dealTimerRef here; timers are scheduled precisely in the branches above
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
 
