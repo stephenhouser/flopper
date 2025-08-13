@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
 import Storage from "@/lib/storage";
 import type { Session } from "@/models/poker";
+import { useCallback, useEffect, useState } from "react";
 
 const STORAGE_KEY = "poker.currentSession";
 

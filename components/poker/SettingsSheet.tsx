@@ -1,6 +1,7 @@
 import { ThemedText } from "@/components/ThemedText";
 import RowButton from "@/components/ui/RowButton";
 import type { Session, TrainerSettings } from "@/models/poker";
+import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS } from "@/models/poker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from "react-native";
@@ -78,8 +79,8 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
   const numPlayers = settings ? settings.numPlayers : (_numPlayers ?? 6);
   const setNumPlayers = (n: number) => {
     if (settings && setSettings) {
-      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, numPlayers: Math.max(2, Math.min(9, n)) }));
-      else (setSettings as (s: TrainerSettings) => void)({ ...settings, numPlayers: Math.max(2, Math.min(9, n)) });
+      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) }));
+      else (setSettings as (s: TrainerSettings) => void)({ ...settings, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) });
     } else {
       _setNumPlayers?.(n);
     }
@@ -87,8 +88,8 @@ const SettingsSheet: React.FC<SettingsSheetProps> = ({
   const bigBlind = settings ? settings.bigBlind : (_bigBlind ?? 2);
   const setBigBlind = (n: number) => {
     if (settings && setSettings) {
-      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, bigBlind: Math.max(1, n) }));
-      else (setSettings as (s: TrainerSettings) => void)({ ...settings, bigBlind: Math.max(1, n) });
+      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, bigBlind: Math.max(MIN_BIG_BLIND, n) }));
+      else (setSettings as (s: TrainerSettings) => void)({ ...settings, bigBlind: Math.max(MIN_BIG_BLIND, n) });
     } else {
       _setBigBlind?.(n);
     }

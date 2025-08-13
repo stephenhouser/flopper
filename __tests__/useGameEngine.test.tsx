@@ -1,7 +1,6 @@
-import React from 'react';
-import { renderHook, act } from '@testing-library/react';
 import useGameEngine from '@/hooks/useGameEngine';
 import type { Settings } from '@/models/poker';
+import { act, renderHook } from '@testing-library/react';
 
 // Make shuffling deterministic for tests
 jest.mock('@/lib/cards', () => {

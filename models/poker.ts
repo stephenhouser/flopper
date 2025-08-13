@@ -136,3 +136,14 @@ export type GameState = {
   pot: number;
   board: Board;
 };
+
+// App-wide constraints and defaults for table configuration
+export const MIN_PLAYERS = 2 as const;
+export const MAX_PLAYERS = 9 as const;
+export const DEFAULT_NUM_PLAYERS = DEFAULT_TRAINER_SETTINGS.numPlayers;
+
+export const MIN_BIG_BLIND = 1 as const;
+export const DEFAULT_BIG_BLIND = DEFAULT_TRAINER_SETTINGS.bigBlind;
+
+// Storage keys
+export const SETTINGS_STORAGE_KEY = "poker.trainerSettings.v1" as const;

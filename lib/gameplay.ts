@@ -1,8 +1,8 @@
 import type { CardT } from "@/lib/cards";
 import { didHeroWin } from "@/lib/hand-eval";
 import { labelForPos } from "@/lib/positions";
-import type { Player, Street, Settings } from "@/models/poker";
-import { SMALL_BLIND_FACTOR, MIN_SMALL_BLIND } from "@/models/poker";
+import type { Player, Settings, Street } from "@/models/poker";
+import { MIN_SMALL_BLIND, SMALL_BLIND_FACTOR } from "@/models/poker";
 
 // New: explicit community type used by some helpers
 export type Community = {

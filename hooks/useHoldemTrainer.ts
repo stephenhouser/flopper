@@ -3,19 +3,20 @@ import { chenScore, recommendAction } from "@/lib/chen";
 // import { didHeroWin } from "@/lib/hand-eval";
 // Removed unused import labelForPos after refactor to gameplay helpers
 // import { labelForPos } from "@/lib/positions";
+import useFlash from "@/hooks/useFlash";
 import useGameEngine from "@/hooks/useGameEngine";
+import usePersistedState from "@/hooks/usePersistedState";
+import useSession from "@/hooks/useSession";
 import {
 	computeHeroResult as gpComputeHeroResult,
 	// ...existing code...
 	minRaise as gpMinRaise,
 } from "@/lib/gameplay";
 import Storage from "@/lib/storage";
-import type { Action, HandAction, HandHistory, Player, Settings as PokerSettings, Session, Street, TrainerSettings } from "@/models/poker";
-import usePersistedState from "@/hooks/usePersistedState";
+import type { Action, HandAction, HandHistory, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
+import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
-import useFlash from "@/hooks/useFlash";
-import useSession from "@/hooks/useSession";
 
 export type UseHoldemTrainerOptions = {
   initialNumPlayers?: number;
@@ -27,7 +28,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
   // Settings (persisted as a single object)
   const [settings, setSettings, settingsReady] = usePersistedState<TrainerSettings>(
-    "poker.trainerSettings.v1",
+    SETTINGS_STORAGE_KEY,
     {
       showFlop: false,
       showTurn: true,
@@ -55,8 +56,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const showRiver = settings.showRiver;
   const showCommunityCards = settings.showCommunityCards;
 
-  const setNumPlayers = useCallback((n: number) => setSettings((s) => ({ ...s, numPlayers: Math.max(2, Math.min(9, n)) })), [setSettings]);
-  const setBigBlind = useCallback((n: number) => setSettings((s) => ({ ...s, bigBlind: Math.max(1, n) })), [setSettings]);
+  const setNumPlayers = useCallback((n: number) => setSettings((s) => ({ ...s, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) })), [setSettings]);
+  const setBigBlind = useCallback((n: number) => setSettings((s) => ({ ...s, bigBlind: Math.max(MIN_BIG_BLIND, n) })), [setSettings]);
   const setAutoNew = useCallback((v: boolean) => setSettings((s) => ({ ...s, autoNew: v })), [setSettings]);
   const setFacingRaise = useCallback((v: boolean) => setSettings((s) => ({ ...s, facingRaise: v })), [setSettings]);
   const setShowFeedback = useCallback((v: boolean) => setSettings((s) => ({ ...s, showFeedback: v })), [setSettings]);
@@ -153,8 +154,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         if (values[6] != null) next.showTurn = values[6] === "1";
         if (values[7] != null) next.showRiver = values[7] === "1";
         if (values[8] != null) next.showCommunityCards = values[8] === "1";
-        if (values[9] != null) { const n = parseInt(values[9] || "6", 10); if (!Number.isNaN(n)) (next as any).numPlayers = Math.max(2, Math.min(9, n)); }
-        if (values[10] != null) { const n = parseInt(values[10] || "2", 10); if (!Number.isNaN(n)) (next as any).bigBlind = Math.max(1, n); }
+        if (values[9] != null) { const n = parseInt(values[9] || "6", 10); if (!Number.isNaN(n)) (next as any).numPlayers = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)); }
+        if (values[10] != null) { const n = parseInt(values[10] || "2", 10); if (!Number.isNaN(n)) (next as any).bigBlind = Math.max(MIN_BIG_BLIND, n); }
         if (Object.keys(next).length > 0) {
           setSettings((s) => ({ ...s, ...next }));
         }
