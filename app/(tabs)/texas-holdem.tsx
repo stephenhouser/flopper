@@ -77,6 +77,7 @@ export default function TexasHoldemTab() {
     isCompact,
     showSettings, setShowSettings,
     heroFlash, heroFlashOpacity,
+    buttonsDisabled,
 
     // derived
     heroScore,
@@ -240,6 +241,7 @@ export default function TexasHoldemTab() {
       const editable = target && (target as any).isContentEditable;
       if (tag === "input" || tag === "textarea" || editable) return;
       if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      if (buttonsDisabled) return; // block hotkeys while feedback shown
       const k = String(e.key || "").toLowerCase();
       if (k === "c") act("check");
       else if (k === "a") act("call");
@@ -250,7 +252,7 @@ export default function TexasHoldemTab() {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [heroAction, newHand, act]);
+  }, [heroAction, newHand, act, buttonsDisabled]);
 
   /* --- Hotkeys (native, optional): requires `react-native-key-command` --- */
   useEffect(() => {
@@ -259,18 +261,19 @@ export default function TexasHoldemTab() {
     try { KeyCommand = require("react-native-key-command"); } catch { return; }
     const unsubscribers: (() => void)[] = [];
     const add = (input: any, cb: () => void) => { try { const off = KeyCommand.addListener({ input }, cb); unsubscribers.push(off); } catch {} };
-    add("c", () => act("check"));
-    add("a", () => act("call"));
-    add("f", () => act("fold"));
-    add("r", () => act("raise"));
-    add("\n", () => { if (heroAction) act(heroAction); });
-    add("enter", () => { if (heroAction) act(heroAction); });
-    if (KeyCommand.constants?.keyInputEnter) add(KeyCommand.constants.keyInputEnter, () => { if (heroAction) act(heroAction); });
-    add(" ", () => newHand());
-    add("space", () => newHand());
-    if (KeyCommand.constants?.keyInputSpace) add(KeyCommand.constants.keyInputSpace, () => newHand());
+    const wrap = (fn: () => void) => () => { if (!buttonsDisabled) fn(); };
+    add("c", wrap(() => act("check")));
+    add("a", wrap(() => act("call")));
+    add("f", wrap(() => act("fold")));
+    add("r", wrap(() => act("raise")));
+    add("\n", wrap(() => { if (heroAction) act(heroAction); }));
+    add("enter", wrap(() => { if (heroAction) act(heroAction); }));
+    if (KeyCommand.constants?.keyInputEnter) add(KeyCommand.constants.keyInputEnter, wrap(() => { if (heroAction) act(heroAction); }));
+    add(" ", wrap(() => newHand()));
+    add("space", wrap(() => newHand()));
+    if (KeyCommand.constants?.keyInputSpace) add(KeyCommand.constants.keyInputSpace, wrap(() => newHand()));
     return () => { unsubscribers.forEach((off) => typeof off === "function" && off()); };
-  }, [heroAction, newHand, act]);
+  }, [heroAction, newHand, act, buttonsDisabled]);
 
   return (
     <>
@@ -359,10 +362,10 @@ export default function TexasHoldemTab() {
             />
           ) : (
             <View style={styles.actionsLeft}>
-              <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} />
-              <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} />
-              <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} disabled={!canCheck} />
-              <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} />
+              <RowButton equal kind="primary" onPress={() => act("raise")} label={withHotkey("Raise", "r")} disabled={buttonsDisabled} />
+              <RowButton equal kind="primary" onPress={() => act("call")}  label={withHotkey("Call",  "a")} disabled={buttonsDisabled} />
+              <RowButton equal kind="primary" onPress={() => act("check")} label={withHotkey("Check", "c")} disabled={!canCheck || buttonsDisabled} />
+              <RowButton equal kind="primary" onPress={() => act("fold")}  label={withHotkey("Fold",  "f")} disabled={buttonsDisabled} />
             </View>
           )}
         </View>

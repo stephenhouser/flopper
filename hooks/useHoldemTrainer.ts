@@ -76,6 +76,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const [foldedHand, setFoldedHand] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
   const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
+  const [buttonsDisabled, setButtonsDisabled] = useState(false);
 
   // Flash/animation hook
   const { heroFlash, heroFlashOpacity, triggerFlash, clearFlash, setHeroFlash } = useFlash();
@@ -99,6 +100,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceStreetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const disableButtonsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const players = engPlayers;
   const setPlayers = setEngPlayers;
@@ -235,6 +237,14 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (dealRef) {
       clearTimeout(dealRef);
       dealTimerRef.current = null;
+    }
+
+    // Disable action buttons for the duration of the feedback window
+    const disableMs = Math.max(0, Math.round(feedbackSecs * 1000));
+    if (disableMs > 0) {
+      if (disableButtonsTimerRef.current) clearTimeout(disableButtonsTimerRef.current);
+      setButtonsDisabled(true);
+      disableButtonsTimerRef.current = setTimeout(() => setButtonsDisabled(false), disableMs);
     }
 
     setHeroAction(action);
@@ -380,7 +390,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
   // Cleanup timers on unmount
   useEffect(() => () => {
-    [hideTimerRef, dealTimerRef, advanceStreetTimerRef].forEach(ref => {
+    [hideTimerRef, dealTimerRef, advanceStreetTimerRef, disableButtonsTimerRef].forEach(ref => {
       if (ref.current) clearTimeout(ref.current);
     });
   }, []);
@@ -421,6 +431,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     isCompact,
     showSettings, setShowSettings,
     heroFlash, heroFlashOpacity,
+    buttonsDisabled,
 
     // derived
     hero, heroScore, recommended,
