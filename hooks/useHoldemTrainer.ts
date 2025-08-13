@@ -301,38 +301,42 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         dealTimerRef.current = setTimeout(() => newHand(), settleDelayMs);
       }
     } else if (currentStreet === "river") {
-      // Complete immediately so we can display WIN/LOST during the feedback window
-      const s: PokerSettings = { showFlop, showTurn, showRiver };
-      const next = advanceStreet(s); // should transition to complete and settle bets
+      // First show feedback during the delay, then complete and reveal WIN/LOST
+      const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+      if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
+      advanceStreetTimerRef.current = setTimeout(() => {
+        const s: PokerSettings = { showFlop, showTurn, showRiver };
+        advanceStreet(s); // transition to complete and settle bets
 
-      // Reveal opponents and compute hero result for display
-      const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
-      setRevealedPlayers(allPlayerIds);
-      let heroWon: boolean | undefined = undefined;
-      if (hero && board.flop && board.turn && board.river) {
-        const communityCards = [...board.flop, board.turn, board.river];
-        heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
-        setHeroWonHand(heroWon ?? null);
-      }
+        // Reveal opponents and compute hero result for display
+        const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
+        setRevealedPlayers(allPlayerIds);
+        let heroWon: boolean | undefined = undefined;
+        if (hero && board.flop && board.turn && board.river) {
+          const communityCards = [...board.flop, board.turn, board.river];
+          heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
+          setHeroWonHand(heroWon ?? null);
+        }
 
-      // Record history at completion with accurate pot
-      if (currentHandHistory && currentSession) {
-        const updatedHistory = {
-          ...currentHandHistory,
-          pot: getTotalPot(),
-          result: "completed" as const,
-          heroWon,
-          communityCards: { flop: board.flop!, turn: board.turn!, river: board.river! },
-        };
-        setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
-        setCurrentHandHistory(null);
-      }
+        // Record history at completion with accurate pot
+        if (currentHandHistory && currentSession) {
+          const updatedHistory = {
+            ...currentHandHistory,
+            pot: getTotalPot(),
+            result: "completed" as const,
+            heroWon,
+            communityCards: communityFromBoard(),
+          };
+          setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
+          setCurrentHandHistory(null);
+        }
 
-      // Now wait the single feedback delay before starting the next hand
-      if (autoNew) {
-        if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-        dealTimerRef.current = setTimeout(() => newHand(), Math.max(0, Math.round(feedbackSecs * 1000)));
-      }
+        // After showing WIN/LOST, schedule next hand for another feedback window duration
+        if (autoNew) {
+          if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+        }
+      }, delayMs);
     } else {
       // Non-final streets: wait the feedback delay before dealing the next street
       const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));

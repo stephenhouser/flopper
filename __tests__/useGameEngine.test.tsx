@@ -57,16 +57,16 @@ describe('useGameEngine hook', () => {
     expect(result.current.players.every(p => p.bet === 0)).toBe(true);
   });
 
-  test('button rotates across deals (hero role changes)', () => {
+  test('button rotates across deals (dealer changes)', () => {
     const { result } = renderHook(() => useGameEngine());
 
     act(() => { result.current.dealTable(6, 2); });
-    const firstHeroRole = result.current.players.find(p => p.isHero)?.role;
+    const firstDealerId = result.current.players.find(p => p.role === 'Dealer')?.id;
 
     act(() => { result.current.dealTable(6, 2); });
-    const secondHeroRole = result.current.players.find(p => p.isHero)?.role;
+    const secondDealerId = result.current.players.find(p => p.role === 'Dealer')?.id;
 
-    expect(secondHeroRole).not.toBe(firstHeroRole);
+    expect(secondDealerId).not.toBe(firstDealerId);
   });
 
   test('deals turn and river with pot settlement each street', () => {

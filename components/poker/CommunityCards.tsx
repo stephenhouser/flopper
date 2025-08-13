@@ -1,7 +1,7 @@
 import PlayingCard from "@/components/poker/PlayingCard";
+import type { Board, Street } from "@/models/poker";
 import React from "react";
 import { Platform, StyleSheet, Text, View } from "react-native";
-import type { Board, Street } from "@/models/poker";
 
 type Props = {
   street: Street;

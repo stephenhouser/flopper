@@ -9,7 +9,7 @@ import {
 	settleBetsIntoPot as gpSettleBets,
 } from "@/lib/gameplay";
 import type { Board, Player, Settings, Street } from "@/models/poker";
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type GameEngineState = {
   players: Player[];
