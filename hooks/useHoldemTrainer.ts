@@ -1,11 +1,20 @@
 import { makeDeck, shuffle, type CardT } from "@/lib/cards";
 import { chenScore, recommendAction } from "@/lib/chen";
-import { didHeroWin } from "@/lib/hand-eval";
-import { labelForPos } from "@/lib/positions";
+// Removed unused import didHeroWin after refactor to gameplay helpers
+// import { didHeroWin } from "@/lib/hand-eval";
+// Removed unused import labelForPos after refactor to gameplay helpers
+// import { labelForPos } from "@/lib/positions";
 import Storage from "@/lib/storage";
 import type { Action, HandAction, HandHistory, Player, Session, Street } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Platform } from "react-native";
+import {
+  dealPlayers as gpDealPlayers,
+  minRaise as gpMinRaise,
+  nextStreet as gpNextStreet,
+  computeHeroResult as gpComputeHeroResult,
+  type Settings as GameplaySettings,
+} from "@/lib/gameplay";
 
 export type UseHoldemTrainerOptions = {
   initialNumPlayers?: number;
@@ -142,50 +151,27 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     else g.__BTN_SEAT__ = (g.__BTN_SEAT__ + 1) % n;
     const btn: number = g.__BTN_SEAT__;
 
-    const ps: Player[] = Array.from({ length: n }).map((_, i) => ({
-      id: i,
-      name: i === heroSeat ? "Hero" : `Player ${i + 1}`,
-      role: "" as Player["role"],
-      bet: 0,
-      cards: [freshDeck.pop()!, freshDeck.pop()!] as [CardT, CardT],
-      isHero: i === heroSeat,
-      positionLabel: "",
-    }));
-
-    ps.forEach((p, idx) => {
-      const pos = (idx - btn + n) % n;
-      if (pos === 0) p.role = "Dealer";
-      else if (pos === 1) p.role = "SB";
-      else if (pos === 2) p.role = "BB";
-      p.positionLabel = labelForPos(pos, n);
-    });
-
-    ps.forEach((p) => {
-      if (p.role === "SB") p.bet = Math.max(1, Math.floor(bigBlind / 2));
-      if (p.role === "BB") p.bet = bigBlind;
-    });
-
-    const sbIndex = ps.findIndex((p) => p.role === "SB");
-    const rotated = sbIndex >= 0 ? [...ps.slice(sbIndex), ...ps.slice(0, sbIndex)] : ps;
+    // Use gameplay helper to construct players (includes roles, blinds, and SB-first rotation)
+    const { players: dealtPlayers, deck: nextDeck } = gpDealPlayers(n, freshDeck, bigBlind, heroSeat, btn);
 
     setFlopCards(null);
     setTurnCard(null);
     setRiverCard(null);
     setCurrentStreet("preflop");
-    setDeck(freshDeck);
+    setDeck(nextDeck);
     setPot(0);
     setFoldedHand(false);
     setHeroWonHand(null);
     setRevealedPlayers(new Set());
 
-    setPlayers(rotated);
+    setPlayers(dealtPlayers);
     setHeroAction("");
     setLastActionCorrect(null);
     setShowAllCards(false);
     if (!showFeedback) setResult("");
 
     if (currentSession) {
-      const hh = createHandHistory(rotated);
+      const hh = createHandHistory(dealtPlayers);
       setCurrentHandHistory(hh);
     }
   }, [bigBlind, currentSession, heroFlashOpacity, showFeedback]);
@@ -242,7 +228,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     let betAmount = heroBet;
 
     if (action === "call") betAmount = currentBet;
-    else if (action === "raise") betAmount = currentBet === 0 ? bigBlind : currentBet + Math.max(currentBet, bigBlind);
+    else if (action === "raise") betAmount = gpMinRaise(currentBet, bigBlind);
     else if (action === "check") betAmount = heroBet;
 
     if (currentStreet !== "complete") addActionToHistory(action, betAmount, currentStreet as Exclude<Street, "complete">);
@@ -282,7 +268,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
       advanceStreetTimerRef.current = setTimeout(() => {
-        if (showFlop && currentStreet === "preflop" && !flopCards && deck.length >= 3) {
+        const settings: GameplaySettings = { showFlop, showTurn, showRiver };
+        const next = gpNextStreet(currentStreet, settings);
+
+        if (currentStreet === "preflop" && next === "flop" && deck.length >= 3) {
           const newDeck = [...deck];
           const flop: [CardT, CardT, CardT] = [newDeck.pop()!, newDeck.pop()!, newDeck.pop()!];
           setFlopCards(flop);
@@ -291,7 +280,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
           setPot(prev => prev + allBets);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-        } else if (showFlop && showTurn && currentStreet === "flop" && flopCards && !turnCard && deck.length >= 1) {
+        } else if (currentStreet === "flop" && next === "turn" && flopCards && deck.length >= 1) {
           const newDeck = [...deck];
           const turn = newDeck.pop()!;
           setTurnCard(turn);
@@ -300,7 +289,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
           setPot(prev => prev + allBets);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-        } else if (showFlop && showTurn && showRiver && currentStreet === "turn" && turnCard && !riverCard && deck.length >= 1) {
+        } else if (currentStreet === "turn" && next === "river" && turnCard && deck.length >= 1) {
           const newDeck = [...deck];
           const river = newDeck.pop()!;
           setRiverCard(river);
@@ -309,7 +298,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
           setPot(prev => prev + allBets);
           setPlayers(prev => prev.map(p => ({ ...p, bet: 0 })));
-        } else if (showFlop && showTurn && showRiver && currentStreet === "river") {
+        } else if (next === "complete" && currentStreet === "river") {
           const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
           const finalPot = pot + allBets;
           setPot(prev => prev + allBets);
@@ -320,9 +309,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           let heroWon: boolean | undefined = undefined;
           if (hero && flopCards && turnCard && riverCard) {
             const communityCards = [...flopCards, turnCard, riverCard];
-            const others = updatedPlayers.filter(p => !p.isHero);
-            heroWon = didHeroWin(hero, others, communityCards);
-            setHeroWonHand(heroWon);
+            heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
+            setHeroWonHand(heroWon ?? null);
           }
           if (currentHandHistory && currentSession) {
             const updatedHistory = {
