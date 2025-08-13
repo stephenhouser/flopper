@@ -1,7 +1,7 @@
 import { ThemedText } from '@/components/ThemedText';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
@@ -10,246 +10,23 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   View
 } from "react-native";
 
-/**
- * Expo Router Tabs — app/(tabs)/index.tsx
- * - Title: Pre-Flop Trainer
- * - Header right: one-line stats + gear button to toggle Settings panel (persisted)
- * - Dealer advances each hand; hero seat fixed; SB at top, Dealer at bottom
- * - Row: [Cards LEFT] · [Position pill + Name, Chen text (hero only) MIDDLE] · [BIG $ bet pill RIGHT (SB/BB tag)]
- * - Actions: Check/Call/Fold/Raise (primary blue, equal width) + New hand button
- * - Hotkeys: c/a/f/r, Enter=repeat last action, Space=new hand (web + native via react-native-key-command if present)
- * - Settings panel (hidden by default): players, blinds, auto new, facing raise, feedback time, show why, show Chen score, reset stats
- * - Persisted prefs: showFeedback, autoNew, facingRaise, feedbackSecs, showScore, showSettings
- * - Hero row flashes green/red; fade starts at 3/4 of feedback time
- */
+// Replace in-file helpers and types with imports from lib/models
+import { cardToPokerStarsStr, makeDeck, shuffle, type CardT } from "@/lib/cards";
+import { chenScore, recommendAction } from "@/lib/chen";
+import { didHeroWin } from "@/lib/hand-eval";
+import { labelForPos } from "@/lib/positions";
+import Storage from "@/lib/storage";
+import type { Action, HandAction, HandHistory, Player, Session } from "@/models/poker";
 
-type StorageLike = {
-  getItem: (k: string) => Promise<string | null>;
-  setItem: (k: string, v: string) => Promise<void>;
-};
-
-const Storage: StorageLike = (() => {
-  try {
-    const AS = require("@react-native-async-storage/async-storage").default;
-    return {
-      getItem: (k: string) => AS.getItem(k),
-      setItem: (k: string, v: string) => AS.setItem(k, v),
-    };
-  } catch {
-    return {
-      getItem: async (k: string) =>
-        typeof window !== "undefined" && (window as any).localStorage
-          ? (window as any).localStorage.getItem(k)
-          : null,
-      setItem: async (k: string, v: string) => {
-        if (typeof window !== "undefined" && (window as any).localStorage) {
-          (window as any).localStorage.setItem(k, v);
-        }
-      },
-    };
-  }
-})();
-
-/* ---------------- Card / Deck helpers ---------------- */
-
-type Suit = "♠" | "♥" | "♦" | "♣";
-const SUITS: Suit[] = ["♠", "♥", "♦", "♣"];
-const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"] as const;
-type Rank = typeof RANKS[number];
-
-type CardT = { rank: Rank; suit: Suit };
-
-function makeDeck(): CardT[] {
-  const d: CardT[] = [];
-  for (const s of SUITS) for (const r of RANKS) d.push({ rank: r, suit: s });
-  return d;
-}
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-function cardToStr(c?: CardT) {
-  return c ? `${c.rank}${c.suit}` : "";
-}
-
-function cardToPokerStarsStr(c?: CardT) {
-  if (!c) return "";
-  const suitMap = { "♠": "s", "♥": "h", "♦": "d", "♣": "c" };
-  return `${c.rank}${suitMap[c.suit]}`;
-}
-
-/* ---------------- Hand Evaluation ---------------- */
-
-function getRankValue(rank: Rank): number {
-  const values: Record<Rank, number> = {
-    "2": 2, "3": 3, "4": 4, "5": 5, "6": 6, "7": 7, "8": 8, "9": 9, "T": 10, "J": 11, "Q": 12, "K": 13, "A": 14
-  };
-  return values[rank];
-}
-
-function evaluateHand(holeCards: [CardT, CardT], communityCards: CardT[]): number {
-  const allCards = [...holeCards, ...communityCards];
-  
-  // Group by rank and suit
-  const ranks: Record<string, number> = {};
-  const suits: Record<string, number> = {};
-  
-  allCards.forEach(card => {
-    ranks[card.rank] = (ranks[card.rank] || 0) + 1;
-    suits[card.suit] = (suits[card.suit] || 0) + 1;
-  });
-  
-  const rankCounts = Object.values(ranks).sort((a, b) => b - a);
-  const isFlush = Object.values(suits).some(count => count >= 5);
-  
-  // Check for straight
-  const uniqueRanks = Object.keys(ranks).map(rank => getRankValue(rank as Rank)).sort((a, b) => a - b);
-  let isStraight = false;
-  for (let i = 0; i <= uniqueRanks.length - 5; i++) {
-    if (uniqueRanks[i + 4] - uniqueRanks[i] === 4) {
-      isStraight = true;
-      break;
-    }
-  }
-  // Check for A-2-3-4-5 straight (wheel)
-  if (uniqueRanks.includes(14) && uniqueRanks.includes(2) && uniqueRanks.includes(3) && uniqueRanks.includes(4) && uniqueRanks.includes(5)) {
-    isStraight = true;
-  }
-  
-  // Hand rankings (higher = better)
-  if (isStraight && isFlush) return 8; // Straight flush
-  if (rankCounts[0] === 4) return 7; // Four of a kind
-  if (rankCounts[0] === 3 && rankCounts[1] === 2) return 6; // Full house
-  if (isFlush) return 5; // Flush
-  if (isStraight) return 4; // Straight
-  if (rankCounts[0] === 3) return 3; // Three of a kind
-  if (rankCounts[0] === 2 && rankCounts[1] === 2) return 2; // Two pair
-  if (rankCounts[0] === 2) return 1; // One pair
-  return 0; // High card
-}
-
-function didHeroWin(hero: Player, otherPlayers: Player[], communityCards: CardT[]): boolean {
-  const heroHandValue = evaluateHand(hero.cards, communityCards);
-  
-  // Check if hero beats at least one other player
-  for (const player of otherPlayers) {
-    const playerHandValue = evaluateHand(player.cards, communityCards);
-    if (heroHandValue > playerHandValue) {
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-/* ---------------- Chen Formula heuristic ---------------- */
-
-const chenRankValue: Record<Rank, number> = {
-  A: 10, K: 8, Q: 7, J: 6, T: 5, 9: 4.5, 8: 4, 7: 3.5, 6: 3, 5: 2.5, 4: 2, 3: 1.5, 2: 1,
-};
-
-function chenScore(c1: CardT, c2: CardT): number {
-  const ranks = [c1.rank, c2.rank].sort((a, b) => chenRankValue[b] - chenRankValue[a]);
-  const [rHigh, rLow] = ranks as [Rank, Rank];
-  const suited = c1.suit === c2.suit;
-  const gap = Math.abs(RANKS.indexOf(rHigh) - RANKS.indexOf(rLow)) - 1;
-
-  let score = chenRankValue[rHigh];
-  if (rHigh === rLow) score = Math.max(5, chenRankValue[rHigh] * 2);
-  if (gap === 1) score -= 1;
-  else if (gap === 2) score -= 2;
-  else if (gap === 3) score -= 4;
-  else if (gap >= 4) score -= 5;
-  if (suited) score += 2;
-  return Math.round(score * 2) / 2;
-}
-
-function recommendAction(
-  score: number,
-  numPlayers: number,
-  facingRaise: boolean
-): "raise" | "call/check" | "fold" {
-  const tableTightener = Math.max(0, (numPlayers - 6) * 0.7);
-  if (facingRaise) {
-    if (score >= 11 + tableTightener) return "raise";
-    if (score >= 8 + tableTightener) return "call/check";
-    return "fold";
-  } else {
-    if (score >= 9 + tableTightener) return "raise";
-    if (score >= 6 + tableTightener) return "call/check";
-    return "fold";
-  }
-}
-
-/* ---------------- Types ---------------- */
-
-type Player = {
-  id: number;
-  name: string;
-  role: "Dealer" | "SB" | "BB" | "";
-  bet: number;
-  cards: [CardT, CardT];
-  isHero: boolean;
-  positionLabel?: string;
-};
-type Action = "check" | "call" | "fold" | "raise";
-
-// Hand history types for session tracking
-type HandAction = {
-  player: string;
-  action: Action;
-  amount: number;
-  street: "preflop" | "flop" | "turn" | "river";
-  timestamp: number;
-};
-
-type HandHistory = {
-  handId: string;
-  timestamp: number;
-  players: Array<{
-    name: string;
-    position: string;
-    cards: [CardT, CardT];
-    isHero: boolean;
-  }>;
-  blinds: {
-    smallBlind: number;
-    bigBlind: number;
-  };
-  communityCards: {
-    flop?: [CardT, CardT, CardT];
-    turn?: CardT;
-    river?: CardT;
-  };
-  actions: HandAction[];
-  pot: number;
-  result: "folded" | "completed";
-  heroWon?: boolean;
-};
-
-type Session = {
-  id: string;
-  startTime: number;
-  hands: HandHistory[];
-};
-
-function labelForPos(posFromDealer: number, n: number): string {
-  if (posFromDealer === 0) return "Dealer"; // BTN
-  if (posFromDealer === 1) return "SB";
-  if (posFromDealer === 2) return "BB";
-  const rest = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO"];
-  return rest[posFromDealer - 3] || `Seat ${posFromDealer}`;
-}
+// Import extracted UI components
+import CommunityCards from "@/components/poker/CommunityCards";
+import PlayerRow from "@/components/poker/PlayerRow";
+import SettingsSheet from "@/components/poker/SettingsSheet";
+import RowButton from "@/components/ui/RowButton";
 
 /* ---------------- UI bits ---------------- */
 
@@ -264,51 +41,6 @@ function withHotkey(label: string, hotkey: string) {
     </Text>
   );
 }
-
-const Pill: React.FC<{ text: string; large?: boolean }> = ({ text, large }) => (
-  <View style={[styles.pill, large && styles.pillLarge]}>
-    <Text style={[styles.pillText, large && styles.pillLargeText]}>{text}</Text>
-  </View>
-);
-
-const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean; compact?: boolean }> = ({ card, hidden, compact }) => {
-  const red = card && (card.suit === "♥" || card.suit === "♦");
-  const box = compact ? { width: 44, height: 60 } : { width: 50, height: 68 };
-  const inner = compact ? { width: 36, height: 52 } : { width: 40, height: 58 };
-  const font = compact ? { fontSize: 20 } : { fontSize: 22 };
-  return (
-    <View style={[styles.cardBox, box]}>
-      {hidden ? (
-        <View style={[styles.cardHidden, inner]} />
-      ) : (
-        <Text style={[styles.cardText, font, red && { color: "#d11" }]}>{cardToStr(card)}</Text>
-      )}
-    </View>
-  );
-};
-
-const RowButton: React.FC<{
-  label: React.ReactNode;
-  onPress: () => void;
-  kind?: "primary" | "secondary" | "outline";
-  equal?: boolean;
-  disabled?: boolean;
-}> = ({ label, onPress, kind = "secondary", equal = false, disabled = false }) => (
-  <Pressable
-    onPress={disabled ? undefined : onPress}
-    style={({ pressed }) => [
-      styles.btn,
-      equal && styles.btnGrow,
-      kind === "primary" && styles.btnPrimary,
-      kind === "outline" && styles.btnOutline,
-      disabled && styles.btnDisabled,
-      !disabled && pressed && { opacity: 0.8 },
-    ]}
-    disabled={disabled}
-  >
-    <ThemedText style={[styles.btnText, kind === "primary" && { color: "#fff" }, disabled && styles.btnTextDisabled]}>{label}</ThemedText>
-  </Pressable>
-);
 
 /* ---------------- Screen ---------------- */
 
@@ -1299,63 +1031,20 @@ export default function TexasHoldemTab() {
     return tag ? `${amt} (${tag})` : amt;
   };
 
-  const renderPlayer = ({ item }: { item: Player }) => {
-    const isPlayerRevealed = showAllCards || revealedPlayers.has(item.id);
-    
-    return (
-      <Pressable
-        onPress={!item.isHero ? () => togglePlayerReveal(item.id) : undefined}
-        style={({ pressed }) => [
-          styles.row,
-          { padding: isCompact ? 8 : 10 },
-          item.isHero && styles.rowHero,
-          !item.isHero && pressed && { opacity: 0.8 }
-        ]}
-      >
-        {/* Fade overlay only for hero */}
-        {item.isHero && heroFlash !== "none" && (
-          <Animated.View
-            pointerEvents="none"
-            style={[
-              styles.rowOverlay,
-              { backgroundColor: heroFlash === "correct" ? "#b9efd2" : "#f8c7cc", opacity: heroFlashOpacity },
-            ]}
-          />
-        )}
-
-        {/* LEFT: cards */}
-        <View style={styles.cardsCol}>
-          <PlayingCard card={item.cards[0]} hidden={!item.isHero && !isPlayerRevealed} compact={isCompact} />
-          <PlayingCard card={item.cards[1]} hidden={!item.isHero && !isPlayerRevealed} compact={isCompact} />
-        </View>
-
-        {/* MIDDLE: [Position pill] + [Name] inline; Chen score text (hero only) under it */}
-        <View style={styles.metaCol}>
-          <View style={styles.nameRow1}>
-            {!!item.positionLabel && (
-              <View style={[styles.badge, positionBadgeStyle(item.positionLabel)]}>
-                <Text style={[styles.badgeText, isCompact && { fontSize: 13 }]}>{item.positionLabel}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.nameRow2}>
-            <Text style={[styles.playerName, isCompact && { fontSize: 16 }]}>{item.name}</Text>
-            {item.isHero && showScore ? (
-              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {heroScore}</Text>
-            ) : null}
-            {!item.isHero && isPlayerRevealed && showScore ? (
-              <Text style={[styles.playerSub, isCompact && { fontSize: 11 }]}>Score: {chenScore(item.cards[0], item.cards[1])}</Text>
-            ) : null}
-            </View>
-        </View>
-
-        {/* RIGHT: BIG $ bet pill (amount only; adds SB/BB tag) */}
-        <View style={styles.tailCol}>
-          <Pill large text={betLabel(item)} />
-        </View>
-      </Pressable>
-    );
-  };
+  const renderPlayer = ({ item }: { item: Player }) => (
+    <PlayerRow
+      player={item}
+      isCompact={isCompact}
+      showScore={showScore}
+      heroScore={heroScore}
+      showAllCards={showAllCards}
+      revealed={revealedPlayers.has(item.id)}
+      onToggleReveal={togglePlayerReveal}
+      flashState={item.isHero ? heroFlash : "none"}
+      flashOpacity={item.isHero ? heroFlashOpacity : undefined}
+      betLabel={betLabel}
+    />
+  );
 
   const accuracyPct = totalHands ? ((correctHands / totalHands) * 100).toFixed(1) : "0.0";
   const formatAction = (a: "" | Action) => (a ? a[0].toUpperCase() + a.slice(1) : "—");
@@ -1451,60 +1140,18 @@ export default function TexasHoldemTab() {
           </View>
         )}
 
-        {/* Community Cards Row */}
+        {/* Community Cards Row (uses extracted component) */}
         {((showFlop && (flopCards || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
-          <View style={[
-            styles.card, 
-            styles.flopCard,
-            heroWonHand === true && { backgroundColor: "#b9efd2" }, // Green for win
-            heroWonHand === false && { backgroundColor: "#f8c7cc" }, // Red for loss
-          ]}>
-            <View style={styles.flopRow}>
-              <View style={styles.communityActions}>
-                <Text style={styles.streetLabel}>{foldedHand ? "FOLDED" : currentStreet.toUpperCase()}</Text>
-              </View>
-              <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-                {/* Always show 5 cards: dealt cards in position, rest as outlines */}
-                {/* Flop Card 1 */}
-                {flopCards ? (
-                  <PlayingCard card={flopCards[0]} compact={isCompact} />
-                ) : (
-                  <PlayingCard hidden compact={isCompact} />
-                )}
-                
-                {/* Flop Card 2 */}
-                {flopCards ? (
-                  <PlayingCard card={flopCards[1]} compact={isCompact} />
-                ) : (
-                  <PlayingCard hidden compact={isCompact} />
-                )}
-                
-                {/* Flop Card 3 */}
-                {flopCards ? (
-                  <PlayingCard card={flopCards[2]} compact={isCompact} />
-                ) : (
-                  <PlayingCard hidden compact={isCompact} />
-                )}
-                
-                {/* Turn Card */}
-                {turnCard ? (
-                  <PlayingCard card={turnCard} compact={isCompact} />
-                ) : (
-                  <PlayingCard hidden compact={isCompact} />
-                )}
-                
-                {/* River Card */}
-                {riverCard ? (
-                  <PlayingCard card={riverCard} compact={isCompact} />
-                ) : (
-                  <PlayingCard hidden compact={isCompact} />
-                )}
-              </View>
-              <View style={styles.communityActions}>
-                <Text style={styles.streetLabel}>Pot: ${totalPot}</Text>
-              </View>
-            </View>
-          </View>
+          <CommunityCards
+            street={currentStreet}
+            flop={flopCards || undefined}
+            turn={turnCard || undefined}
+            river={riverCard || undefined}
+            totalPot={totalPot}
+            isCompact={isCompact}
+            heroWon={heroWonHand}
+            folded={foldedHand}
+          />
         )}
 
         {/* Table */}
@@ -1540,387 +1187,40 @@ export default function TexasHoldemTab() {
         </View>
       </ScrollView>
 
-      {/* Settings panel (toggle via gear) - Outside ScrollView to prevent scroll bars */}
-      {showSettings && (
-        <View style={styles.modalOverlay}>
-          <Pressable 
-            style={styles.modalBackdrop} 
-            onPress={() => setShowSettings(false)}
-          />
-          <Animated.View 
-            style={[
-              styles.modalSheet,
-              {
-                transform: [{
-                  translateY: settingsSlideAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [600, 0],
-                  })
-                }]
-              }
-            ]}
-          >
-            <View style={styles.modalHandle} />
-            
-            {/* Floating tooltips */}
-            {showFeedbackTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowFeedbackTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    When enabled, shows feedback after each action.
-                  </Text>
-                </View>
-              </>
-            )}
-            {showAutoNewTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowAutoNewTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    When enabled, a new hand is automatically dealt after the feedback delay expires.
-                  </Text>
-                </View>
-              </>
-            )}
-            {showFacingRaiseTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowFacingRaiseTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    Simulates a scenario where another player has already raised, requiring tighter hand selection.
-                  </Text>
-                </View>
-              </>
-            )}
-            {showScoreTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowScoreTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    Shows your hand's Chen score, a quick evaluation system for pre-flop hand strength.
-                  </Text>
-                </View>
-              </>
-            )}
-            {showFlopTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowFlopTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    When enabled, play continues to the flop, turn, and river after your pre-flop action (except fold).
-                  </Text>
-                </View>
-              </>
-            )}
-            {showTurnTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowTurnTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    When enabled, play continues to the turn after flop betting (requires Play flop to be enabled).
-                  </Text>
-                </View>
-              </>
-            )}
-            {showRiverTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowRiverTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    When enabled, play continues to the river after turn betting (requires Play flop and Play turn to be enabled).
-                  </Text>
-                </View>
-              </>
-            )}
-            {showCommunityCardsTooltip && (
-              <>
-                <Pressable 
-                  style={styles.tooltipBackdrop}
-                  onPress={() => setShowCommunityCardsTooltip(false)}
-                />
-                <View style={styles.floatingTooltip}>
-                  <Text style={styles.tooltipText}>
-                    When enabled, the community cards row is always visible, showing dealt cards and empty outlines for undealt cards.
-                  </Text>
-                </View>
-              </>
-            )}
-            
-            <ScrollView 
-              style={{ flex: 1 }}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              showsVerticalScrollIndicator={true}
-            >
-              <View style={styles.card}>
-                <View style={styles.singleColumnRow}>
-                <View style={styles.controlBlock}>
-                  <ThemedText style={styles.label}>Players</ThemedText>
-                  <View style={styles.stepper}>
-                    <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(2, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
-                    <Text style={styles.stepperNum}>{numPlayers}</Text>
-                    <RowButton label={<Text>+</Text>} onPress={() => { const next = Math.min(9, numPlayers + 1); setNumPlayers(next); dealTable(next); }} />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={[styles.controlBlock, { width: "35%" }]}>
-                  <Text style={styles.label}>Big blind (small blind is 1/2)</Text>
-                  <View style={styles.currencyInputContainer}>
-                    <Text style={styles.currencyPrefix}>$</Text>
-                    <TextInput
-                      value={String(bigBlind)}
-                      onChangeText={(t) => { const next = Math.max(1, Number(t.replace(/[^0-9]/g, "")) || 1); setBigBlind(next); dealTable(numPlayers); }}
-                      inputMode="numeric"
-                      keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
-                      style={styles.currencyInput}
-                    />
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={showFlop} onValueChange={(v) => { setShowFlop(v); dealTable(numPlayers); }} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Play flop</Text>
-                    <Pressable
-                      onPress={toggleFlopTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch 
-                    value={showTurn} 
-                    onValueChange={(v) => { setShowTurn(v); dealTable(numPlayers); }} 
-                    disabled={!showFlop}
-                  />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={[styles.switchLabel, !showFlop && { color: "#999" }]}>Play turn</Text>
-                    <Pressable
-                      onPress={toggleTurnTooltip}
-                      style={styles.infoIcon}
-                      disabled={!showFlop}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color={showFlop ? "#666" : "#ccc"} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch 
-                    value={showRiver} 
-                    onValueChange={(v) => { setShowRiver(v); dealTable(numPlayers); }} 
-                    disabled={!showFlop || !showTurn}
-                  />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={[styles.switchLabel, (!showFlop || !showTurn) && { color: "#999" }]}>Play river</Text>
-                    <Pressable
-                      onPress={toggleRiverTooltip}
-                      style={styles.infoIcon}
-                      disabled={!showFlop || !showTurn}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color={(showFlop && showTurn) ? "#666" : "#ccc"} />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={autoNew} onValueChange={(v) => { setAutoNew(v); dealTable(numPlayers); }} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Automatically deal new hand</Text>
-                    <Pressable
-                      onPress={toggleAutoNewTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={[styles.controlBlock, { width: "100%" }]}>
-                  <Text style={styles.label}>Deal delay (seconds)</Text>
-                  <View style={[styles.stepper, { justifyContent: "flex-start" }]}>
-                    <RowButton label={<Text>-</Text>} onPress={() => setFeedbackSecs((s) => Math.max(0, parseFloat((s - 0.5).toFixed(1))))} />
-                    <Text style={styles.stepperNum}>{feedbackSecs.toFixed(1)}s</Text>
-                    <RowButton label={<Text>+</Text>} onPress={() => setFeedbackSecs((s) => Math.min(10, parseFloat((s + 0.5).toFixed(1))))} />
-                  </View>
-                </View>
-              </View>
-
-              {/* Feedback section break */}
-              <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Feedback</Text>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch 
-                    value={showCommunityCards} 
-                    onValueChange={setShowCommunityCards} 
-                  />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Always show community cards</Text>
-                    <Pressable
-                      onPress={toggleCommunityCardsTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={showFeedback} onValueChange={setshowFeedback} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show feedback</Text>
-                    <Pressable
-                      onPress={toggleFeedbackTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              {/* Hand scoring section break */}
-              <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Hand scoring (Chen method)</Text>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={facingRaise} onValueChange={(v) => { setFacingRaise(v); dealTable(numPlayers); }} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Facing a raise</Text>
-                    <Pressable
-                      onPress={toggleFacingRaiseTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              <View style={styles.singleColumnRow}>
-                <View style={styles.switchRow}>
-                  <Switch value={showScore} onValueChange={setShowScore} />
-                  <View style={styles.labelWithIcon}>
-                    <Text style={styles.switchLabel}>Show hand score</Text>
-                    <Pressable
-                      onPress={toggleScoreTooltip}
-                      style={styles.infoIcon}
-                    >
-                      <Ionicons name="information-circle-outline" size={16} color="#666" />
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-
-              {/* Data Management section break */}
-              <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Data Management</Text>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
-                <RowButton 
-                  label={<Text>New Session</Text>} 
-                  onPress={startNewSession} 
-                  kind="outline" 
-                />
-                <RowButton 
-                  label={<Text>Export Session</Text>} 
-                  onPress={downloadSessionExport} 
-                  kind="outline"
-                  disabled={!currentSession || currentSession.hands.length === 0}
-                />
-                <View style={{ flex: 1 }} />
-              </View>
-
-              {currentSession && (
-                <View style={styles.singleColumnRow}>
-                  <Text style={styles.sessionInfo}>
-                    Current session: {currentSession.hands.length} hands played
-                  </Text>
-                </View>
-              )}
-
-              {/* Danger Zone section break */}
-              <View style={styles.sectionBreak}>
-                <Text style={styles.sectionHeader}>Danger Zone</Text>
-              </View>
-
-              <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
-                <RowButton label={<Text>Reset all</Text>} onPress={resetAll} kind="outline" />
-              </View>
-              <View style={styles.singleColumnRow}>
-                <Text style={styles.sessionInfo}>
-                  Resets all settings, clears current session, and starts a new hand.
-                </Text>
-              </View>
-              
-            </View>
-            </ScrollView>
-          </Animated.View>
-        </View>
-      )}
+      {/* Settings panel replaced with extracted SettingsSheet */}
+      <SettingsSheet
+        visible={showSettings}
+        onClose={() => setShowSettings(false)}
+        numPlayers={numPlayers}
+        setNumPlayers={setNumPlayers}
+        bigBlind={bigBlind}
+        setBigBlind={setBigBlind}
+        showFlop={showFlop}
+        setShowFlop={setShowFlop}
+        showTurn={showTurn}
+        setShowTurn={setShowTurn}
+        showRiver={showRiver}
+        setShowRiver={setShowRiver}
+        autoNew={autoNew}
+        setAutoNew={setAutoNew}
+        feedbackSecs={feedbackSecs}
+        setFeedbackSecs={setFeedbackSecs}
+        showCommunityCards={showCommunityCards}
+        setShowCommunityCards={setShowCommunityCards}
+        showFeedback={showFeedback}
+        setShowFeedback={setshowFeedback}
+        facingRaise={facingRaise}
+        setFacingRaise={setFacingRaise}
+        showScore={showScore}
+        setShowScore={setShowScore}
+        currentSession={currentSession}
+        onStartNewSession={startNewSession}
+        onExportSession={downloadSessionExport}
+        onResetAll={resetAll}
+        dealTable={dealTable}
+      />
     </>
   );
-}
-
-/* Position badge colors */
-function positionBadgeStyle(label?: string) {
-  switch (label) {
-    case "Dealer": return { backgroundColor: "#EDE2FF" };
-    case "SB":     return { backgroundColor: "#D7E8FF" };
-    case "BB":     return { backgroundColor: "#FFE8C7" };
-    case "UTG":    return { backgroundColor: "#E6F6EB" };
-    case "UTG+1":  return { backgroundColor: "#E3F4FF" };
-    case "MP":     return { backgroundColor: "#FFF5CC" };
-    case "LJ":     return { backgroundColor: "#FDE2F2" };
-    case "HJ":     return { backgroundColor: "#E0E7FF" };
-    case "CO":     return { backgroundColor: "#ECECEC" };
-    default:       return { backgroundColor: "#F1F1F6" };
-  }
 }
 
 /* ---------------- Styles ---------------- */
@@ -1951,7 +1251,7 @@ const styles = StyleSheet.create({
   singleColumnRow: { marginBottom: 8 },
   controlBlock: { width: "48%" },
   label: { fontSize: 12, color: "#555", marginBottom: 6 },
-  input: { backgroundColor: "#f2f2f6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 16 },
+  input: { backgroundColor: "f2f2f6", borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 16 },
   currencyInputContainer: { flexDirection: "row", alignItems: "center", backgroundColor: "#f2f2f6", borderRadius: 10, paddingLeft: 10 },
   currencyPrefix: { fontSize: 16, color: "#666", fontWeight: "600" },
   currencyInput: { flex: 1, paddingHorizontal: 8, paddingVertical: 8, fontSize: 16 },
@@ -2004,7 +1304,7 @@ const styles = StyleSheet.create({
   nameRow1: { flexDirection: "row", alignItems: "center", gap: 8 }, // position pill + name inline
   nameRow2: { flexDirection: "row", alignItems: "baseline", justifyContent: "flex-start", gap: 8, paddingLeft: 4, paddingTop: 3 }, // position pill + name inline
   playerName: { fontWeight: "600", fontSize: 18 },
-  playerSub: { color: "#666", fontSize: 12 },
+  playerSub: { color: "666", fontSize: 12 },
 
   // RIGHT: big bet pill only
   tailCol: { alignItems: "flex-end", justifyContent: "center" },
@@ -2062,7 +1362,7 @@ const styles = StyleSheet.create({
   badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
   badgeText: { fontSize: 14, fontWeight: "600" },
 
-  // Modal styles
+  // Modal styles (still referenced for legacy tooltip styles in this file)
   modalOverlay: {
     position: "absolute",
     top: 0,
