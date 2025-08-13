@@ -9,7 +9,7 @@ import {
 	settleBetsIntoPot as gpSettleBets,
 } from "@/lib/gameplay";
 import type { Board, Player, Settings, Street } from "@/models/poker";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect } from "react";
 
 export type GameEngineState = {
   players: Player[];
@@ -25,6 +25,19 @@ export default function useGameEngine() {
   const [street, setStreet] = useState<Street>("preflop");
   const [pot, setPot] = useState(0);
   const [board, setBoard] = useState<Board>({ flop: null, turn: null, river: null });
+
+  // Refs to avoid stale closures when actions are called from delayed callbacks
+  const playersRef = useRef<Player[]>(players);
+  const deckRef = useRef<CardT[]>(deck);
+  const streetRef = useRef<Street>(street);
+  const potRef = useRef<number>(pot);
+  const boardRef = useRef<Board>(board);
+
+  useEffect(() => { playersRef.current = players; }, [players]);
+  useEffect(() => { deckRef.current = deck; }, [deck]);
+  useEffect(() => { streetRef.current = street; }, [street]);
+  useEffect(() => { potRef.current = pot; }, [pot]);
+  useEffect(() => { boardRef.current = board; }, [board]);
 
   // Keep button index across hands
   const buttonIndexRef = useRef<number | null>(null);
@@ -52,48 +65,56 @@ export default function useGameEngine() {
   }, [resetBoard]);
 
   const settleBets = useCallback(() => {
-    const { pot: newPot, players: cleared } = gpSettleBets(pot, players);
+    // Use refs to guarantee we settle latest bets into latest pot
+    const { pot: newPot, players: cleared } = gpSettleBets(potRef.current, playersRef.current);
     setPot(newPot);
     setPlayers(cleared);
-  }, [players, pot]);
+  }, []);
 
   const dealFlop = useCallback(() => {
-    if (deck.length < 3 || board.flop) return false;
-    const { flop: f, deck: d } = gpDealFlop(deck);
+    const curDeck = deckRef.current;
+    const curBoard = boardRef.current;
+    if (curDeck.length < 3 || curBoard.flop) return false;
+    const { flop: f, deck: d } = gpDealFlop(curDeck);
     setDeck(d);
     setStreet("flop");
     setBoard((b) => ({ ...b, flop: f }));
     settleBets();
     return true;
-  }, [deck, board.flop, settleBets]);
+  }, [settleBets]);
 
   const dealTurn = useCallback(() => {
-    if (deck.length < 1 || !board.flop || board.turn) return false;
-    const { turn: t, deck: d } = gpDealTurn(deck);
+    const curDeck = deckRef.current;
+    const curBoard = boardRef.current;
+    if (curDeck.length < 1 || !curBoard.flop || curBoard.turn) return false;
+    const { turn: t, deck: d } = gpDealTurn(curDeck);
     setDeck(d);
     setStreet("turn");
     setBoard((b) => ({ ...b, turn: t }));
     settleBets();
     return true;
-  }, [deck, board.flop, board.turn, settleBets]);
+  }, [settleBets]);
 
   const dealRiver = useCallback(() => {
-    if (deck.length < 1 || !board.turn || board.river) return false;
-    const { river: r, deck: d } = gpDealRiver(deck);
+    const curDeck = deckRef.current;
+    const curBoard = boardRef.current;
+    if (curDeck.length < 1 || !curBoard.turn || curBoard.river) return false;
+    const { river: r, deck: d } = gpDealRiver(curDeck);
     setDeck(d);
     setStreet("river");
     setBoard((b) => ({ ...b, river: r }));
     settleBets();
     return true;
-  }, [deck, board.turn, board.river, settleBets]);
+  }, [settleBets]);
 
   const advanceStreet = useCallback((settings: Settings): Street => {
-    const next = gpNextStreet(street, settings);
-    if (street === "preflop" && next === "flop") {
+    const curStreet = streetRef.current;
+    const next = gpNextStreet(curStreet, settings);
+    if (curStreet === "preflop" && next === "flop") {
       dealFlop();
-    } else if (street === "flop" && next === "turn") {
+    } else if (curStreet === "flop" && next === "turn") {
       dealTurn();
-    } else if (street === "turn" && next === "river") {
+    } else if (curStreet === "turn" && next === "river") {
       dealRiver();
     } else if (next === "complete") {
       // settle any remaining bets on completion
@@ -101,7 +122,7 @@ export default function useGameEngine() {
       setStreet("complete");
     }
     return next;
-  }, [street, dealFlop, dealTurn, dealRiver, settleBets]);
+  }, [dealFlop, dealTurn, dealRiver, settleBets]);
 
   const completeHand = useCallback(() => {
     // Used for folds or forced completion
