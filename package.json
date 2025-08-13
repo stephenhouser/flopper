@@ -9,7 +9,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "deploy": "gh-pages --nojekyll -d dist",
-    "predeploy": "expo export --platform web"
+    "predeploy": "expo export --platform web",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
