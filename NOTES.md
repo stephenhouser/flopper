@@ -286,3 +286,71 @@ Avoid recalculating totalPot/betLabel per render where unnecessary.
 Readability
 Replace magic numbers with constants (MAX_PLAYERS, FEEDBACK_MIN/MAX).
 Document the hand progression state machine with comments/tests.
+
+## next steps
+
+GitHub Copilot
+
+Here’s a tight, high-impact next-steps plan, in a sensible order, with suggested APIs and acceptance criteria.
+
+Types and constants first
+Centralize unions and constants in poker.ts:
+Types: Street = 'preflop'|'flop'|'turn'|'river'|'complete', Action = 'check'|'call'|'raise'|'fold', Position, Card, Player, Blinds, HandHistory, Session, GameState, Settings.
+Constants: DEFAULT_BLINDS, DEFAULT_SETTINGS, STREET_ORDER, HAND_STATE_MACHINE.
+Acceptance: no anys; gameplay.ts and useHoldemTrainer.ts compile against these.
+Extract useGameEngine
+New hooks/useGameEngine.ts to own deck, players, pot, street, min-raise, community cards and expose:
+API: state (deck, players, street, pot, board, minRaise, canCheck), newHand(), act(action: Action), advanceStreet(), settle(), dealTable().
+Internals use pure helpers from gameplay.ts.
+Acceptance: useHoldemTrainer composes this hook and drops its internal engine state.
+Move session/history into useSession
+New hooks/useSession.ts:
+API: currentSession, appendHand(hand: HandHistory), startNewSession(), export() (returns text), persistence to Storage with versioned keys.
+Error-safe storage (try/catch), migration guard { version: 1 }.
+Acceptance: texas-holdem.tsx uses useSession for export/new-session; useHoldemTrainer no longer writes storage directly for session.
+Extract flash animation logic
+New hooks/useFlash.ts:
+API: flashState, flashOpacity, trigger(kind: 'correct'|'wrong'|'deal'|'none', durationMs = 600).
+Acceptance: PlayerRow receives simple props; useHoldemTrainer calls flash.trigger.
+Consolidate settings and persistence
+Define Settings in poker.ts and DEFAULT_SETTINGS.
+New hooks/usePersistedState.ts:
+API: usePersistedState<T>(key: string, initial: T): [T, (v: T) => void, {loading: boolean, error?: Error}].
+Replace multiple Storage.setItem calls. resetAll uses DEFAULT_SETTINGS.
+Acceptance: one source of truth; SettingsSheet props collapse to { settings, setSettings } or individual setters derived from a single state.
+Simplify UI state
+Replace multiple tooltip booleans with activeTooltip: null | 'bet' | 'check' | ....
+Co-locate small view flags in a ui slice inside useHoldemTrainer or a tiny useUIState hook.
+Acceptance: fewer booleans, cleaner prop drilling.
+Memoization and perf
+React.memo for PlayerRow, CommunityCards.
+Memo heavy computations in hook: betLabel, heroScore, totalPot, canCheck.
+Stable callbacks via useCallback.
+FlatList optimizations: keyExtractor, getItemLayout (optional), initialNumToRender, removeClippedSubviews on native.
+Acceptance: re-renders only when relevant state changes.
+Tests
+Add Jest config (Expo RN preset) and scripts.
+Unit tests for gameplay.ts:
+assignRolesAndPositions, deal* functions, minRaise, settleBetsIntoPot, computeHeroResult.
+Hook tests (React Testing Library) for useGameEngine minimal flows.
+Acceptance: CI green locally with npm test.
+Storage robustness
+Wrap all Storage calls with try/catch.
+Version keys: poker.v1.settings, poker.v1.session.
+Add migration guard in storage.ts helpers.
+Acceptance: old keys don’t crash; defaults load safely.
+DX/CI
+Scripts: lint, format, typecheck, test.
+GitHub Actions: Node 18/20 matrix, npm ci, npm run typecheck, npm run lint, npm test.
+Acceptance: CI passes; pre-push/pre-commit hooks optional.
+Styling/dark mode
+Centralize common styles; ensure all text uses themed colors.
+Verify dark mode for cards, pills, headers.
+Acceptance: no hardcoded dark-on-dark or light-on-light.
+Documentation
+Document the hand progression state machine and engine API in NOTES.md.
+Add a short CONTRIBUTING and testing instructions.
+Suggested implementation order for minimal churn:
+
+1 Types/constants → 2 useGameEngine → 5 Settings/usePersistedState → 3 useSession → 4 useFlash → 7 Memo/perf → 8 Tests → 9 Storage → 10 CI → 11 Styling → 12 Docs.
+If you want, I can scaffold useGameEngine.ts and Settings definitions next and wire useHoldemTrainer to consume them.
