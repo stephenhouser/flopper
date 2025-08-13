@@ -95,7 +95,7 @@ export type TrainerSettings = Settings & {
 export const DEFAULT_TRAINER_SETTINGS: TrainerSettings = {
   ...DEFAULT_SETTINGS,
   autoNew: true,
-  facingRaise: true,
+  facingRaise: false,
   showFeedback: true,
   feedbackSecs: 1.0,
   showScore: true,
