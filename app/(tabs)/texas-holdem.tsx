@@ -46,17 +46,10 @@ function withHotkey(label: string, hotkey: string) {
 export default function TexasHoldemTab() {
   const {
     // settings
-    numPlayers, setNumPlayers,
-    bigBlind, setBigBlind,
-    autoNew, setAutoNew,
-    facingRaise, setFacingRaise,
-    showFeedback, setShowFeedback,
-    feedbackSecs, setFeedbackSecs,
-    showScore, setShowScore,
-    showFlop, setShowFlop,
-    showTurn, setShowTurn,
-    showRiver, setShowRiver,
-    showCommunityCards, setShowCommunityCards,
+    showFeedback,
+    showScore,
+    showFlop,
+    showCommunityCards,
     settings, setSettings,
 
     // game state
@@ -65,7 +58,7 @@ export default function TexasHoldemTab() {
     revealedPlayers, togglePlayerReveal,
 
     // stats
-    heroAction, lastAction, lastActionCorrect, result,
+    heroAction, lastActionCorrect, result,
     totalHands, correctHands,
 
     // session
@@ -410,7 +403,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     minWidth: 38,
   },
-  gearText: { fontSize: 18, color: "#2b2e57", fontWeight: "700" },
 
   card: { backgroundColor: "#fff", borderRadius: 16, padding: 12, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
 
