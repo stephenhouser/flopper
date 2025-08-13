@@ -273,6 +273,11 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
         setCurrentHandHistory(null);
       }
+      // After fold, auto-deal after the feedback delay as before
+      if (autoNew) {
+        if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+        dealTimerRef.current = setTimeout(() => newHand(), settleDelayMs);
+      }
     } else {
       const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
@@ -330,6 +335,12 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
             setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
             setCurrentHandHistory(null);
           }
+          // Linger with WIN/LOST visible for the full feedback delay before auto-deal
+          if (autoNew) {
+            const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+            if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+            dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+          }
         } else {
           const allBets = updatedPlayers.reduce((sum, p) => sum + p.bet, 0);
           const finalPot = pot + allBets;
@@ -361,6 +372,12 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
               setRiverCard(river);
             }
             setDeck(newDeck);
+          }
+          // Non-river completions: still respect autoNew using the same feedback delay
+          if (autoNew) {
+            const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+            if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+            dealTimerRef.current = setTimeout(() => newHand(), delayMs);
           }
         }
       }, delayMs);
@@ -397,16 +414,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
 
-    const shouldAutoNew = autoNew && (
-      (!showFlop && currentStreet === "preflop") ||
-      (action === "fold") ||
-      (showFlop && !showTurn && currentStreet === "flop") ||
-      (showFlop && showTurn && !showRiver && currentStreet === "turn") ||
-      (showFlop && showTurn && showRiver && currentStreet === "river")
-    );
-    if (shouldAutoNew) {
-      dealTimerRef.current = setTimeout(() => newHand(), delay);
-    }
+    // Remove generic auto-new scheduling; we'll schedule precisely when a hand completes
+    // const shouldAutoNew = ... (removed)
+    // if (shouldAutoNew) { dealTimerRef.current = setTimeout(() => newHand(), delay); }
   }, [autoNew, bigBlind, currentHandHistory, currentStreet, dealTimerRef, deck, facingRaise, feedbackSecs, flopCards, hero, heroScore, newHand, numPlayers, players, pot, recommended, riverCard, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, turnCard]);
 
   const canCheck = useMemo(() => {

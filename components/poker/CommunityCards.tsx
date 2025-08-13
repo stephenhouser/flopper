@@ -19,11 +19,18 @@ type Props = {
 const CommunityCards: React.FC<Props> = ({ street, flop, turn, river, totalPot, isCompact = Platform.OS !== "web", heroWon, folded }) => {
   const bgStyle = heroWon === true ? { backgroundColor: "#b9efd2" } : heroWon === false ? { backgroundColor: "#f8c7cc" } : undefined;
 
+  // Determine left label: show FOLDED if folded; when complete and heroWon is known, show WIN/LOST; otherwise show street
+  const leftLabel = folded
+    ? "Folded"
+    : street === "complete" && heroWon != null
+      ? (heroWon ? "Win" : "Lost")
+      : street;
+
   return (
     <View style={[styles.card, styles.flopCard, bgStyle]}>
       <View style={styles.flopRow}>
         <View style={styles.communityActions}>
-          <Text style={styles.streetLabel}>{folded ? "FOLDED" : street.toUpperCase()}</Text>
+          <Text style={styles.streetLabel}>{leftLabel}</Text>
         </View>
         <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
           {flop ? <PlayingCard card={flop[0]} compact={isCompact} /> : <PlayingCard hidden compact={isCompact} />}
