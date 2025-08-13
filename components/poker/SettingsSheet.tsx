@@ -22,7 +22,7 @@ export type SettingsSheetProps = {
   autoNew: boolean;
   setAutoNew: (v: boolean) => void;
   feedbackSecs: number;
-  setFeedbackSecs: (n: number) => void;
+  setFeedbackSecs: React.Dispatch<React.SetStateAction<number>>;
   showCommunityCards: boolean;
   setShowCommunityCards: (v: boolean) => void;
   showFeedback: boolean;
