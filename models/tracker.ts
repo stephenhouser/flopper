@@ -13,6 +13,8 @@ export type TrackedSession = {
   // New fields
   handsPlayed?: number; // number of hands played in the session
   isRealMoney?: boolean; // true for real money, false for play money
+  // New: list of attachment IDs associated with this tracked session
+  attachmentIds?: string[];
 };
 
 export type SessionAttachment = {

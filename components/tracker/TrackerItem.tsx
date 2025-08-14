@@ -57,6 +57,8 @@ export function TrackerItem({ item, onRemove, onEdit }: { item: TrackedSession, 
     }
   };
 
+  const attachmentCount = Array.isArray(item.attachmentIds) ? item.attachmentIds.length : 0;
+
   return (
     <ThemedView style={styles.item}>
       <View style={{ flex: 1 }}>
@@ -65,6 +67,7 @@ export function TrackerItem({ item, onRemove, onEdit }: { item: TrackedSession, 
         <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
           <ThemedText>Start {currency(item.startingStake)} • Exit {currency(item.exitAmount)} • Net {currency(net)}</ThemedText>
           {typeof item.handsPlayed === 'number' ? <ThemedText style={{ opacity: 0.8 }}> • Hands {item.handsPlayed}</ThemedText> : null}
+          {attachmentCount > 0 ? <ThemedText style={{ opacity: 0.8 }}> • Attachments {attachmentCount}</ThemedText> : null}
         </View>
         <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
           <View style={[styles.tag, item.isRealMoney ? styles.tagReal : styles.tagPlay]}>

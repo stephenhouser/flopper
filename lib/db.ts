@@ -36,7 +36,8 @@ class SQLiteDB {
       notes TEXT,
       sessionId TEXT,
       handsPlayed INTEGER,
-      isRealMoney INTEGER
+      isRealMoney INTEGER,
+      attachmentIds TEXT
     );`);
     this.exec(`CREATE TABLE IF NOT EXISTS session_attachments (
       id TEXT PRIMARY KEY NOT NULL,
@@ -50,6 +51,7 @@ class SQLiteDB {
     // Migration for existing installs: add columns if missing
     this.exec(`ALTER TABLE tracked_sessions ADD COLUMN handsPlayed INTEGER;`).catch(() => {});
     this.exec(`ALTER TABLE tracked_sessions ADD COLUMN isRealMoney INTEGER;`).catch(() => {});
+    this.exec(`ALTER TABLE tracked_sessions ADD COLUMN attachmentIds TEXT;`).catch(() => {});
   }
 
   exec(sql: string, params: any[] = []): Promise<void> {
@@ -72,6 +74,14 @@ class SQLiteDB {
             const out: T[] = [] as any;
             const len = rs.rows.length;
             for (let i = 0; i < len; i++) out.push(rs.rows.item(i));
+            // Normalize attachmentIds from TEXT JSON -> array
+            if (sql.includes('FROM tracked_sessions')) {
+              (out as any).forEach((r: any) => {
+                if (typeof r.attachmentIds === 'string') {
+                  try { r.attachmentIds = JSON.parse(r.attachmentIds); } catch { r.attachmentIds = []; }
+                }
+              });
+            }
             resolve(out);
           },
           (_: any, err: any) => { reject(err); return false; }
@@ -164,8 +174,8 @@ export const DB: any = sqlite ? new SQLiteDB() : new FallbackDB();
 export async function insertTrackedSession(row: Row) {
   if (DB instanceof SQLiteDB) {
     await DB.exec(
-      `INSERT INTO tracked_sessions (id, date, name, game, startingStake, exitAmount, notes, sessionId, handsPlayed, isRealMoney) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-      [row.id, row.date, row.name, row.game, row.startingStake ?? 0, row.exitAmount ?? 0, row.notes ?? null, row.sessionId ?? null, row.handsPlayed ?? null, row.isRealMoney != null ? (row.isRealMoney ? 1 : 0) : null]
+      `INSERT INTO tracked_sessions (id, date, name, game, startingStake, exitAmount, notes, sessionId, handsPlayed, isRealMoney, attachmentIds) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [row.id, row.date, row.name, row.game, row.startingStake ?? 0, row.exitAmount ?? 0, row.notes ?? null, row.sessionId ?? null, row.handsPlayed ?? null, row.isRealMoney != null ? (row.isRealMoney ? 1 : 0) : null, row.attachmentIds ? JSON.stringify(row.attachmentIds) : null]
     );
     emit(TrackerEvents.SessionsChanged);
   } else {
@@ -176,7 +186,17 @@ export async function insertTrackedSession(row: Row) {
 export async function updateTrackedSession(id: string, patch: Row) {
   if (DB instanceof SQLiteDB) {
     const cols: string[] = []; const vals: any[] = [];
-    for (const k of Object.keys(patch)) { cols.push(`${k} = ?`); const v = (patch as any)[k]; vals.push(k === 'isRealMoney' && v != null ? (v ? 1 : 0) : v); }
+    for (const k of Object.keys(patch)) {
+      cols.push(`${k} = ?`);
+      const v = (patch as any)[k];
+      if (k === 'isRealMoney' && v != null) {
+        vals.push(v ? 1 : 0);
+      } else if (k === 'attachmentIds' && Array.isArray(v)) {
+        vals.push(JSON.stringify(v));
+      } else {
+        vals.push(v);
+      }
+    }
     if (!cols.length) return;
     await DB.exec(`UPDATE tracked_sessions SET ${cols.join(', ')} WHERE id = ?;`, [...vals, id]);
     emit(TrackerEvents.SessionsChanged);

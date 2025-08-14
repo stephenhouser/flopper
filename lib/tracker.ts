@@ -4,10 +4,9 @@ import type { Session } from '@/models/poker';
 import type { GameType } from '@/models/tracker';
 
 function defaultNameFor(game: GameType, startTime?: number) {
-  const d = startTime ? new Date(startTime) : new Date();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  const name = `${game} Trainer ${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  return name;
+  const d = new Date(startTime || Date.now());
+  const date = d.toLocaleDateString(); const time = d.toLocaleTimeString();
+  return `${game} ${date} ${time}`;
 }
 
 export async function ensureTrackedSessionForAppSession(session: Session, game: GameType = 'Texas Holdem') {
@@ -24,6 +23,7 @@ export async function ensureTrackedSessionForAppSession(session: Session, game: 
     sessionId: session.id,
     handsPlayed: undefined,
     isRealMoney: false,
+    attachmentIds: [],
   };
   await insertTrackedSession(row);
   return row.id as string;
@@ -43,6 +43,15 @@ export async function upsertPokerStarsAttachmentForSession(session: Session, gam
     createdAt: Date.now(),
   };
   await upsertAttachment(att);
+  // Track the attachment id on the session's attachmentIds list
+  try {
+    const s = await getTrackedSessionBySessionId(session.id);
+    const ids = Array.isArray((s as any)?.attachmentIds) ? (s as any).attachmentIds as string[] : [];
+    if (!ids.includes(att.id)) {
+      ids.push(att.id);
+      await updateTrackedSession(trackedId, { attachmentIds: ids } as any);
+    }
+  } catch {}
 }
 
 // Update handsPlayed (and potentially other derived stats) for a tracked row linked to an app session.

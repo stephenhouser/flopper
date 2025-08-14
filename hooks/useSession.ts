@@ -10,25 +10,10 @@ export function useSession(game: GameType = 'Texas Holdem') {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const json = await Storage.getItem(SESSION_STORAGE_KEY);
-        if (json && !cancelled) setCurrentSession(JSON.parse(json) as Session);
-      } finally {
-        if (!cancelled) setReady(true);
-      }
-    })();
-    return () => { cancelled = true; };
+    Storage.getItem(SESSION_STORAGE_KEY).then((raw) => {
+      try { setCurrentSession(raw ? JSON.parse(raw) : null); } catch { setCurrentSession(null); }
+    }).finally(() => setReady(true));
   }, []);
-
-  useEffect(() => {
-    if (!ready) return;
-    if (currentSession == null) return;
-    Storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
-    // Keep attachment updated on every session change
-    upsertPokerStarsAttachmentForSession(currentSession, game).catch(() => {});
-  }, [currentSession, ready, game]);
 
   const startNewSession = useCallback(() => {
     const session: Session = { id: `session_${Date.now()}` , startTime: Date.now(), hands: [] };

@@ -15,6 +15,7 @@ export function useTracker() {
         // normalize SQLite 0/1 to boolean
         isRealMoney: r.isRealMoney === 1 || r.isRealMoney === true ? true : (r.isRealMoney === 0 ? false : (r.isRealMoney ?? false)),
         handsPlayed: typeof r.handsPlayed === 'string' ? parseInt(r.handsPlayed, 10) : r.handsPlayed,
+        attachmentIds: Array.isArray(r.attachmentIds) ? r.attachmentIds : (r.attachmentIds ? r.attachmentIds : []),
       })) as TrackedSession[];
       setSessions(normalized);
     } finally {
@@ -44,6 +45,7 @@ export function useTracker() {
       sessionId: s.sessionId ?? null,
       handsPlayed: s.handsPlayed,
       isRealMoney: s.isRealMoney ?? false,
+      attachmentIds: s.attachmentIds ?? [],
     } as TrackedSession;
     await insertTrackedSession(row as any);
     await refresh();
