@@ -10,9 +10,9 @@ export type UseHotkeysOptions = {
 };
 
 /**
- * Cross-platform hotkey handler for table actions.
+ * Hotkey handler for web only.
  * - Web: listens to window keydown
- * - Native: uses react-native-key-command if available (no hard dependency)
+ * - Native: no-op
  */
 export function useHotkeys(opts: UseHotkeysOptions) {
   const { disabled, heroAction, onAct, onNewHand } = opts;
@@ -37,26 +37,5 @@ export function useHotkeys(opts: UseHotkeysOptions) {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [disabled, heroAction, onAct, onNewHand]);
-
-  // Native hotkeys via optional dependency
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    let KeyCommand: any = null;
-    try { KeyCommand = require("react-native-key-command"); } catch { return; }
-    const unsubscribers: (() => void)[] = [];
-    const add = (input: any, cb: () => void) => { try { const off = KeyCommand.addListener({ input }, cb); unsubscribers.push(off); } catch {} };
-    const wrap = (fn: () => void) => () => { if (!disabled) fn(); };
-    add("c", wrap(() => onAct("check")));
-    add("a", wrap(() => onAct("call")));
-    add("f", wrap(() => onAct("fold")));
-    add("r", wrap(() => onAct("raise")));
-    add("\n", wrap(() => { if (heroAction) onAct(heroAction); }));
-    add("enter", wrap(() => { if (heroAction) onAct(heroAction); }));
-    if (KeyCommand.constants?.keyInputEnter) add(KeyCommand.constants.keyInputEnter, wrap(() => { if (heroAction) onAct(heroAction); }));
-    add(" ", wrap(() => onNewHand()));
-    add("space", wrap(() => onNewHand()));
-    if (KeyCommand.constants?.keyInputSpace) add(KeyCommand.constants.keyInputSpace, wrap(() => onNewHand()));
-    return () => { unsubscribers.forEach((off) => typeof off === "function" && off()); };
   }, [disabled, heroAction, onAct, onNewHand]);
 }
