@@ -1,4 +1,4 @@
-import { getTrackedSessionBySessionId, insertTrackedSession, updateTrackedSession, upsertAttachment, deleteAttachmentsFor } from '@/lib/db';
+import { deleteAttachmentsFor, getTrackedSessionBySessionId, insertTrackedSession, updateTrackedSession, upsertAttachment } from '@/lib/db';
 import { exportSessionToPokerStars } from '@/lib/export/pokerstars';
 import type { Session } from '@/models/poker';
 import type { GameType } from '@/models/tracker';

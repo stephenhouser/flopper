@@ -40,6 +40,15 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
       output += `Dealt to ${heroPlayer.name} [${cardToPokerStarsStr(heroPlayer.cards[0])} ${cardToPokerStarsStr(heroPlayer.cards[1])}]\n`;
     }
 
+    // Trainer-specific: include ALL players' hole cards (even if not revealed)
+    // This deviates from strict PokerStars format but is useful for training exports.
+    if (hand.players && hand.players.length > 0) {
+      output += "*** ALL HOLE CARDS (TRAINER) ***\n";
+      hand.players.forEach((p) => {
+        output += `${p.name}: [${cardToPokerStarsStr(p.cards[0])} ${cardToPokerStarsStr(p.cards[1])}]\n`;
+      });
+    }
+
     // Preflop actions
     const preflopActions = hand.actions.filter((a) => a.street === "preflop");
     preflopActions.forEach((action) => {
