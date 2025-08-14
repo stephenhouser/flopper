@@ -1,4 +1,5 @@
 // Lightweight SQLite wrapper with graceful fallback to AsyncStorage on web.
+import { emit, TrackerEvents } from '@/lib/events';
 import Storage from '@/lib/storage';
 
 export type Row = Record<string, any>;
@@ -101,8 +102,13 @@ class FallbackDB {
     await this.ensureInit();
     if (sql.includes('FROM tracked_sessions')) {
       const raw = await Storage.getItem(this.keySessions); const arr = JSON.parse(raw || '[]');
-      if (sql.includes('ORDER BY')) arr.sort((a: any, b: any) => b.date - a.date);
-      return arr as T[];
+      let out = arr;
+      if (sql.includes('WHERE sessionId = ?')) {
+        const sid = params[0];
+        out = (out as any[]).filter(r => r.sessionId === sid);
+      }
+      if (sql.includes('ORDER BY')) out.sort((a: any, b: any) => b.date - a.date);
+      return out as T[];
     }
     if (sql.includes('FROM session_attachments')) {
       const raw = await Storage.getItem(this.keyAttachments); const arr = JSON.parse(raw || '[]');
@@ -123,12 +129,14 @@ class FallbackDB {
     await this.ensureInit();
     const raw = await Storage.getItem(this.keySessions); const arr = JSON.parse(raw || '[]');
     arr.push(row); await Storage.setItem(this.keySessions, JSON.stringify(arr));
+    emit(TrackerEvents.SessionsChanged);
   }
   async updateSession(id: string, patch: Row) {
     await this.ensureInit();
     const raw = await Storage.getItem(this.keySessions); const arr = JSON.parse(raw || '[]');
     const next = arr.map((r: any) => r.id === id ? { ...r, ...patch } : r);
     await Storage.setItem(this.keySessions, JSON.stringify(next));
+    emit(TrackerEvents.SessionsChanged);
   }
   async deleteSession(id: string) {
     await this.ensureInit();
@@ -138,6 +146,8 @@ class FallbackDB {
     const rawA = await Storage.getItem(this.keyAttachments); const arrA = JSON.parse(rawA || '[]');
     const nextA = arrA.filter((r: any) => r.trackedSessionId !== id);
     await Storage.setItem(this.keyAttachments, JSON.stringify(nextA));
+    emit(TrackerEvents.SessionsChanged);
+    emit(TrackerEvents.AttachmentsChanged);
   }
   async upsertAttachment(row: Row) {
     await this.ensureInit();
@@ -145,6 +155,7 @@ class FallbackDB {
     const idx = arr.findIndex((r: any) => r.id === row.id);
     if (idx >= 0) arr[idx] = row; else arr.push(row);
     await Storage.setItem(this.keyAttachments, JSON.stringify(arr));
+    emit(TrackerEvents.AttachmentsChanged);
   }
 }
 
@@ -156,6 +167,7 @@ export async function insertTrackedSession(row: Row) {
       `INSERT INTO tracked_sessions (id, date, name, game, startingStake, exitAmount, notes, sessionId, handsPlayed, isRealMoney) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
       [row.id, row.date, row.name, row.game, row.startingStake ?? 0, row.exitAmount ?? 0, row.notes ?? null, row.sessionId ?? null, row.handsPlayed ?? null, row.isRealMoney != null ? (row.isRealMoney ? 1 : 0) : null]
     );
+    emit(TrackerEvents.SessionsChanged);
   } else {
     await DB.insertSession(row);
   }
@@ -167,6 +179,7 @@ export async function updateTrackedSession(id: string, patch: Row) {
     for (const k of Object.keys(patch)) { cols.push(`${k} = ?`); const v = (patch as any)[k]; vals.push(k === 'isRealMoney' && v != null ? (v ? 1 : 0) : v); }
     if (!cols.length) return;
     await DB.exec(`UPDATE tracked_sessions SET ${cols.join(', ')} WHERE id = ?;`, [...vals, id]);
+    emit(TrackerEvents.SessionsChanged);
   } else {
     await DB.updateSession(id, patch);
   }
@@ -175,6 +188,7 @@ export async function updateTrackedSession(id: string, patch: Row) {
 export async function deleteTrackedSession(id: string) {
   if (DB instanceof SQLiteDB) {
     await DB.exec(`DELETE FROM tracked_sessions WHERE id = ?;`, [id]);
+    emit(TrackerEvents.SessionsChanged);
   } else {
     await DB.deleteSession(id);
   }
@@ -194,6 +208,7 @@ export async function upsertAttachment(row: Row) {
       `INSERT OR REPLACE INTO session_attachments (id, trackedSessionId, type, mime, content, createdAt) VALUES (?, ?, ?, ?, ?, ?);`,
       [row.id, row.trackedSessionId, row.type, row.mime, row.content, row.createdAt]
     );
+    emit(TrackerEvents.AttachmentsChanged);
   } else {
     await DB.upsertAttachment(row);
   }

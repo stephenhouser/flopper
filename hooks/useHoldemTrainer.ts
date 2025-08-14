@@ -8,6 +8,7 @@ import {
   computeHeroResult as gpComputeHeroResult
 } from "@/lib/gameplay";
 import Storage from "@/lib/storage";
+import { closeTrackedSessionForAppSession } from "@/lib/tracker";
 import { betForAction, canHeroCheck, formatBetLabel, heroFromPlayers } from "@/lib/utils/bets";
 import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
@@ -121,6 +122,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   }), [board.flop, board.turn, board.river]);
 
   const startNewSession = useCallback(() => {
+    // Close out the current tracked session before starting a new one
+    if (currentSession) {
+      closeTrackedSessionForAppSession(currentSession, gameType).catch(() => {});
+    }
     const session = beginSession();
     setCurrentHandHistory(null);
     setTotalHands(0);
@@ -129,7 +134,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     setLastActionCorrect(null);
     setResult(showFeedback ? "New session started. Stats reset." : "");
     return session;
-  }, [beginSession, showFeedback, setCurrentHandHistory]);
+  }, [beginSession, showFeedback, setCurrentHandHistory, currentSession, gameType]);
 
   // Persisted settings (migrate old per-key to new object once)
   useEffect(() => {

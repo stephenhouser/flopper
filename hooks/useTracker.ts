@@ -1,4 +1,5 @@
 import { deleteTrackedSession, insertTrackedSession, listTrackedSessions, updateTrackedSession } from '@/lib/db';
+import { on, TrackerEvents } from '@/lib/events';
 import type { TrackedSession } from '@/models/tracker';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
@@ -22,6 +23,13 @@ export function useTracker() {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // Auto-refresh when DB changes (new sessions, updates, attachments)
+  useEffect(() => {
+    const off1 = on(TrackerEvents.SessionsChanged, () => { refresh(); });
+    const off2 = on(TrackerEvents.AttachmentsChanged, () => { /* could refresh to update HH status */ });
+    return () => { off1(); off2(); };
+  }, [refresh]);
 
   const add = useCallback(async (s: Omit<TrackedSession, 'id' | 'date'> & { date?: number }) => {
     const id = s.sessionId ? `app_${s.sessionId}` : `track_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

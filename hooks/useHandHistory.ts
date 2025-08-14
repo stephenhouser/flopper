@@ -1,3 +1,4 @@
+import { updateHandsPlayedForSession } from "@/lib/tracker";
 import type { Action, HandAction, HandHistory, Player, Session, Street } from "@/models/poker";
 import { smallBlindFromBigBlind } from "@/models/poker";
 import { useCallback, useState } from "react";
@@ -60,7 +61,13 @@ export function useHandHistory(params: {
         },
         ...(typeof f.heroWon === "boolean" ? { heroWon: f.heroWon } : {}),
       };
-      setSession((s) => (s ? { ...s, hands: [...s.hands, updated] } : s));
+      setSession((s) => {
+        if (!s) return s;
+        const next = { ...s, hands: [...s.hands, updated] };
+        // Sync tracker row with new hands count
+        updateHandsPlayedForSession(next).catch(() => {});
+        return next;
+      });
       return null;
     });
   }, [setSession, session]);

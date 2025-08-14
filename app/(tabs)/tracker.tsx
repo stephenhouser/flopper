@@ -5,13 +5,36 @@ import { listAllAttachments, listAttachmentsFor, listTrackedSessions } from '@/l
 import { downloadTextFile } from '@/lib/utils/download';
 import type { GameType, TrackedSession } from '@/models/tracker';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { ActionSheetIOS, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Type for attachments from DB
 type AttachmentRow = { id: string; trackedSessionId: string; type: string; mime: string; content: string; createdAt: number };
 
 function currency(n: number) { return `$${n}`; }
+
+// Helpers to format/parse local date & time strings
+function fmtDate(ts: number) {
+  const d = new Date(ts);
+  const y = d.getFullYear(); const m = String(d.getMonth() + 1).padStart(2, '0'); const da = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${da}`;
+}
+function fmtTime(ts: number) {
+  const d = new Date(ts);
+  const h = String(d.getHours()).padStart(2, '0'); const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${h}:${mi}`;
+}
+function parseDateTime(dateStr: string, timeStr: string): number | null {
+  const dm = /^(\d{4})-(\d{2})-(\d{2})$/.exec((dateStr || '').trim());
+  const tm = /^(\d{2}):(\d{2})$/.exec((timeStr || '').trim());
+  if (!dm || !tm) return null;
+  const y = parseInt(dm[1], 10); const mo = parseInt(dm[2], 10) - 1; const da = parseInt(dm[3], 10);
+  const h = parseInt(tm[1], 10); const mi = parseInt(tm[2], 10);
+  const d = new Date(y, mo, da, h, mi);
+  const ts = d.getTime();
+  return Number.isNaN(ts) ? null : ts;
+}
 
 function sessionsToCSV(rows: TrackedSession[]) {
   const header = ['id','date','name','game','startingStake','exitAmount','notes','sessionId','handsPlayed','isRealMoney'];
@@ -55,6 +78,14 @@ export default function TrackerTab() {
   const [isReal, setIsReal] = useState(false);
   const [notes, setNotes] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  // New: date/time for Add
+  const [dateStr, setDateStr] = useState<string>(() => fmtDate(Date.now()));
+  const [timeStr, setTimeStr] = useState<string>(() => fmtTime(Date.now()));
+
+  // Ensure we refresh whenever this tab/screen gains focus
+  useFocusEffect(useCallback(() => {
+    refresh();
+  }, [refresh]));
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
@@ -69,14 +100,20 @@ export default function TrackerTab() {
   const [editHands, setEditHands] = useState('');
   const [editIsReal, setEditIsReal] = useState(false);
   const [editNotes, setEditNotes] = useState('');
+  // New: date/time for Edit
+  const [editDateStr, setEditDateStr] = useState('');
+  const [editTimeStr, setEditTimeStr] = useState('');
 
   const canAdd = useMemo(() => name.trim().length > 0 && starting !== '' && exit !== '', [name, starting, exit]);
   const canSaveEdit = useMemo(() => editName.trim().length > 0 && editStarting !== '' && editExit !== '' && !!editing, [editName, editStarting, editExit, editing]);
 
   const onAdd = () => {
     if (!canAdd) return;
-    add({ name: name.trim(), game, startingStake: Number(starting) || 0, exitAmount: Number(exit) || 0, notes: notes.trim() || undefined, handsPlayed: hands ? Number(hands) : undefined, isRealMoney: isReal });
+    const date = parseDateTime(dateStr, timeStr) ?? Date.now();
+    add({ name: name.trim(), game, startingStake: Number(starting) || 0, exitAmount: Number(exit) || 0, notes: notes.trim() || undefined, handsPlayed: hands ? Number(hands) : undefined, isRealMoney: isReal, date });
     setName(''); setStarting(''); setExit(''); setHands(''); setIsReal(false); setNotes('');
+    // reset date/time to now after adding
+    setDateStr(fmtDate(Date.now())); setTimeStr(fmtTime(Date.now()));
     setShowAddModal(false);
   };
 
@@ -89,11 +126,15 @@ export default function TrackerTab() {
     setEditHands(item.handsPlayed != null ? String(item.handsPlayed) : '');
     setEditIsReal(item.isRealMoney === true);
     setEditNotes(item.notes ?? '');
+    // Seed date/time from the item's current date
+    setEditDateStr(fmtDate(item.date));
+    setEditTimeStr(fmtTime(item.date));
     setShowEditModal(true);
   };
 
   const onSaveEdit = async () => {
     if (!editing || !canSaveEdit) return;
+    const newTs = parseDateTime(editDateStr, editTimeStr) ?? editing.date;
     await update(editing.id, {
       name: editName.trim(),
       game: editGame,
@@ -102,6 +143,7 @@ export default function TrackerTab() {
       notes: editNotes.trim() || undefined,
       handsPlayed: editHands ? Number(editHands) : undefined,
       isRealMoney: editIsReal,
+      date: newTs,
     });
     setShowEditModal(false);
     setEditing(null);
@@ -199,6 +241,12 @@ export default function TrackerTab() {
           <ThemedView style={styles.modalCard}>
             <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Add Session</ThemedText>
 
+            {/* Date & Time */}
+            <View style={styles.formRow}>
+              <TextInput style={styles.input} placeholder="Date (YYYY-MM-DD)" value={dateStr} onChangeText={setDateStr} />
+              <TextInput style={styles.input} placeholder="Time (HH:MM)" value={timeStr} onChangeText={setTimeStr} />
+            </View>
+
             <View style={styles.formRow}>
               <TextInput style={styles.input} placeholder="Session name" value={name} onChangeText={setName} autoFocus />
             </View>
@@ -238,6 +286,12 @@ export default function TrackerTab() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalCardWrapper}>
           <ThemedView style={styles.modalCard}>
             <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Edit Session</ThemedText>
+
+            {/* Date & Time */}
+            <View style={styles.formRow}>
+              <TextInput style={styles.input} placeholder="Date (YYYY-MM-DD)" value={editDateStr} onChangeText={setEditDateStr} />
+              <TextInput style={styles.input} placeholder="Time (HH:MM)" value={editTimeStr} onChangeText={setEditTimeStr} />
+            </View>
 
             <View style={styles.formRow}>
               <TextInput style={styles.input} placeholder="Session name" value={editName} onChangeText={setEditName} autoFocus />
