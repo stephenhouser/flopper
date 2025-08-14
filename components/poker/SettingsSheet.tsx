@@ -177,7 +177,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
       }).start();
       closeAllTooltips();
     }
-  }, [visible]);
+  }, [visible, settingsSlideAnim]);
 
   if (!visible) return null;
 
