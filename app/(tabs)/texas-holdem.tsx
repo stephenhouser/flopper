@@ -2,18 +2,16 @@ import { ThemedText } from '@/components/ThemedText';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-    FlatList,
-    Pressable,
-    ScrollView,
-    StyleSheet,
-    Text,
-    View
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 
 // Replace in-file helpers and types with imports from lib/models
 import { exportSessionToPokerStars } from "@/lib/export/pokerstars";
 import Storage from "@/lib/storage";
-import type { Player } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, SESSION_STORAGE_KEY } from "@/models/poker";
 
 // Import extracted UI components
@@ -161,25 +159,22 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Table */}
-        <FlatList
-          data={players}
-          keyExtractor={(p) => String(p.id)}
-          renderItem={({ item }: { item: Player }) => (
-            <PlayerRow
-              player={item}
-              isCompact={isCompact}
-              showScore={showScore}
-              heroScore={heroScore}
-              showAllCards={false}
-              revealed={revealedPlayers.has(item.id)}
-              onToggleReveal={togglePlayerReveal}
-              flashState={item.isHero ? heroFlash : "none"}
-              flashOpacity={item.isHero ? heroFlashOpacity : undefined}
-              betLabel={betLabel}
-            />
-          )}
-          contentContainerStyle={{ gap: 8 }}
-        />
+        {
+          players.map((item) => 
+              <PlayerRow
+                player={item}
+                isCompact={isCompact}
+                showScore={showScore}
+                heroScore={heroScore}
+                showAllCards={false}
+                revealed={revealedPlayers.has(item.id)}
+                onToggleReveal={togglePlayerReveal}
+                flashState={item.isHero ? heroFlash : "none"}
+                flashOpacity={item.isHero ? heroFlashOpacity : undefined}
+                betLabel={betLabel}
+              />
+          )
+        }
 
         {/* Actions — show betting actions during play, new hand button when complete */}
         <View style={styles.actionsRow}>
