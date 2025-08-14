@@ -5,7 +5,7 @@ import { listAllAttachments, listAttachmentsFor, listTrackedSessions } from '@/l
 import { downloadTextFile } from '@/lib/utils/download';
 import type { GameType, TrackedSession } from '@/models/tracker';
 import { useMemo, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 // Type for attachments from DB
 type AttachmentRow = { id: string; trackedSessionId: string; type: string; mime: string; content: string; createdAt: number };
@@ -116,10 +116,19 @@ export default function TrackerTab() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.headerRow}>
-        <ThemedText type="title">Tracker</ThemedText>
-        <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>Real Money: {totals.real.count} • Net: {currency(totals.real.net)}  |  Play Money: {totals.play.count} • Net: {currency(totals.play.net)}</ThemedText>
+    <>
+      <ScrollView contentContainerStyle={styles.screen}>
+        {/* Header styled like Texas Hold'em */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Tracker</Text>
+          <View style={styles.headerRight}>
+            <Text style={styles.headerStats} numberOfLines={1}>
+              Real Money: {totals.real.count} • Net: {currency(totals.real.net)} | Play Money: {totals.play.count} • Net: {currency(totals.play.net)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Toolbar */}
         <View style={styles.toolbar}>
           <Pressable onPress={onExportCSV} style={[styles.toolbarBtn, { backgroundColor: '#10b981' }]}>
             <ThemedText style={styles.toolbarBtnText}>Export CSV</ThemedText>
@@ -128,21 +137,25 @@ export default function TrackerTab() {
             <ThemedText style={styles.toolbarBtnText}>Export Attachments</ThemedText>
           </Pressable>
         </View>
-      </View>
 
-      <FlatList
-        contentContainerStyle={sessions.length === 0 ? styles.emptyList : styles.listContent}
-        style={styles.list}
-        data={sessions}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <TrackerItem item={item} onRemove={remove} onRefresh={refresh} onEdit={onStartEdit} />}
-        ListEmptyComponent={loaded ? <ThemedText style={{ opacity: 0.7 }}>No sessions yet.</ThemedText> : null}
-      />
+        {/* Sessions list */}
+        {sessions.length === 0 && loaded ? (
+          <ThemedText style={{ opacity: 0.7, textAlign: 'center', marginTop: 12 }}>No sessions yet.</ThemedText>
+        ) : (
+          <View style={{ gap: 10 }}>
+            {sessions.map((item) => (
+              <TrackerItem key={item.id} item={item} onRemove={remove} onRefresh={refresh} onEdit={onStartEdit} />
+            ))}
+          </View>
+        )}
+      </ScrollView>
 
+      {/* FAB */}
       <Pressable onPress={() => setShowAddModal(true)} accessibilityRole="button" accessibilityLabel="Add session" style={styles.fab}>
         <ThemedText style={styles.fabText}>＋</ThemedText>
       </Pressable>
 
+      {/* Add Session Modal */}
       <Modal visible={showAddModal} transparent animationType="fade" onRequestClose={() => setShowAddModal(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)} />
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalCardWrapper}>
@@ -221,7 +234,7 @@ export default function TrackerTab() {
           </ThemedView>
         </KeyboardAvoidingView>
       </Modal>
-    </ThemedView>
+    </>
   );
 }
 
@@ -279,20 +292,15 @@ function TrackerItem({ item, onRemove, onRefresh, onEdit }: { item: TrackedSessi
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  headerRow: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#777',
-    gap: 6,
-  },
+  screen: { padding: 16, gap: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  title: { fontSize: 22, fontWeight: '700', color: '#000' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  headerStats: { fontSize: 13, flexShrink: 1, textAlign: 'right', color: '#666' },
   toolbar: { flexDirection: 'row', gap: 8 },
   toolbarBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
   toolbarBtnText: { color: 'white', fontWeight: '600' },
-  list: { flex: 1, paddingHorizontal: 16 },
-  listContent: { paddingVertical: 12, paddingBottom: 96, gap: 10 },
-  emptyList: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 16 },
+  // Removed old list/header styles; using ScrollView layout now
   formRow: {
     flexDirection: 'row',
     alignItems: 'center',
