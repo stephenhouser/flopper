@@ -3,11 +3,11 @@ import { ThemedView } from '@/components/ThemedView';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
-export function ExportMenu({ visible, onRequestClose, onExportSessions, onExportAttachments }: {
+export function ExportMenu({ visible, onRequestClose, onExportSessions, onExportAllJson }: {
   visible: boolean;
   onRequestClose: () => void;
   onExportSessions: () => void;
-  onExportAttachments: () => void;
+  onExportAllJson: () => void;
 }) {
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onRequestClose}>
@@ -18,9 +18,9 @@ export function ExportMenu({ visible, onRequestClose, onExportSessions, onExport
             <Ionicons name="document-text-outline" size={18} color="#111827" />
             <ThemedText>Export sessions CSV</ThemedText>
           </Pressable>
-          <Pressable onPress={() => { onRequestClose(); onExportAttachments(); }} style={styles.menuItem}>
-            <Ionicons name="document-attach-outline" size={18} color="#111827" />
-            <ThemedText>Export attachments CSV</ThemedText>
+          <Pressable onPress={() => { onRequestClose(); onExportAllJson(); }} style={styles.menuItem}>
+            <Ionicons name="save-outline" size={18} color="#111827" />
+            <ThemedText>Export all JSON</ThemedText>
           </Pressable>
         </ThemedView>
       </View>

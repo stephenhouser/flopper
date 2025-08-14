@@ -59,16 +59,6 @@ function sessionsToCSV(rows: TrackedSession[]) {
   return lines.join('\n');
 }
 
-function attachmentsToCSV(rows: AttachmentRow[]) {
-  const header = ['id','trackedSessionId','type','mime','createdAt'];
-  const lines = [header.join(',')];
-  for (const r of rows) {
-    const vals = [r.id, r.trackedSessionId, r.type, r.mime, String(r.createdAt)];
-    lines.push(vals.map(v => /[\,\n\"]/ .test(v) ? JSON.stringify(v) : v).join(','));
-  }
-  return lines.join('\n');
-}
-
 export default function TrackerTab() {
   const { sessions, add, remove, update, totals, loaded, refresh } = useTracker();
 
@@ -157,23 +147,30 @@ export default function TrackerTab() {
     downloadTextFile('flopper_sessions.csv', csv);
   };
 
-  const onExportAttachmentsCSV = async () => {
-    const rows = await listAllAttachments() as unknown as AttachmentRow[];
-    const csv = attachmentsToCSV(rows);
-    downloadTextFile('flopper_attachments.csv', csv);
+  const onExportAllJSON = async () => {
+    const [sessionsRows, attachmentsRows] = [
+      sessions.length ? sessions : (await listTrackedSessions()) as unknown as TrackedSession[],
+      await listAllAttachments() as unknown as AttachmentRow[],
+    ];
+    const payload = {
+      exportedAt: Date.now(),
+      sessions: sessionsRows,
+      attachments: attachmentsRows,
+    };
+    downloadTextFile('flopper_export.json', JSON.stringify(payload, null, 2));
   };
 
   const openExportMenu = () => {
     if (Platform.OS === 'ios') {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ['Cancel', 'Export sessions CSV', 'Export attachments CSV'],
+          options: ['Cancel', 'Export sessions CSV', 'Export all JSON'],
           cancelButtonIndex: 0,
           userInterfaceStyle: 'light',
         },
         (buttonIndex) => {
           if (buttonIndex === 1) onExportCSV();
-          if (buttonIndex === 2) onExportAttachmentsCSV();
+          if (buttonIndex === 2) onExportAllJSON();
         }
       );
     } else {
@@ -220,7 +217,7 @@ export default function TrackerTab() {
       </Pressable>
 
       {/* Export menu (Android/Web) */}
-      <ExportMenu visible={showExportMenu} onRequestClose={() => setShowExportMenu(false)} onExportSessions={onExportCSV} onExportAttachments={onExportAttachmentsCSV} />
+      <ExportMenu visible={showExportMenu} onRequestClose={() => setShowExportMenu(false)} onExportSessions={onExportCSV} onExportAllJson={onExportAllJSON} />
 
       {/* Add Session Modal */}
       <SessionModal
