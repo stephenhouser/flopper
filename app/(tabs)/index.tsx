@@ -4,8 +4,15 @@ import { router } from "expo-router";
 import React from "react";
 import { SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
 import BigButton from "../../components/BigButton";
+import { useSession } from "@/hooks/useSession";
+import { usePersistentState } from "@/hooks/usePersistentState";
+import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from "@/models/poker";
 
 export default function HomeTab() {
+  const { currentSession } = useSession();
+  const [settings] = usePersistentState<TrainerSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
+  const sb = smallBlindFromBigBlind(settings.bigBlind);
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView
@@ -17,6 +24,16 @@ export default function HomeTab() {
             Sharpen your decision-making for poker and blackjack with focused,
             bite-size drills. Pick a module below to start practicing.
           </ThemedText>
+
+          {/* Unified settings/session summary */}
+          <View style={{ marginTop: 8 }}>
+            <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>
+              Poker table: {settings.numPlayers} players • Blinds {'$'}{sb}/{'$'}{settings.bigBlind}
+            </ThemedText>
+            <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>
+              Session: {currentSession ? `${currentSession.hands.length} hands recorded` : "no active session"}
+            </ThemedText>
+          </View>
         </View>
 
         <View style={styles.buttons}>
