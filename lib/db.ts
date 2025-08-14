@@ -33,7 +33,9 @@ class SQLiteDB {
       startingStake REAL NOT NULL DEFAULT 0,
       exitAmount REAL NOT NULL DEFAULT 0,
       notes TEXT,
-      sessionId TEXT
+      sessionId TEXT,
+      handsPlayed INTEGER,
+      isRealMoney INTEGER
     );`);
     this.exec(`CREATE TABLE IF NOT EXISTS session_attachments (
       id TEXT PRIMARY KEY NOT NULL,
@@ -44,6 +46,9 @@ class SQLiteDB {
       createdAt INTEGER NOT NULL,
       FOREIGN KEY(trackedSessionId) REFERENCES tracked_sessions(id) ON DELETE CASCADE
     );`);
+    // Migration for existing installs: add columns if missing
+    this.exec(`ALTER TABLE tracked_sessions ADD COLUMN handsPlayed INTEGER;`).catch(() => {});
+    this.exec(`ALTER TABLE tracked_sessions ADD COLUMN isRealMoney INTEGER;`).catch(() => {});
   }
 
   exec(sql: string, params: any[] = []): Promise<void> {
@@ -148,8 +153,8 @@ export const DB: any = sqlite ? new SQLiteDB() : new FallbackDB();
 export async function insertTrackedSession(row: Row) {
   if (DB instanceof SQLiteDB) {
     await DB.exec(
-      `INSERT INTO tracked_sessions (id, date, name, game, startingStake, exitAmount, notes, sessionId) VALUES (?, ?, ?, ?, ?, ?, ?, ?);`,
-      [row.id, row.date, row.name, row.game, row.startingStake ?? 0, row.exitAmount ?? 0, row.notes ?? null, row.sessionId ?? null]
+      `INSERT INTO tracked_sessions (id, date, name, game, startingStake, exitAmount, notes, sessionId, handsPlayed, isRealMoney) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+      [row.id, row.date, row.name, row.game, row.startingStake ?? 0, row.exitAmount ?? 0, row.notes ?? null, row.sessionId ?? null, row.handsPlayed ?? null, row.isRealMoney != null ? (row.isRealMoney ? 1 : 0) : null]
     );
   } else {
     await DB.insertSession(row);
@@ -159,7 +164,7 @@ export async function insertTrackedSession(row: Row) {
 export async function updateTrackedSession(id: string, patch: Row) {
   if (DB instanceof SQLiteDB) {
     const cols: string[] = []; const vals: any[] = [];
-    for (const k of Object.keys(patch)) { cols.push(`${k} = ?`); vals.push((patch as any)[k]); }
+    for (const k of Object.keys(patch)) { cols.push(`${k} = ?`); const v = (patch as any)[k]; vals.push(k === 'isRealMoney' && v != null ? (v ? 1 : 0) : v); }
     if (!cols.length) return;
     await DB.exec(`UPDATE tracked_sessions SET ${cols.join(', ')} WHERE id = ?;`, [...vals, id]);
   } else {

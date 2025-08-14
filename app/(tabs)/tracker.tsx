@@ -5,7 +5,7 @@ import { listAllAttachments, listAttachmentsFor, listTrackedSessions } from '@/l
 import { downloadTextFile } from '@/lib/utils/download';
 import type { GameType, TrackedSession } from '@/models/tracker';
 import { useMemo, useState } from 'react';
-import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, Switch, TextInput, View } from 'react-native';
 
 // Type for attachments from DB
 type AttachmentRow = { id: string; trackedSessionId: string; type: string; mime: string; content: string; createdAt: number };
@@ -13,7 +13,7 @@ type AttachmentRow = { id: string; trackedSessionId: string; type: string; mime:
 function currency(n: number) { return `$${n}`; }
 
 function sessionsToCSV(rows: TrackedSession[]) {
-  const header = ['id','date','name','game','startingStake','exitAmount','notes','sessionId'];
+  const header = ['id','date','name','game','startingStake','exitAmount','notes','sessionId','handsPlayed','isRealMoney'];
   const lines = [header.join(',')];
   for (const r of rows) {
     const vals = [
@@ -24,7 +24,9 @@ function sessionsToCSV(rows: TrackedSession[]) {
       String(r.startingStake),
       String(r.exitAmount),
       JSON.stringify(r.notes ?? ''),
-      r.sessionId ? r.sessionId : ''
+      r.sessionId ? r.sessionId : '',
+      r.handsPlayed != null ? String(r.handsPlayed) : '',
+      r.isRealMoney != null ? (r.isRealMoney ? '1' : '0') : '',
     ];
     lines.push(vals.join(','));
   }
@@ -36,7 +38,7 @@ function attachmentsToCSV(rows: AttachmentRow[]) {
   const lines = [header.join(',')];
   for (const r of rows) {
     const vals = [r.id, r.trackedSessionId, r.type, r.mime, String(r.createdAt)];
-    lines.push(vals.map(v => /[,\n\"]/.test(v) ? JSON.stringify(v) : v).join(','));
+    lines.push(vals.map(v => /[,\n\"]/ .test(v) ? JSON.stringify(v) : v).join(','));
   }
   return lines.join('\n');
 }
@@ -48,6 +50,8 @@ export default function TrackerTab() {
   const [game, setGame] = useState<GameType>('Texas Holdem');
   const [starting, setStarting] = useState('');
   const [exit, setExit] = useState('');
+  const [hands, setHands] = useState('');
+  const [isReal, setIsReal] = useState(false);
   const [notes, setNotes] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -58,6 +62,8 @@ export default function TrackerTab() {
   const [editGame, setEditGame] = useState<GameType>('Texas Holdem');
   const [editStarting, setEditStarting] = useState('');
   const [editExit, setEditExit] = useState('');
+  const [editHands, setEditHands] = useState('');
+  const [editIsReal, setEditIsReal] = useState(false);
   const [editNotes, setEditNotes] = useState('');
 
   const canAdd = useMemo(() => name.trim().length > 0 && starting !== '' && exit !== '', [name, starting, exit]);
@@ -65,8 +71,8 @@ export default function TrackerTab() {
 
   const onAdd = () => {
     if (!canAdd) return;
-    add({ name: name.trim(), game, startingStake: Number(starting) || 0, exitAmount: Number(exit) || 0, notes: notes.trim() || undefined });
-    setName(''); setStarting(''); setExit(''); setNotes('');
+    add({ name: name.trim(), game, startingStake: Number(starting) || 0, exitAmount: Number(exit) || 0, notes: notes.trim() || undefined, handsPlayed: hands ? Number(hands) : undefined, isRealMoney: isReal });
+    setName(''); setStarting(''); setExit(''); setHands(''); setIsReal(false); setNotes('');
     setShowAddModal(false);
   };
 
@@ -76,6 +82,8 @@ export default function TrackerTab() {
     setEditGame(item.game);
     setEditStarting(String(item.startingStake));
     setEditExit(String(item.exitAmount));
+    setEditHands(item.handsPlayed != null ? String(item.handsPlayed) : '');
+    setEditIsReal(item.isRealMoney === true);
     setEditNotes(item.notes ?? '');
     setShowEditModal(true);
   };
@@ -88,6 +96,8 @@ export default function TrackerTab() {
       startingStake: Number(editStarting) || 0,
       exitAmount: Number(editExit) || 0,
       notes: editNotes.trim() || undefined,
+      handsPlayed: editHands ? Number(editHands) : undefined,
+      isRealMoney: editIsReal,
     });
     setShowEditModal(false);
     setEditing(null);
@@ -109,7 +119,7 @@ export default function TrackerTab() {
     <ThemedView style={styles.container}>
       <View style={styles.headerRow}>
         <ThemedText type="title">Tracker</ThemedText>
-        <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>Total: {totals.count} • Net: {currency(totals.net)}</ThemedText>
+        <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>Real Money: {totals.real.count} • Net: {currency(totals.real.net)}  |  Play Money: {totals.play.count} • Net: {currency(totals.play.net)}</ThemedText>
         <View style={styles.toolbar}>
           <Pressable onPress={onExportCSV} style={[styles.toolbarBtn, { backgroundColor: '#10b981' }]}>
             <ThemedText style={styles.toolbarBtnText}>Export CSV</ThemedText>
@@ -150,6 +160,13 @@ export default function TrackerTab() {
               <TextInput style={styles.input} placeholder="Exit amount" keyboardType="numeric" value={exit} onChangeText={setExit} />
             </View>
             <View style={styles.formRow}>
+              <TextInput style={styles.input} placeholder="Hands played (optional)" keyboardType="numeric" value={hands} onChangeText={setHands} />
+            </View>
+            <View style={[styles.formRow, { justifyContent: 'space-between' }]}>
+              <ThemedText>Real money?</ThemedText>
+              <Switch value={isReal} onValueChange={setIsReal} />
+            </View>
+            <View style={styles.formRow}>
               <TextInput style={[styles.input, { height: 64 }]} placeholder="Notes" value={notes} onChangeText={setNotes} multiline />
             </View>
 
@@ -181,6 +198,13 @@ export default function TrackerTab() {
             <View style={styles.formRow}>
               <TextInput style={styles.input} placeholder="Starting stake" keyboardType="numeric" value={editStarting} onChangeText={setEditStarting} />
               <TextInput style={styles.input} placeholder="Exit amount" keyboardType="numeric" value={editExit} onChangeText={setEditExit} />
+            </View>
+            <View style={styles.formRow}>
+              <TextInput style={styles.input} placeholder="Hands played (optional)" keyboardType="numeric" value={editHands} onChangeText={setEditHands} />
+            </View>
+            <View style={[styles.formRow, { justifyContent: 'space-between' }]}>
+              <ThemedText>Real money?</ThemedText>
+              <Switch value={editIsReal} onValueChange={setEditIsReal} />
             </View>
             <View style={styles.formRow}>
               <TextInput style={[styles.input, { height: 64 }]} placeholder="Notes" value={editNotes} onChangeText={setEditNotes} multiline />
@@ -227,11 +251,19 @@ function TrackerItem({ item, onRemove, onRefresh, onEdit }: { item: TrackedSessi
       <View style={{ flex: 1 }}>
         <ThemedText type="subtitle">{item.name}</ThemedText>
         <ThemedText style={{ opacity: 0.8, fontSize: 12 }}>{subtitle}</ThemedText>
-        <ThemedText style={{ marginTop: 4 }}>Start {currency(item.startingStake)} • Exit {currency(item.exitAmount)} • Net {currency(net)}</ThemedText>
-        {item.notes ? <ThemedText style={{ marginTop: 4, opacity: 0.9 }}>{item.notes}</ThemedText> : null}
+        <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+          <ThemedText>Start {currency(item.startingStake)} • Exit {currency(item.exitAmount)} • Net {currency(net)}</ThemedText>
+          {typeof item.handsPlayed === 'number' ? <ThemedText style={{ opacity: 0.8 }}> • Hands {item.handsPlayed}</ThemedText> : null}
+        </View>
+        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
+          <View style={[styles.tag, item.isRealMoney ? styles.tagReal : styles.tagPlay]}>
+            <ThemedText style={[styles.tagText, item.isRealMoney ? styles.tagTextReal : styles.tagTextPlay]}>{item.isRealMoney ? 'Real Money' : 'Play Money'}</ThemedText>
+          </View>
+        </View>
+        {item.notes ? <ThemedText style={{ marginTop: 6, opacity: 0.9 }}>{item.notes}</ThemedText> : null}
       </View>
       <View style={{ gap: 6 }}>
-        <Pressable onPress={() => onEdit(item)} style={[styles.removeBtn, { backgroundColor: '#3b82f6' }] }>
+        <Pressable onPress={() => onEdit(item)} style={[styles.removeBtn, { backgroundColor: '#3b82f6' }]} >
           <ThemedText style={{ color: 'white', fontWeight: '600' }}>Edit</ThemedText>
         </Pressable>
         <Pressable onPress={() => onRemove(item.id)} style={styles.removeBtn}>
@@ -288,6 +320,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
+  tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth },
+  tagText: { fontSize: 11, fontWeight: '600' },
+  tagReal: { backgroundColor: '#ecfeff', borderColor: '#06b6d4' },
+  tagPlay: { backgroundColor: '#f0fdf4', borderColor: '#16a34a' },
+  tagTextReal: { color: '#0891b2' },
+  tagTextPlay: { color: '#166534' },
   removeBtn: {
     backgroundColor: '#ef4444',
     borderRadius: 8,

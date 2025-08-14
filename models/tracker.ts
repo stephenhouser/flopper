@@ -10,6 +10,9 @@ export type TrackedSession = {
   notes?: string;
   // Optional link to an in-app session id for auto-logged sessions
   sessionId?: string | null;
+  // New fields
+  handsPlayed?: number; // number of hands played in the session
+  isRealMoney?: boolean; // true for real money, false for play money
 };
 
 export type SessionAttachment = {
@@ -21,4 +24,4 @@ export type SessionAttachment = {
   createdAt: number; // epoch millis
 };
 
-export const TRACKER_STORAGE_KEY = 'tracker.sessions.v1' as const;
+export const TRACKER_STORAGE_KEY = 'tracker.sessions.v2' as const;

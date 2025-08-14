@@ -22,6 +22,8 @@ export async function ensureTrackedSessionForAppSession(session: Session, game: 
     exitAmount: 0,
     notes: 'Auto-logged app session',
     sessionId: session.id,
+    handsPlayed: undefined,
+    isRealMoney: false,
   };
   await insertTrackedSession(row);
   return row.id as string;

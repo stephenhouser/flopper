@@ -9,7 +9,13 @@ export function useTracker() {
   const refresh = useCallback(async () => {
     try {
       const rows = await listTrackedSessions();
-      setSessions(rows as unknown as TrackedSession[]);
+      const normalized = (rows as any[]).map((r) => ({
+        ...r,
+        // normalize SQLite 0/1 to boolean
+        isRealMoney: r.isRealMoney === 1 || r.isRealMoney === true ? true : (r.isRealMoney === 0 ? false : (r.isRealMoney ?? false)),
+        handsPlayed: typeof r.handsPlayed === 'string' ? parseInt(r.handsPlayed, 10) : r.handsPlayed,
+      })) as TrackedSession[];
+      setSessions(normalized);
     } finally {
       setLoaded(true);
     }
@@ -28,6 +34,8 @@ export function useTracker() {
       exitAmount: s.exitAmount,
       notes: s.notes,
       sessionId: s.sessionId ?? null,
+      handsPlayed: s.handsPlayed,
+      isRealMoney: s.isRealMoney ?? false,
     } as TrackedSession;
     await insertTrackedSession(row as any);
     await refresh();
@@ -52,7 +60,17 @@ export function useTracker() {
   const totals = useMemo(() => {
     const count = sessions.length;
     const net = sessions.reduce((acc, s) => acc + (s.exitAmount - s.startingStake), 0);
-    return { count, net } as const;
+    const realSessions = sessions.filter(s => s.isRealMoney === true);
+    const playSessions = sessions.filter(s => s.isRealMoney !== true);
+    const real = {
+      count: realSessions.length,
+      net: realSessions.reduce((acc, s) => acc + (s.exitAmount - s.startingStake), 0),
+    } as const;
+    const play = {
+      count: playSessions.length,
+      net: playSessions.reduce((acc, s) => acc + (s.exitAmount - s.startingStake), 0),
+    } as const;
+    return { count, net, real, play } as const;
   }, [sessions]);
 
   return { sessions, add, remove, update, clear, totals, loaded, refresh } as const;
