@@ -121,20 +121,68 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     ...(board.river && { river: board.river }),
   }), [board.flop, board.turn, board.river]);
 
+  // Deal a new table/hand and create a new hand history if a session exists
+  const dealTable = useCallback((n: number) => {
+    setHeroFlash("none");
+    clearFlash();
+
+    const heroSeat = 0;
+    const dealt = engineDealTable(n, bigBlind, { heroSeat });
+
+    setShowAllCards(false);
+    setFoldedHand(false);
+    setHeroWonHand(null);
+    setRevealedPlayers(new Set());
+
+    setHeroAction("");
+    setLastActionCorrect(null);
+    if (!showFeedback) setResult("");
+
+    if (currentSession) {
+      createHandHistory(dealt.players);
+    }
+  }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash, createHandHistory]);
+
+  const newHand = useCallback(() => dealTable(numPlayers), [dealTable, numPlayers]);
+
   const startNewSession = useCallback(() => {
+    // Determine whether the current hand has any actions
+    const hasActions = !!(currentHandHistory && currentHandHistory.actions && currentHandHistory.actions.length > 0);
+
+    // If there are actions, finalize this hand into the previous session before switching
+    if (hasActions && currentSession) {
+      try {
+        finalizeHand({
+          pot: getTotalPot(),
+          result: "folded",
+          communityCards: communityFromBoard(),
+        });
+      } catch {}
+    }
+
     // Close out the current tracked session before starting a new one
     if (currentSession) {
       closeTrackedSessionForAppSession(currentSession, gameType).catch(() => {});
     }
+
     const session = beginSession();
-    setCurrentHandHistory(null);
+
+    // Reset stats and UI flags
     setTotalHands(0);
     setCorrectHands(0);
     setLastAction("");
     setLastActionCorrect(null);
     setResult(showFeedback ? "New session started. Stats reset." : "");
+
+    // If we finalized the prior hand, deal a fresh hand for the new session.
+    // If there were no actions, keep the current hand so it belongs to the new session.
+    if (hasActions) {
+      // Use the wrapper to properly reset UI and create a new HandHistory bound to the new session
+      dealTable(numPlayers);
+    }
+
     return session;
-  }, [beginSession, showFeedback, setCurrentHandHistory, currentSession, gameType]);
+  }, [beginSession, showFeedback, currentSession, gameType, currentHandHistory, finalizeHand, getTotalPot, communityFromBoard, dealTable, numPlayers]);
 
   // Persisted settings (migrate old per-key to new object once)
   useEffect(() => {
@@ -181,29 +229,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   }, [settingsReady, sessionReady, currentSession, startNewSession]);
 
   const betLabel = useCallback((p: Player) => formatBetLabel(p), []);
-
-  const dealTable = useCallback((n: number) => {
-    setHeroFlash("none");
-    clearFlash();
-
-    const heroSeat = 0;
-    const dealt = engineDealTable(n, bigBlind, { heroSeat });
-
-    setShowAllCards(false);
-    setFoldedHand(false);
-    setHeroWonHand(null);
-    setRevealedPlayers(new Set());
-
-    setHeroAction("");
-    setLastActionCorrect(null);
-    if (!showFeedback) setResult("");
-
-    if (currentSession) {
-      createHandHistory(dealt.players);
-    }
-  }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash, createHandHistory]);
-
-  const newHand = useCallback(() => dealTable(numPlayers), [dealTable, numPlayers]);
 
   // Auto-deal first hand once ready and session exists
   useEffect(() => {

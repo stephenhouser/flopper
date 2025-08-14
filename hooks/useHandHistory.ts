@@ -1,4 +1,5 @@
 import { updateHandsPlayedForSession } from "@/lib/tracker";
+import { upsertPokerStarsAttachmentForSession } from "@/lib/tracker";
 import type { Action, HandAction, HandHistory, Player, Session, Street } from "@/models/poker";
 import { smallBlindFromBigBlind } from "@/models/poker";
 import { useCallback, useState } from "react";
@@ -66,6 +67,8 @@ export function useHandHistory(params: {
         const next = { ...s, hands: [...s.hands, updated] };
         // Sync tracker row with new hands count
         updateHandsPlayedForSession(next).catch(() => {});
+        // Ensure/refresh attachment only once there is at least one hand
+        upsertPokerStarsAttachmentForSession(next).catch(() => {});
         return next;
       });
       return null;

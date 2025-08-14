@@ -1,5 +1,5 @@
 import Storage from "@/lib/storage";
-import { ensureTrackedSessionForAppSession, upsertPokerStarsAttachmentForSession } from "@/lib/tracker";
+import { ensureTrackedSessionForAppSession } from "@/lib/tracker";
 import type { Session } from "@/models/poker";
 import { SESSION_STORAGE_KEY } from "@/models/poker";
 import type { GameType } from "@/models/tracker";
@@ -20,8 +20,7 @@ export function useSession(game: GameType = 'Texas Holdem') {
     setCurrentSession(session);
     // Ensure there is a tracker row for this app session
     ensureTrackedSessionForAppSession(session, game).catch(() => {});
-    // And create initial attachment if applicable
-    upsertPokerStarsAttachmentForSession(session, game).catch(() => {});
+    // Do NOT create attachments yet; wait until at least one hand is recorded
     return session;
   }, [game]);
 

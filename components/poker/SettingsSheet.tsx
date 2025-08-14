@@ -147,6 +147,9 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
   const [showRiverTooltip, setShowRiverTooltip] = useState(false);
   const [showCommunityCardsTooltip, setShowCommunityCardsTooltip] = useState(false);
 
+  // Enable export when there is an active session with at least one hand
+  const canExportSession = !!(currentSession && Array.isArray(currentSession.hands) && currentSession.hands.length > 0);
+
   const closeAllTooltips = () => {
     setShowFeedbackTooltip(false);
     setShowAutoNewTooltip(false);
@@ -286,7 +289,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
                   <Text style={styles.currencyPrefix}>$</Text>
                   <TextInput
                     value={String(bigBlind)}
-                    onChangeText={(t) => { const next = Math.max(MIN_BIG_BLIND, Number(t.replace(/[^0-9]/g, "")) || MIN_BIG_BLIND); setBigBlind(next); dealTable(numPlayers); }}
+                    onChangeText={(t) => { const next = Math.max(MIN_BIG_BLIND, Number(t.replace(/[^0-9]/g, "")) || MIN_BIG_BLIND); setBigBlind(next); dealTable(next); }}
                     inputMode="numeric"
                     keyboardType={Platform.select({ ios: "number-pad", android: "numeric", default: "numeric" })}
                     style={styles.currencyInput}
@@ -416,13 +419,14 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
 
             <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
               <RowButton label={<Text>New Session</Text>} onPress={onStartNewSession} kind="outline" />
-              <RowButton label={<Text>Export Session</Text>} onPress={onExportSession} kind="outline" disabled={!currentSession || currentSession.hands.length === 0} />
+              <RowButton label={<Text>Export Session</Text>} onPress={onExportSession} kind="outline" disabled={!currentSession || !canExportSession} />
               <View style={{ flex: 1 }} />
             </View>
-
             {currentSession && (
               <View style={styles.singleColumnRow}>
-                <Text style={styles.sessionInfo}>Current session: {currentSession.hands.length} hands played</Text>
+                <Text style={styles.sessionInfo}>
+                  Started {new Date(currentSession.startTime).toLocaleString()} • {currentSession.hands?.length ?? 0} hand{(currentSession.hands?.length ?? 0) === 1 ? "" : "s"}
+                </Text>
               </View>
             )}
 

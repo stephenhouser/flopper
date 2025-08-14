@@ -167,6 +167,13 @@ class FallbackDB {
     await Storage.setItem(this.keyAttachments, JSON.stringify(arr));
     emit(TrackerEvents.AttachmentsChanged);
   }
+  async deleteAttachmentsFor(trackedSessionId: string) {
+    await this.ensureInit();
+    const rawA = await Storage.getItem(this.keyAttachments); const arrA = JSON.parse(rawA || '[]');
+    const nextA = arrA.filter((r: any) => r.trackedSessionId !== trackedSessionId);
+    await Storage.setItem(this.keyAttachments, JSON.stringify(nextA));
+    emit(TrackerEvents.AttachmentsChanged);
+  }
 }
 
 export const DB: any = sqlite ? new SQLiteDB() : new FallbackDB();
@@ -240,4 +247,13 @@ export async function listAttachmentsFor(trackedSessionId: string) {
 
 export async function listAllAttachments() {
   return DB.all(`SELECT * FROM session_attachments ORDER BY createdAt DESC;`);
+}
+
+export async function deleteAttachmentsFor(trackedSessionId: string) {
+  if (DB instanceof SQLiteDB) {
+    await DB.exec(`DELETE FROM session_attachments WHERE trackedSessionId = ?;`, [trackedSessionId]);
+    emit(TrackerEvents.AttachmentsChanged);
+  } else {
+    await DB.deleteAttachmentsFor(trackedSessionId);
+  }
 }

@@ -1,4 +1,4 @@
-import { getTrackedSessionBySessionId, insertTrackedSession, updateTrackedSession, upsertAttachment } from '@/lib/db';
+import { getTrackedSessionBySessionId, insertTrackedSession, updateTrackedSession, upsertAttachment, deleteAttachmentsFor } from '@/lib/db';
 import { exportSessionToPokerStars } from '@/lib/export/pokerstars';
 import type { Session } from '@/models/poker';
 import type { GameType } from '@/models/tracker';
@@ -33,6 +33,17 @@ export async function upsertPokerStarsAttachmentForSession(session: Session, gam
   // Only Hold'em supports PokerStars text in this app
   if (game !== 'Texas Holdem') return;
   const trackedId = await ensureTrackedSessionForAppSession(session, game);
+  const handsCount = session.hands?.length ?? 0;
+  // If no hands, ensure no attachments exist and clear attachmentIds
+  if (handsCount <= 0) {
+    try {
+      await deleteAttachmentsFor(trackedId);
+    } catch {}
+    try {
+      await updateTrackedSession(trackedId, { attachmentIds: [] } as any);
+    } catch {}
+    return;
+  }
   const content = exportSessionToPokerStars(session);
   const att = {
     id: `att_${trackedId}_pokerstars`,
@@ -66,6 +77,7 @@ export async function closeTrackedSessionForAppSession(session: Session, game: G
   try {
     await updateHandsPlayedForSession(session, game);
   } catch {}
+  // Only maintain attachments if 1+ hands; otherwise remove them
   try {
     await upsertPokerStarsAttachmentForSession(session, game);
   } catch {}
