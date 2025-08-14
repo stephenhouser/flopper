@@ -1,10 +1,19 @@
 # Makefile because I forget how to do things
 
-.PHONY: clean
+.PHONY: clean check
+
+check: lint test
 
 # Runs the app in development mode
 run:
 	npx expo start
+
+test:
+	npm run test
+
+lint:
+	npm run typecheck
+	npm run lint
 
 # deploy to github pages https://stephenhouser.com/flopper
 deploy:

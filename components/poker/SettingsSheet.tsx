@@ -1,5 +1,5 @@
 import { ThemedText } from "@/components/ThemedText";
-import RowButton from "@/components/ui/RowButton";
+import { RowButton } from "@/components/ui/RowButton";
 import type { Session, TrainerSettings } from "@/models/poker";
 import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SMALL_BLIND_FACTOR } from "@/models/poker";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -229,7 +229,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
           <>
             <Pressable style={styles.tooltipBackdrop} onPress={() => setShowScoreTooltip(false)} />
             <View style={styles.floatingTooltip}>
-              <Text style={styles.tooltipText}>Shows your hand's Chen score, a quick evaluation system for pre-flop hand strength.</Text>
+              <Text style={styles.tooltipText}>Shows strength of your hand (Chen method), a quick evaluation system for pre-flop hand strength.</Text>
             </View>
           </>
         )}
