@@ -1,4 +1,4 @@
-import useHandHistory from '@/hooks/useHandHistory';
+import { useHandHistory } from '@/hooks/useHandHistory';
 import type { Player, Session } from '@/models/poker';
 import { act, renderHook } from '@testing-library/react';
 import React from 'react';

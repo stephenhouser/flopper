@@ -1,4 +1,4 @@
-import useGameEngine from '@/hooks/useGameEngine';
+import { useGameEngine } from '@/hooks/useGameEngine';
 import type { Settings } from '@/models/poker';
 import { act, renderHook } from '@testing-library/react';
 
