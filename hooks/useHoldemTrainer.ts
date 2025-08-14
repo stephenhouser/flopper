@@ -7,14 +7,16 @@ import useFlash from "@/hooks/useFlash";
 import useGameEngine from "@/hooks/useGameEngine";
 import usePersistedState from "@/hooks/usePersistedState";
 import useSession from "@/hooks/useSession";
+import useHandHistory from "@/hooks/useHandHistory";
 import {
 	computeHeroResult as gpComputeHeroResult,
 	// ...existing code...
 	minRaise as gpMinRaise,
 } from "@/lib/gameplay";
+import { betForAction, canHeroCheck, heroFromPlayers } from "@/lib/utils/bets";
 import Storage from "@/lib/storage";
-import type { Action, HandAction, HandHistory, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
-import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind } from "@/models/poker";
+import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
+import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
@@ -92,7 +94,12 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
   // Session via hook
   const { currentSession, setCurrentSession, startNewSession: beginSession, ready: sessionReady } = useSession();
-  const [currentHandHistory, setCurrentHandHistory] = useState<HandHistory | null>(null);
+  // Hand history via hook
+  const { currentHandHistory, setCurrentHandHistory, createHandHistory, addActionToHistory, finalizeHand } = useHandHistory({
+    session: currentSession,
+    setSession: setCurrentSession,
+    bigBlind,
+  });
 
   // UI
   const [showSettings, setShowSettings] = useState(false);
@@ -126,7 +133,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     setLastActionCorrect(null);
     setResult(showFeedback ? "New session started. Stats reset." : "");
     return session;
-  }, [beginSession, showFeedback]);
+  }, [beginSession, showFeedback, setCurrentHandHistory]);
 
   // Persisted settings (migrate old per-key to new object once)
   useEffect(() => {
@@ -195,10 +202,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (!showFeedback) setResult("");
 
     if (currentSession) {
-      const hh = createHandHistory(dealt.players);
-      setCurrentHandHistory(hh);
+      createHandHistory(dealt.players);
     }
-  }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash]);
+  }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash, createHandHistory]);
 
   const newHand = useCallback(() => dealTable(numPlayers), [dealTable, numPlayers]);
 
@@ -211,26 +217,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (board.flop || board.turn || board.river) return;
     dealTable(numPlayers);
   }, [settingsReady, sessionReady, currentSession, players.length, deck.length, board.flop, board.turn, board.river, dealTable, numPlayers]);
-
-  function createHandHistory(ps: Player[]): HandHistory {
-    const handId = `hand_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    return {
-      handId,
-      timestamp: Date.now(),
-      players: ps.map(p => ({ name: p.name, position: p.positionLabel || "", cards: p.cards, isHero: p.isHero })),
-      blinds: { smallBlind: smallBlindFromBigBlind(bigBlind), bigBlind },
-      communityCards: {},
-      actions: [],
-      pot: 0,
-      result: "folded",
-    };
-  }
-
-  function addActionToHistory(action: Action, amount: number, street: Exclude<Street, "complete">) {
-    if (!currentHandHistory || !hero) return;
-    const handAction: HandAction = { player: hero.name, action, amount, street, timestamp: Date.now() };
-    setCurrentHandHistory(prev => prev ? { ...prev, actions: [...prev.actions, handAction] } : prev);
-  }
 
   const act = useCallback((action: Action) => {
     // Clear any previously scheduled auto-new to avoid overlap
@@ -262,15 +248,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     }
     setLastActionCorrect(correct);
 
-    const currentBet = Math.max(...players.map(p => p.bet));
-    const heroBet = players.find(p => p.isHero)?.bet || 0;
-    let betAmount = heroBet;
+    const heroP = heroFromPlayers(players);
+    const betAmount = betForAction(action, players, bigBlind, heroP);
 
-    if (action === "call") betAmount = currentBet;
-    else if (action === "raise") betAmount = gpMinRaise(currentBet, bigBlind);
-    else if (action === "check") betAmount = heroBet;
-
-    if (currentStreet !== "complete") addActionToHistory(action, betAmount, currentStreet as Exclude<Street, "complete">);
+    if (currentStreet !== "complete") addActionToHistory(action, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
 
     const updatedPlayers = players.map(p => (p.isHero ? { ...p, bet: betAmount } : p));
     setPlayers(updatedPlayers);
@@ -285,15 +266,12 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       }, settleDelayMs);
       setFoldedHand(true);
 
-      if (currentHandHistory && currentSession) {
-        const updatedHistory = {
-          ...currentHandHistory,
+      if (currentSession) {
+        finalizeHand({
           pot: finalPot,
-          result: "folded" as const,
+          result: "folded",
           communityCards: communityFromBoard(),
-        };
-        setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
-        setCurrentHandHistory(null);
+        });
       }
       // After fold, auto-deal after the feedback delay (single-step flow)
       if (autoNew) {
@@ -319,16 +297,13 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         }
 
         // Record history at completion with accurate pot
-        if (currentHandHistory && currentSession) {
-          const updatedHistory = {
-            ...currentHandHistory,
+        if (currentSession) {
+          finalizeHand({
             pot: getTotalPot(),
-            result: "completed" as const,
+            result: "completed",
             heroWon,
             communityCards: communityFromBoard(),
-          };
-          setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
-          setCurrentHandHistory(null);
+          });
         }
 
         // After showing WIN/LOST, schedule next hand for another feedback window duration
@@ -347,15 +322,12 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
         if (next === "complete") {
           // Non-river completion (e.g., skipping streets via settings)
-          if (currentHandHistory && currentSession) {
-            const updatedHistory = {
-              ...currentHandHistory,
+          if (currentSession) {
+            finalizeHand({
               pot: getTotalPot(),
-              result: "completed" as const,
+              result: "completed",
               communityCards: communityFromBoard(),
-            };
-            setCurrentSession(prev => prev ? { ...prev, hands: [...prev.hands, updatedHistory] } : prev);
-            setCurrentHandHistory(null);
+            });
           }
           // Auto-deal immediately after the single feedback delay (no extra delay step)
           if (autoNew) {
@@ -384,13 +356,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentHandHistory, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFeedback, showFlop, showRiver, showTurn, triggerFlash, setCurrentSession, currentSession, communityFromBoard, getTotalPot]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionToHistory]);
 
-  const canCheck = useMemo(() => {
-    const currentBet = Math.max(...players.map(p => p.bet));
-    const heroBet = hero?.bet || 0;
-    return heroBet >= currentBet;
-  }, [players, hero]);
+  const canCheck = useMemo(() => canHeroCheck(players, hero), [players, hero]);
 
   const togglePlayerReveal = useCallback((playerId: number) => {
     setRevealedPlayers(prev => {

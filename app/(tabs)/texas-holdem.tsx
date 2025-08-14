@@ -13,7 +13,7 @@ import {
 } from "react-native";
 
 // Replace in-file helpers and types with imports from lib/models
-import { cardToPokerStarsStr } from "@/lib/cards";
+import { exportSessionToPokerStars } from "@/lib/export/pokerstars";
 import Storage from "@/lib/storage";
 import type { Action, Player } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, SESSION_STORAGE_KEY } from "@/models/poker";
@@ -26,6 +26,10 @@ import RowButton from "@/components/ui/RowButton";
 
 // New hook for game state/logic
 import useHoldemTrainer from "@/hooks/useHoldemTrainer";
+// Cross-platform download helper and action formatter
+import downloadTextFile from "@/lib/utils/download";
+import { formatAction } from "../../lib/utils/poker";
+import useHotkeys from "@/hooks/useHotkeys";
 
 /* ---------------- UI bits ---------------- */
 
@@ -81,131 +85,11 @@ export default function TexasHoldemTab() {
     dealTable, newHand, act,
   } = useHoldemTrainer();
 
-  // Export current session to PokerStars-like hand history (kept on screen for now)
-  function exportSessionToPokerStars(): string {
-    if (!currentSession || currentSession.hands.length === 0) {
-      return "No hands to export in current session.";
-    }
-
-    let output = "";
-    currentSession.hands.forEach((hand) => {
-      const date = new Date(hand.timestamp);
-      const dateStr = date.toISOString().replace('T', ' ').split('.')[0];
-
-      output += `PokerStars Hand #${hand.handId}: Hold'em No Limit ($${hand.blinds.smallBlind}/$${hand.blinds.bigBlind}) - ${dateStr} ET\n`;
-      output += `Table 'Training Table' 6-max Seat #1 is the button\n`;
-
-      hand.players.forEach((player, seatIndex) => {
-        const seat = seatIndex + 1;
-        output += `Seat ${seat}: ${player.name} ($1000 in chips)\n`;
-      });
-
-      const sbPlayer = hand.players.find(p => p.position === "SB");
-      const bbPlayer = hand.players.find(p => p.position === "BB");
-      if (sbPlayer) output += `${sbPlayer.name}: posts small blind $${hand.blinds.smallBlind}\n`;
-      if (bbPlayer) output += `${bbPlayer.name}: posts big blind $${hand.blinds.bigBlind}\n`;
-
-      output += "*** HOLE CARDS ***\n";
-      const heroPlayer = hand.players.find(p => p.isHero);
-      if (heroPlayer) {
-        output += `Dealt to ${heroPlayer.name} [${cardToPokerStarsStr(heroPlayer.cards[0])} ${cardToPokerStarsStr(heroPlayer.cards[1])}]\n`;
-      }
-
-      const preflopActions = hand.actions.filter(a => a.street === "preflop");
-      preflopActions.forEach(action => {
-        const actionStr = action.action === "check" ? "checks" :
-                          action.action === "call" ? `calls $${action.amount}` :
-                          action.action === "raise" ? `raises $${action.amount}` :
-                          "folds";
-        output += `${action.player}: ${actionStr}\n`;
-      });
-
-      if (hand.communityCards.flop) {
-        output += `*** FLOP *** [${hand.communityCards.flop.map(cardToPokerStarsStr).join(' ')}]\n`;
-        const flopActions = hand.actions.filter(a => a.street === "flop");
-        flopActions.forEach(action => {
-          const actionStr = action.action === "check" ? "checks" :
-                            action.action === "call" ? `calls $${action.amount}` :
-                            action.action === "raise" ? `bets $${action.amount}` :
-                            "folds";
-          output += `${action.player}: ${actionStr}\n`;
-        });
-      }
-
-      if (hand.communityCards.turn) {
-        output += `*** TURN *** [${hand.communityCards.flop?.map(cardToPokerStarsStr).join(' ')} ${cardToPokerStarsStr(hand.communityCards.turn)}]\n`;
-        const turnActions = hand.actions.filter(a => a.street === "turn");
-        turnActions.forEach(action => {
-          const actionStr = action.action === "check" ? "checks" :
-                            action.action === "call" ? `calls $${action.amount}` :
-                            action.action === "raise" ? `bets $${action.amount}` :
-                            "folds";
-          output += `${action.player}: ${actionStr}\n`;
-        });
-      }
-
-      if (hand.communityCards.river) {
-        output += `*** RIVER *** [${hand.communityCards.flop?.map(cardToPokerStarsStr).join(' ')} ${cardToPokerStarsStr(hand.communityCards.turn)} ${cardToPokerStarsStr(hand.communityCards.river)}]\n`;
-        const riverActions = hand.actions.filter(a => a.street === "river");
-        riverActions.forEach(action => {
-          const actionStr = action.action === "check" ? "checks" :
-                            action.action === "call" ? `calls $${action.amount}` :
-                            action.action === "raise" ? `bets $${action.amount}` :
-                            "folds";
-          output += `${action.player}: ${actionStr}\n`;
-        });
-      }
-
-      if (hand.result === "completed" && hand.communityCards.flop && hand.communityCards.turn && hand.communityCards.river) {
-        output += "*** SHOW DOWN ***\n";
-        const finalBoard = [
-          ...hand.communityCards.flop,
-          hand.communityCards.turn,
-          hand.communityCards.river
-        ];
-        output += `Board [${finalBoard.map(cardToPokerStarsStr).join(' ')}]\n`;
-        hand.players.forEach(player => {
-          output += `${player.name}: shows [${cardToPokerStarsStr(player.cards[0])} ${cardToPokerStarsStr(player.cards[1])}]\n`;
-        });
-      }
-
-      output += "*** SUMMARY ***\n";
-      output += `Total pot $${hand.pot}\n`;
-      if (hand.result === "completed" && hand.communityCards.flop && hand.communityCards.turn && hand.communityCards.river) {
-        const finalBoard = [
-          ...hand.communityCards.flop,
-          hand.communityCards.turn,
-          hand.communityCards.river
-        ];
-        output += `Board [${finalBoard.map(cardToPokerStarsStr).join(' ')}]\n`;
-      }
-      if (hand.result === "folded") {
-        output += `${heroPlayer?.name} folded\n`;
-      } else if (hand.heroWon !== undefined) {
-        output += hand.heroWon ? `${heroPlayer?.name} wins the pot\n` : `${heroPlayer?.name} loses the hand\n`;
-      }
-      output += "\n\n";
-    });
-
-    return output;
-  }
-
+  // Export is now handled by a library function and cross-platform downloader
   function downloadSessionExport() {
-    const content = exportSessionToPokerStars();
-    if (Platform.OS === "web" && typeof window !== "undefined") {
-      const element = document.createElement("a");
-      const file = new Blob([content], { type: 'text/plain' });
-      element.href = URL.createObjectURL(file);
-      element.download = `flopper_holdem_${currentSession?.id || 'unknown'}.txt`;
-      document.body.appendChild(element);
-      element.click();
-      document.body.removeChild(element);
-    } else {
-      alert(content.length > 1000 ?
-        `Session export ready (${content.length} characters). Feature to save files coming soon.` :
-        content
-      );
-    }
+    const content = exportSessionToPokerStars(currentSession);
+    const filename = `flopper_holdem_${currentSession?.id || 'unknown'}.txt`;
+    downloadTextFile(filename, content);
   }
 
   async function resetAll() {
@@ -223,50 +107,9 @@ export default function TexasHoldemTab() {
   }
 
   const accuracyPct = totalHands ? ((correctHands / totalHands) * 100).toFixed(1) : "0.0";
-  const formatAction = (a: "" | Action) => (a ? a[0].toUpperCase() + a.slice(1) : "—");
 
-  /* --- Hotkeys (web): c/a/f/r, Enter repeat, Space new --- */
-  useEffect(() => {
-    if (Platform.OS !== "web") return;
-    const handler = (e: any) => {
-      const target = e.target as HTMLElement | null;
-      const tag = target && (target.tagName || "").toLowerCase();
-      const editable = target && (target as any).isContentEditable;
-      if (tag === "input" || tag === "textarea" || editable) return;
-      if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
-      if (buttonsDisabled) return; // block hotkeys while feedback shown
-      const k = String(e.key || "").toLowerCase();
-      if (k === "c") act("check");
-      else if (k === "a") act("call");
-      else if (k === "f") act("fold");
-      else if (k === "r") act("raise");
-      else if (k === "enter") { if (heroAction) act(heroAction); }
-      else if (k === " " || k === "spacebar") { e.preventDefault(); newHand(); }
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [heroAction, newHand, act, buttonsDisabled]);
-
-  /* --- Hotkeys (native, optional): requires `react-native-key-command` --- */
-  useEffect(() => {
-    if (Platform.OS === "web") return;
-    let KeyCommand: any = null;
-    try { KeyCommand = require("react-native-key-command"); } catch { return; }
-    const unsubscribers: (() => void)[] = [];
-    const add = (input: any, cb: () => void) => { try { const off = KeyCommand.addListener({ input }, cb); unsubscribers.push(off); } catch {} };
-    const wrap = (fn: () => void) => () => { if (!buttonsDisabled) fn(); };
-    add("c", wrap(() => act("check")));
-    add("a", wrap(() => act("call")));
-    add("f", wrap(() => act("fold")));
-    add("r", wrap(() => act("raise")));
-    add("\n", wrap(() => { if (heroAction) act(heroAction); }));
-    add("enter", wrap(() => { if (heroAction) act(heroAction); }));
-    if (KeyCommand.constants?.keyInputEnter) add(KeyCommand.constants.keyInputEnter, wrap(() => { if (heroAction) act(heroAction); }));
-    add(" ", wrap(() => newHand()));
-    add("space", wrap(() => newHand()));
-    if (KeyCommand.constants?.keyInputSpace) add(KeyCommand.constants.keyInputSpace, wrap(() => newHand()));
-    return () => { unsubscribers.forEach((off) => typeof off === "function" && off()); };
-  }, [heroAction, newHand, act, buttonsDisabled]);
+  // Hotkeys via reusable hook
+  useHotkeys({ disabled: buttonsDisabled, heroAction, onAct: act, onNewHand: newHand });
 
   return (
     <>
@@ -297,7 +140,7 @@ export default function TexasHoldemTab() {
             lastActionCorrect === false && { backgroundColor: "#f8c7cc" }
           ]}>
             <View style={styles.feedbackRow}>
-              <Text style={[styles.feedbackText, { flex: 1 }]}>
+              <Text style={[styles.feedbackText, { flex: 1 }] }>
                 {result || "Take an action to see feedback."}
               </Text>
               <View style={styles.feedbackRight}>
