@@ -1,5 +1,4 @@
 import { Tabs } from 'expo-router';
-import React from 'react';
 import { Platform } from 'react-native';
 
 import { HapticTab } from '@/components/HapticTab';
@@ -53,6 +52,13 @@ export default function TabLayout() {
         options={{
           title: 'Blackjack',
           tabBarIcon: ({ color }) => <MaterialCommunityIcons name="cards-playing-spade-multiple" size={28} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="tracker"
+        options={{
+          title: 'Tracker',
+          tabBarIcon: ({ color }) => <MaterialCommunityIcons name="chart-line" size={28} color={color} />,
         }}
       />
     </Tabs>

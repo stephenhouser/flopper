@@ -1,12 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 
+import { usePersistentState } from "@/hooks/usePersistentState";
+import { useSession } from "@/hooks/useSession";
+import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from "@/models/poker";
 import { router } from "expo-router";
-import React from "react";
 import { SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
 import BigButton from "../../components/BigButton";
-import { useSession } from "@/hooks/useSession";
-import { usePersistentState } from "@/hooks/usePersistentState";
-import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from "@/models/poker";
 
 export default function HomeTab() {
   const { currentSession } = useSession();
@@ -40,6 +39,7 @@ export default function HomeTab() {
           <BigButton label="Texas Holdem" onPress={() => router.navigate("/(tabs)/texas-holdem")} />
           <BigButton label="Omaha" onPress={() => router.navigate("/(tabs)/omaha")} />
           <BigButton label="Blackjack" onPress={() => router.navigate("/(tabs)/blackjack")} />
+          <BigButton label="Play Tracker" onPress={() => router.navigate("/(tabs)/tracker")} />
         </View>
       </ScrollView>
     </SafeAreaView>

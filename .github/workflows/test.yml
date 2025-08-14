@@ -15,4 +15,6 @@ jobs:
           node-version: 20
           cache: 'npm'
       - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint || true # allow lint to warn without failing initially
       - run: npm test -- --ci --reporters=default --reporters=github-actions
