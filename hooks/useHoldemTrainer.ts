@@ -11,16 +11,18 @@ import Storage from "@/lib/storage";
 import { betForAction, canHeroCheck, formatBetLabel, heroFromPlayers } from "@/lib/utils/bets";
 import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
+import type { GameType } from "@/models/tracker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Platform } from "react-native";
 
 export type UseHoldemTrainerOptions = {
   initialNumPlayers?: number;
   initialBigBlind?: number;
+  gameType?: GameType;
 };
 
 export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
-  const { initialNumPlayers = 6, initialBigBlind = 2 } = opts;
+  const { initialNumPlayers = 6, initialBigBlind = 2, gameType = 'Texas Holdem' } = opts;
 
   // Settings (persisted as a single object)
   const [settings, setSettings, settingsReady] = usePersistedState<TrainerSettings>(
@@ -87,7 +89,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const [correctHands, setCorrectHands] = useState(0);
 
   // Session via hook
-  const { currentSession, setCurrentSession, startNewSession: beginSession, ready: sessionReady } = useSession();
+  const { currentSession, setCurrentSession, startNewSession: beginSession, ready: sessionReady } = useSession(gameType);
   // Hand history via hook
   const { currentHandHistory, setCurrentHandHistory, createHandHistory, addActionToHistory, finalizeHand } = useHandHistory({
     session: currentSession,

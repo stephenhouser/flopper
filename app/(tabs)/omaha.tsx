@@ -11,7 +11,7 @@ import { useSession } from '@/hooks/useSession';
 import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from '@/models/poker';
 
 export default function OmahaTab() {
-  const { currentSession, setCurrentSession } = useSession();
+  const { currentSession, setCurrentSession } = useSession('Omaha');
   const [settings] = usePersistentState<TrainerSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
   const sb = smallBlindFromBigBlind(settings.bigBlind);
 

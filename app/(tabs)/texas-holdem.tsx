@@ -2,12 +2,12 @@ import { ThemedText } from '@/components/ThemedText';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View
+    FlatList,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from "react-native";
 
 // Replace in-file helpers and types with imports from lib/models
@@ -80,7 +80,7 @@ export default function TexasHoldemTab() {
 
     // actions
     dealTable, newHand, act,
-  } = useHoldemTrainer();
+  } = useHoldemTrainer({});
 
   // Export is now handled by a library function and cross-platform downloader
   function downloadSessionExport() {
