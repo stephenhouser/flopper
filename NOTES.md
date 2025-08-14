@@ -1,5 +1,11 @@
 # Development Notes
 
+Poker Night
+8/11/2025 18:30
+stake: $60, exit $70
+real money
+Good play at the start, lost big hand to Shawn. I had A-K he had 7-2. Flop came up 7-7-?
+
 ## Deploy to github pages
 
 <https://docs.expo.dev/guides/publishing-websites/#github-pages>

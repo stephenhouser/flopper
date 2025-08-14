@@ -21,18 +21,8 @@ export default function HomeTab() {
           <ThemedText style={styles.subtitle}>the card game training app</ThemedText>
           <ThemedText style={styles.description}>
             Sharpen your decision-making for poker and blackjack with focused,
-            bite-size drills. Pick a module below to start practicing.
+            bite-size drills. Pick a module below to start practicing or playing.
           </ThemedText>
-
-          {/* Unified settings/session summary */}
-          <View style={{ marginTop: 8 }}>
-            <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>
-              Poker table: {settings.numPlayers} players • Blinds {'$'}{sb}/{'$'}{settings.bigBlind}
-            </ThemedText>
-            <ThemedText style={{ opacity: 0.8, fontSize: 13 }}>
-              Session: {currentSession ? `${currentSession.hands.length} hands recorded` : "no active session"}
-            </ThemedText>
-          </View>
         </View>
 
         <View style={styles.buttons}>
