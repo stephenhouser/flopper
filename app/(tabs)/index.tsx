@@ -1,17 +1,10 @@
 import { ThemedText } from '@/components/ThemedText';
 
-import { usePersistentState } from "@/hooks/usePersistentState";
-import { useSession } from "@/hooks/useSession";
-import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from "@/models/poker";
 import { router } from "expo-router";
 import { SafeAreaView, ScrollView, StyleSheet, View } from "react-native";
 import BigButton from "../../components/BigButton";
 
 export default function HomeTab() {
-  const { currentSession } = useSession();
-  const [settings] = usePersistentState<TrainerSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
-  const sb = smallBlindFromBigBlind(settings.bigBlind);
-
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <ScrollView

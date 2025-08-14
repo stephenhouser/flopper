@@ -161,7 +161,7 @@ export default function TexasHoldemTab() {
         {/* Table */}
         {
           players.map((item) => 
-              <PlayerRow
+              <PlayerRow key={item.id}
                 player={item}
                 isCompact={isCompact}
                 showScore={showScore}
