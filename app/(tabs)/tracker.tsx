@@ -4,8 +4,9 @@ import { useTracker } from '@/hooks/useTracker';
 import { listAllAttachments, listAttachmentsFor, listTrackedSessions } from '@/lib/db';
 import { downloadTextFile } from '@/lib/utils/download';
 import type { GameType, TrackedSession } from '@/models/tracker';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { ActionSheetIOS, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 // Type for attachments from DB
 type AttachmentRow = { id: string; trackedSessionId: string; type: string; mime: string; content: string; createdAt: number };
@@ -57,6 +58,9 @@ export default function TrackerTab() {
 
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
+  // New: export menu state
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
   const [editing, setEditing] = useState<TrackedSession | null>(null);
   const [editName, setEditName] = useState('');
   const [editGame, setEditGame] = useState<GameType>('Texas Holdem');
@@ -115,6 +119,24 @@ export default function TrackerTab() {
     downloadTextFile('flopper_attachments.csv', csv);
   };
 
+  const openExportMenu = () => {
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ['Cancel', 'Export sessions CSV', 'Export attachments CSV'],
+          cancelButtonIndex: 0,
+          userInterfaceStyle: 'light',
+        },
+        (buttonIndex) => {
+          if (buttonIndex === 1) onExportCSV();
+          if (buttonIndex === 2) onExportAttachmentsCSV();
+        }
+      );
+    } else {
+      setShowExportMenu(true);
+    }
+  };
+
   return (
     <>
       <ScrollView contentContainerStyle={styles.screen}>
@@ -125,17 +147,15 @@ export default function TrackerTab() {
             <Text style={styles.headerStats} numberOfLines={1}>
               Real Money: {totals.real.count} • Net: {currency(totals.real.net)} | Play Money: {totals.play.count} • Net: {currency(totals.play.net)}
             </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Export"
+              onPress={openExportMenu}
+              style={({ pressed }) => [styles.gearBtn, pressed && { opacity: 0.8 }]}
+            >
+              <Ionicons name="download-outline" size={18} color="#2b2e57" />
+            </Pressable>
           </View>
-        </View>
-
-        {/* Toolbar */}
-        <View style={styles.toolbar}>
-          <Pressable onPress={onExportCSV} style={[styles.toolbarBtn, { backgroundColor: '#10b981' }]}>
-            <ThemedText style={styles.toolbarBtnText}>Export CSV</ThemedText>
-          </Pressable>
-          <Pressable onPress={onExportAttachmentsCSV} style={[styles.toolbarBtn, { backgroundColor: '#059669' }]}>
-            <ThemedText style={styles.toolbarBtnText}>Export Attachments</ThemedText>
-          </Pressable>
         </View>
 
         {/* Sessions list */}
@@ -154,6 +174,23 @@ export default function TrackerTab() {
       <Pressable onPress={() => setShowAddModal(true)} accessibilityRole="button" accessibilityLabel="Add session" style={styles.fab}>
         <ThemedText style={styles.fabText}>＋</ThemedText>
       </Pressable>
+
+      {/* Export menu (Android/Web) */}
+      <Modal visible={showExportMenu} transparent animationType="fade" onRequestClose={() => setShowExportMenu(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setShowExportMenu(false)} />
+        <View pointerEvents="box-none" style={{ flex: 1 }}>
+          <ThemedView style={styles.menuCard}>
+            <Pressable onPress={() => { setShowExportMenu(false); onExportCSV(); }} style={styles.menuItem}>
+              <Ionicons name="document-text-outline" size={18} color="#111827" />
+              <ThemedText>Export sessions CSV</ThemedText>
+            </Pressable>
+            <Pressable onPress={() => { setShowExportMenu(false); onExportAttachmentsCSV(); }} style={styles.menuItem}>
+              <Ionicons name="document-attach-outline" size={18} color="#111827" />
+              <ThemedText>Export attachments CSV</ThemedText>
+            </Pressable>
+          </ThemedView>
+        </View>
+      </Modal>
 
       {/* Add Session Modal */}
       <Modal visible={showAddModal} transparent animationType="fade" onRequestClose={() => setShowAddModal(false)}>
@@ -297,10 +334,16 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', color: '#000' },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerStats: { fontSize: 13, flexShrink: 1, textAlign: 'right', color: '#666' },
-  toolbar: { flexDirection: 'row', gap: 8 },
-  toolbarBtn: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 },
-  toolbarBtnText: { color: 'white', fontWeight: '600' },
-  // Removed old list/header styles; using ScrollView layout now
+  gearBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    backgroundColor: '#eef1ff',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 38,
+  },
+  // Removed old toolbar export button styles
   formRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -370,4 +413,25 @@ const styles = StyleSheet.create({
   modalActions: { marginTop: 8, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   modalBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
   modalBtnText: { color: 'white', fontWeight: '600' },
+  menuCard: {
+    position: 'absolute',
+    top: 88,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    paddingVertical: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+    minWidth: 220,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
 });
