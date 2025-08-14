@@ -3,7 +3,7 @@ import { Animated, Easing } from "react-native";
 
 export type FlashState = "none" | "correct" | "incorrect";
 
-export default function useFlash() {
+export function useFlash() {
   const heroFlashOpacity = useRef(new Animated.Value(0)).current;
   const [heroFlash, setHeroFlash] = useState<FlashState>("none");
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

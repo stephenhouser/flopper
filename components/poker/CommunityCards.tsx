@@ -12,7 +12,7 @@ type Props = {
   folded?: boolean;
 };
 
-const CommunityCards: React.FC<Props> = ({ street, board, totalPot, isCompact = Platform.OS !== "web", heroWon, folded }) => {
+export const CommunityCards: React.FC<Props> = ({ street, board, totalPot, isCompact = Platform.OS !== "web", heroWon, folded }) => {
   const bgStyle = heroWon === true ? { backgroundColor: "#b9efd2" } : heroWon === false ? { backgroundColor: "#f8c7cc" } : undefined;
 
   // Determine left label: show FOLDED if folded; when complete and heroWon is known, show WIN/LOST; otherwise show street

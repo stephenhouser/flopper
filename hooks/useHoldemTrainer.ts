@@ -1,13 +1,9 @@
+import { useFlash } from "@/hooks/useFlash";
+import { useGameEngine } from "@/hooks/useGameEngine";
+import { useHandHistory } from "@/hooks/useHandHistory";
+import { usePersistedState } from "@/hooks/usePersistedState";
+import { useSession } from "@/hooks/useSession";
 import { chenScore, recommendAction } from "@/lib/chen";
-// Removed unused import didHeroWin after refactor to gameplay helpers
-// import { didHeroWin } from "@/lib/hand-eval";
-// Removed unused import labelForPos after refactor to gameplay helpers
-// import { labelForPos } from "@/lib/positions";
-import useFlash from "@/hooks/useFlash";
-import useGameEngine from "@/hooks/useGameEngine";
-import useHandHistory from "@/hooks/useHandHistory";
-import usePersistedState from "@/hooks/usePersistedState";
-import useSession from "@/hooks/useSession";
 import {
   computeHeroResult as gpComputeHeroResult
 } from "@/lib/gameplay";

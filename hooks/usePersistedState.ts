@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 
 // Persist arbitrary JSON-serializable state into Storage (AsyncStorage or localStorage).
 // Returns [value, setValue, ready] where ready indicates the initial load has completed.
-export default function usePersistedState<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>, boolean] {
+export function usePersistedState<T>(key: string, initialValue: T): [T, React.Dispatch<React.SetStateAction<T>>, boolean] {
   const [value, setValue] = useState<T>(initialValue);
   const [ready, setReady] = useState(false);
   const keyRef = useRef(key);

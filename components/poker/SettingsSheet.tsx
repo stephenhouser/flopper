@@ -42,7 +42,7 @@ export type SettingsSheetProps = {
   dealTable: (n: number) => void;
 };
 
-const SettingsSheet: React.FC<SettingsSheetProps> = ({
+export const SettingsSheet: React.FC<SettingsSheetProps> = ({
   visible,
   onClose,
   settings,

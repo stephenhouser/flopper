@@ -14,7 +14,7 @@ export type UseHotkeysOptions = {
  * - Web: listens to window keydown
  * - Native: uses react-native-key-command if available (no hard dependency)
  */
-export default function useHotkeys(opts: UseHotkeysOptions) {
+export function useHotkeys(opts: UseHotkeysOptions) {
   const { disabled, heroAction, onAct, onNewHand } = opts;
 
   // Web hotkeys

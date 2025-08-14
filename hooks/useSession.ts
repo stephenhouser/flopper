@@ -3,7 +3,7 @@ import type { Session } from "@/models/poker";
 import { SESSION_STORAGE_KEY } from "@/models/poker";
 import { useCallback, useEffect, useState } from "react";
 
-export default function useSession() {
+export function useSession() {
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [ready, setReady] = useState(false);
 

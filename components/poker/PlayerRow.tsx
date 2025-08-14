@@ -21,7 +21,7 @@ type Props = {
   betLabel: (p: Player) => string;
 };
 
-const PlayerRow: React.FC<Props> = React.memo(({ player, isCompact = Platform.OS !== "web", showScore, heroScore, showAllCards, revealed, onToggleReveal, flashState = "none", flashOpacity, betLabel }) => {
+export const PlayerRow: React.FC<Props> = React.memo(({ player, isCompact = Platform.OS !== "web", showScore, heroScore, showAllCards, revealed, onToggleReveal, flashState = "none", flashOpacity, betLabel }) => {
   const isPlayerRevealed = showAllCards || revealed;
 
   return (

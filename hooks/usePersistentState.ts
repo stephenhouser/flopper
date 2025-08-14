@@ -6,7 +6,7 @@ import Storage from "../lib/storage";
  * - Loads once on mount (falls back to defaultValue when unset or invalid)
  * - Writes on change
  */
-export default function usePersistentState<T>(key: string, defaultValue: T) {
+export function usePersistentState<T>(key: string, defaultValue: T) {
   const [value, setValue] = useState<T>(defaultValue);
   const [loaded, setLoaded] = useState(false);
 

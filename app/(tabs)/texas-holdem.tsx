@@ -17,16 +17,16 @@ import type { Player } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, SESSION_STORAGE_KEY } from "@/models/poker";
 
 // Import extracted UI components
-import CommunityCards from "@/components/poker/CommunityCards";
-import PlayerRow from "@/components/poker/PlayerRow";
-import SettingsSheet from "@/components/poker/SettingsSheet";
-import RowButton from "@/components/ui/RowButton";
+import { CommunityCards } from "@/components/poker/CommunityCards";
+import { PlayerRow } from "@/components/poker/PlayerRow";
+import { SettingsSheet } from "@/components/poker/SettingsSheet";
+import { RowButton } from "@/components/ui/RowButton";
 
 // New hook for game state/logic
-import useHoldemTrainer from "@/hooks/useHoldemTrainer";
+import { useHoldemTrainer } from "@/hooks/useHoldemTrainer";
 // Cross-platform download helper and action formatter
-import useHotkeys from "@/hooks/useHotkeys";
-import downloadTextFile from "@/lib/utils/download";
+import { useHotkeys } from "@/hooks/useHotkeys";
+import { downloadTextFile } from "@/lib/utils/download";
 import { formatAction } from "../../lib/utils/poker";
 
 /* ---------------- UI bits ---------------- */
@@ -65,7 +65,6 @@ export default function TexasHoldemTab() {
 
     // session
     currentSession, setCurrentSession,
-    currentHandHistory, setCurrentHandHistory,
     startNewSession,
 
     // ui
@@ -98,7 +97,6 @@ export default function TexasHoldemTab() {
     // Clear session from storage and reset session state
     await Storage.setItem(SESSION_STORAGE_KEY, "");
     setCurrentSession(null);
-    setCurrentHandHistory(null);
 
     // Start a new session after clearing everything
     startNewSession();

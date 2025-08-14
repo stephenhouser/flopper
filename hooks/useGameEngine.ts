@@ -1,12 +1,12 @@
 import type { CardT } from "@/lib/cards";
 import { makeDeck, shuffle } from "@/lib/cards";
 import {
-	dealFlopFromDeck as gpDealFlop,
-	dealPlayers as gpDealPlayers,
-	dealRiverFromDeck as gpDealRiver,
-	dealTurnFromDeck as gpDealTurn,
-	nextStreet as gpNextStreet,
-	settleBetsIntoPot as gpSettleBets,
+  dealFlopFromDeck as gpDealFlop,
+  dealPlayers as gpDealPlayers,
+  dealRiverFromDeck as gpDealRiver,
+  dealTurnFromDeck as gpDealTurn,
+  nextStreet as gpNextStreet,
+  settleBetsIntoPot as gpSettleBets,
 } from "@/lib/gameplay";
 import type { Board, Player, Settings, Street } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -19,7 +19,7 @@ export type GameEngineState = {
   board: Board;
 };
 
-export default function useGameEngine() {
+export function useGameEngine() {
   const [players, setPlayers] = useState<Player[]>([]);
   const [deck, setDeck] = useState<CardT[]>([]);
   const [street, setStreet] = useState<Street>("preflop");

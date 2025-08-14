@@ -9,7 +9,7 @@ export type FinalizeParams = {
   heroWon?: boolean;
 };
 
-export default function useHandHistory(params: {
+export function useHandHistory(params: {
   session: Session | null;
   setSession: React.Dispatch<React.SetStateAction<Session | null>>;
   bigBlind: number;

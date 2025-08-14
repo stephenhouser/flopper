@@ -3,7 +3,7 @@ import { cardToStr } from "@/lib/cards";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean; compact?: boolean }> = ({ card, hidden, compact }) => {
+export const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean; compact?: boolean }> = ({ card, hidden, compact }) => {
   const red = card && (card.suit === "♥" || card.suit === "♦");
   const box = compact ? { width: 44, height: 60 } : { width: 50, height: 68 };
   const inner = compact ? { width: 36, height: 52 } : { width: 40, height: 58 };
