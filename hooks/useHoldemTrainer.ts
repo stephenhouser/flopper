@@ -9,7 +9,7 @@ import {
 } from "@/lib/gameplay";
 import Storage from "@/lib/storage";
 import { closeTrackedSessionForAppSession } from "@/lib/tracker";
-import { betForAction, canHeroCheck, formatBetLabel, heroFromPlayers } from "@/lib/utils/bets";
+import { allActiveBetsEqual, betForAction, canHeroCheck, chooseActionForPlayer, formatBetLabel, heroFromPlayers, tableCurrentBet } from "@/lib/utils/bets";
 import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
 import type { GameType } from "@/models/tracker";
@@ -78,6 +78,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
   const [buttonsDisabled, setButtonsDisabled] = useState(false);
 
+  // Per-player action pulse counter (increments when a player acts)
+  const [actionPulse, setActionPulse] = useState<Record<number, number>>({});
+
   // Flash/animation hook
   const { heroFlash, heroFlashOpacity, triggerFlash, clearFlash, setHeroFlash } = useFlash();
 
@@ -98,6 +101,21 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     bigBlind,
   });
 
+  // Wrapper to add action and trigger per-player pulse
+  const addActionWithPulse = useCallback((a: Action, amount: number, street: Exclude<Street, "complete">, actorName?: string) => {
+    if (actorName) {
+      setActionPulse(prev => {
+        // Resolve actor by name from latest players array
+        const actor = engPlayers.find(pl => pl.name === actorName);
+        if (!actor) return prev;
+        const next = { ...prev } as Record<number, number>;
+        next[actor.id] = (next[actor.id] || 0) + 1;
+        return next;
+      });
+    }
+    addActionToHistory(a, amount, street, actorName);
+  }, [addActionToHistory, engPlayers]);
+
   // UI
   const [showSettings, setShowSettings] = useState(false);
   const isCompact = Platform.OS !== "web";
@@ -106,9 +124,43 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const advanceStreetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const disableButtonsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // New: AI scheduling timers and state
+  const aiTimersRef = useRef<Array<ReturnType<typeof setTimeout>>>([]);
+  const aiRunningRef = useRef(false);
+  const awaitingHeroRef = useRef(false); // pause AI when waiting for hero action
+  const AI_STEP_DELAY_MS = 250; // sequential delay between AI actions
+  const scheduleAITimeout = useCallback((fn: () => void, ms: number) => {
+    const t = setTimeout(fn, ms);
+    aiTimersRef.current.push(t);
+    return t;
+  }, []);
+
+  // Ref indirection to avoid using runPreflop before it's declared
+  const runPreflopRef = useRef<((mode: "until-hero" | "after-hero") => void) | null>(null);
+  // Ref indirection for postflop streets (flop/turn/river)
+  const runPostflopRef = useRef<((mode: "until-hero" | "after-hero", street: Exclude<Street, "preflop" | "complete">) => void) | null>(null);
 
   const players = engPlayers;
   const setPlayers = setEngPlayers;
+  // Track latest players for scheduling
+  const playersLatestRef = useRef(players);
+  useEffect(() => { playersLatestRef.current = players; }, [players]);
+  // Track latest street to gate AI
+  const streetLatestRef = useRef<Street>(currentStreet);
+  useEffect(() => { streetLatestRef.current = currentStreet; }, [currentStreet]);
+
+  // Helper: find last aggressor (raiser) index from current hand history on this street
+  const lastRaiserIndex = useCallback((arr: Player[]): number | undefined => {
+    const acts = currentHandHistory?.actions || [];
+    for (let i = acts.length - 1; i >= 0; i--) {
+      const a = acts[i];
+      if (a.street === currentStreet && a.action === "raise") {
+        const idx = arr.findIndex(p => p.name === a.player);
+        return idx >= 0 ? idx : undefined;
+      }
+    }
+    return undefined;
+  }, [currentHandHistory?.actions, currentStreet]);
 
   const hero = useMemo(() => players.find(p => p.isHero), [players]);
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
@@ -121,10 +173,395 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     ...(board.river && { river: board.river }),
   }), [board.flop, board.turn, board.river]);
 
-  // Deal a new table/hand and create a new hand history if a session exists
+  // Persisted settings (migrate old per-key to new object once)
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const oldKeys = [
+          "poker.showFeedback","poker.autoNew","poker.facingRaise","poker.feedbackSecs",
+          "poker.showScore","poker.showFlop","poker.showTurn","poker.showRiver","poker.showCommunityCards",
+          "poker.numPlayers","poker.bigBlind"
+        ];
+        const values = await Promise.all(oldKeys.map((k) => Storage.getItem(k)));
+        const anyPresent = values.some((v) => v != null);
+        if (!anyPresent) return;
+        const next: Partial<TrainerSettings> = {};
+        if (values[0] != null) next.showFeedback = values[0] === "1";
+        if (values[1] != null) next.autoNew = values[1] === "1";
+        if (values[2] != null) next.facingRaise = values[2] === "1";
+        if (values[3] != null) { const v = parseFloat(values[3] || "1"); if (!Number.isNaN(v)) next.feedbackSecs = Math.max(0, Math.min(10, v)); }
+        if (values[4] != null) next.showScore = values[4] === "1";
+        if (values[5] != null) next.showFlop = values[5] === "1" || values[5] === "true"; // old used 0 for false
+        if (values[6] != null) next.showTurn = values[6] === "1";
+        if (values[7] != null) next.showRiver = values[7] === "1";
+        if (values[8] != null) next.showCommunityCards = values[8] === "1";
+        if (values[9] != null) { const n = parseInt(values[9] || "6", 10); if (!Number.isNaN(n)) (next as any).numPlayers = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)); }
+        if (values[10] != null) { const n = parseInt(values[10] || "2", 10); if (!Number.isNaN(n)) (next as any).bigBlind = Math.max(MIN_BIG_BLIND, n); }
+        if (Object.keys(next).length > 0) {
+          setSettings((s) => ({ ...s, ...next }));
+        }
+      } catch {}
+      finally {
+        if (!cancelled) {
+          // no-op; settingsReady controls UI
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [setSettings]);
+
+  const betLabel = useCallback((p: Player) => formatBetLabel(p), []);
+
+  const actionLabel = useCallback((p: Player) => {
+    // Always show Fold if the player is out
+    if (p.folded) return "Fold";
+    const actions = currentHandHistory?.actions || [];
+    // Only consider actions taken on the current street to "clear" between rounds
+    const byStreet = actions.filter(a => a.street === currentStreet);
+    for (let i = byStreet.length - 1; i >= 0; i--) {
+      const a = byStreet[i];
+      if (a.player === p.name) {
+        switch (a.action) {
+          case "raise": return "Raise";
+          case "call": return "Call";
+          case "check": return "Check";
+          case "fold": return "Fold";
+        }
+      }
+    }
+    return "";
+  }, [currentHandHistory?.actions, currentStreet]);
+
+  // Pulse key getter for UI
+  const pulseKey = useCallback((p: Player) => actionPulse[p.id] || 0, [actionPulse]);
+
+  // ---------- Simple Preflop AI (simplified) ----------
+
+  const allButOneFolded = useCallback((arr: Player[]) => arr.filter(p => !p.folded).length <= 1, []);
+
+  // Shared helper: restrict raises (single raise cap, no raise when settled)
+  const decideActionRestricted = useCallback((arr: Player[], pl: Player): Action => {
+    const currentBet = tableCurrentBet(arr);
+    const raiseAlready = currentBet > bigBlind;
+    const everyoneDone = allActiveBetsEqual(arr) || allButOneFolded(arr);
+    let a = chooseActionForPlayer(arr, pl, numPlayers, bigBlind);
+
+    // If behind, cannot check to stay in — must call or raise (or fold if chosen)
+    const needsToCall = (pl.bet || 0) < currentBet;
+    if (needsToCall && a === "check") {
+      a = "call";
+    }
+
+    // Cap raises: only allow one raise and never raise when round is settled
+    if (a === "raise" && (raiseAlready || everyoneDone)) {
+      a = (pl.bet || 0) >= currentBet ? "check" : "call";
+    }
+    return a;
+  }, [bigBlind, numPlayers, allButOneFolded]);
+
+  // Shared helper: finish if only one remains, else advance to flop
+  const settleOrAdvance = useCallback((state: Player[]) => {
+    if (allButOneFolded(state)) {
+      const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+      scheduleAITimeout(() => {
+        completeHand();
+        const heroAlive = state.find(p => p.isHero && !p.folded);
+        const heroWon = !!heroAlive;
+        setHeroWonHand(heroWon ? true : null);
+        if (currentSession) {
+          finalizeHand({ pot: getTotalPot(), result: "completed", heroWon, communityCards: communityFromBoard() });
+        }
+        if (autoNew) {
+          if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+        }
+      }, Math.max(0, Math.round(feedbackSecs * 1000)));
+      return true;
+    }
+    if (streetLatestRef.current === "preflop") {
+      const s: PokerSettings = { showFlop, showTurn, showRiver };
+      advanceStreet(s);
+    }
+    return true;
+  }, [advanceStreet, allButOneFolded, autoNew, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot]);
+
+  // Unified preflop runner
+  const runPreflop = useCallback((mode: "until-hero" | "after-hero") => {
+    if (aiRunningRef.current) return;
+    aiRunningRef.current = true;
+
+    let state = playersLatestRef.current.map(p => ({ ...p }));
+    const order = preflopOrder(state);
+    const heroIdx = state.findIndex(p => p.isHero);
+    const startIdx = mode === "until-hero" ? 0 : Math.max(0, order.indexOf(heroIdx) + 1);
+    const aggressorIdx = mode === "after-hero" ? (lastRaiserIndex(state) ?? heroIdx) : undefined;
+
+    // Early settle for after-hero if already matched
+    if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
+      aiRunningRef.current = false;
+      setPlayers(state.map(p => ({ ...p })));
+      if (allButOneFolded(state)) { settleOrAdvance(state); }
+      else if (streetLatestRef.current === "preflop") {
+        const s: PokerSettings = { showFlop, showTurn, showRiver };
+        advanceStreet(s);
+      }
+      return;
+    }
+
+    const MAX_STEPS = Math.max(8, order.length * 3);
+    let steps = 0;
+
+    const step = (i: number) => {
+      if (streetLatestRef.current !== "preflop") { aiRunningRef.current = false; return; }
+      if (awaitingHeroRef.current) { aiRunningRef.current = false; return; }
+      if (steps++ > MAX_STEPS) {
+        aiRunningRef.current = false;
+        setPlayers(state.map(p => ({ ...p })));
+        if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
+          settleOrAdvance(state);
+        }
+        return;
+      }
+
+      const modI = i % order.length;
+      const idx = order[modI];
+
+      if (mode === "until-hero") {
+        if (idx === heroIdx || i >= order.length) {
+          // Yield to hero; but finish early if only one remains
+          if (allButOneFolded(state)) {
+            aiRunningRef.current = false;
+            setPlayers(state.map(p => ({ ...p })));
+            settleOrAdvance(state);
+            return;
+          }
+          awaitingHeroRef.current = true;
+          aiRunningRef.current = false;
+          setPlayers(state.map(p => ({ ...p })));
+          return;
+        }
+      } else if (mode === "after-hero" && aggressorIdx != null && idx === aggressorIdx) {
+        // When action returns to aggressor, settle if matched or only one left
+        if (allActiveBetsEqual(state) || allButOneFolded(state)) {
+          aiRunningRef.current = false;
+          setPlayers(state.map(p => ({ ...p })));
+          settleOrAdvance(state);
+          return;
+        }
+        // Not settled yet: continue past aggressor so others can respond
+        scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS);
+        return;
+      }
+
+      const p = state[idx];
+      if (!p || p.folded) { scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS); return; }
+
+      const action = decideActionRestricted(state, p);
+      const amount = betForAction(action, state, bigBlind, p);
+      if (action === "fold") p.folded = true;
+      p.bet = amount;
+      addActionWithPulse(action, amount, "preflop", p.name);
+
+      if (allButOneFolded(state)) {
+        aiRunningRef.current = false;
+        setPlayers(state.map(pl => ({ ...pl })));
+        settleOrAdvance(state);
+        return;
+      }
+
+      setPlayers(state.map(pl => ({ ...pl })));
+      scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS);
+    };
+
+    scheduleAITimeout(() => step(startIdx), AI_STEP_DELAY_MS);
+  }, [addActionWithPulse, allActiveBetsEqual, allButOneFolded, bigBlind, decideActionRestricted, lastRaiserIndex, scheduleAITimeout, setPlayers]);
+
+  // Keep ref updated
+  useEffect(() => { runPreflopRef.current = runPreflop; }, [runPreflop]);
+
+  // ---------- Postflop AI (flop/turn/river) ----------
+
+  const settleAfterPostflop = useCallback((state: Player[], street: Exclude<Street, "preflop" | "complete">) => {
+    // If everyone but one folded, complete hand after feedback delay
+    if (allButOneFolded(state)) {
+      const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+      scheduleAITimeout(() => {
+        completeHand();
+        const heroAlive = state.find(p => p.isHero && !p.folded);
+        const heroWon = !!heroAlive;
+        setHeroWonHand(heroWon ? true : null);
+        if (currentSession) {
+          finalizeHand({ pot: getTotalPot(), result: "completed", heroWon, communityCards: communityFromBoard() });
+        }
+        if (autoNew) {
+          if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+        }
+      }, delayMs);
+      return;
+    }
+
+    // Otherwise, advance street after feedback delay
+    const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
+    if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
+    advanceStreetTimerRef.current = setTimeout(() => {
+      const s: PokerSettings = { showFlop, showTurn, showRiver };
+      const next = advanceStreet(s);
+
+      if (next === "complete") {
+        // Showdown at river or due to skipping streets
+        // Reveal only opponents who did not fold
+        const revealIds = new Set(
+          state
+            .filter(p => !p.isHero && !p.folded)
+            .map(p => p.id)
+        );
+        setRevealedPlayers(revealIds);
+
+        let heroWon: boolean | undefined = undefined;
+        if (hero && board.flop && board.turn && board.river) {
+          const communityCards = [...board.flop, board.turn, board.river];
+          heroWon = gpComputeHeroResult(hero, state, communityCards);
+          setHeroWonHand(heroWon ?? null);
+        }
+
+        if (currentSession) {
+          finalizeHand({
+            pot: getTotalPot(),
+            result: "completed",
+            heroWon,
+            communityCards: communityFromBoard(),
+          });
+        }
+
+        if (autoNew) {
+          if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+        }
+      } else {
+        // Kick off next street until hero, if others act first
+        scheduleAITimeout(() => {
+          if (next === "flop" || next === "turn" || next === "river") {
+            runPostflopRef.current?.("until-hero", next);
+          }
+        }, AI_STEP_DELAY_MS);
+      }
+    }, delayMs);
+  }, [advanceStreet, allButOneFolded, autoNew, board.flop, board.river, board.turn, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout]);
+
+  const runPostflop = useCallback((mode: "until-hero" | "after-hero", street: Exclude<Street, "preflop" | "complete">) => {
+    if (aiRunningRef.current) return;
+    if (streetLatestRef.current !== street) return; // guard
+    aiRunningRef.current = true;
+
+    let state = playersLatestRef.current.map(p => ({ ...p }));
+    const order = postflopOrder(state);
+    const heroIdx = state.findIndex(p => p.isHero);
+    const startIdx = mode === "until-hero" ? 0 : Math.max(0, order.indexOf(heroIdx) + 1);
+    const aggressorIdx = mode === "after-hero" ? (lastRaiserIndex(state) ?? heroIdx) : undefined;
+
+    // Early settle for after-hero if already matched
+    if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
+      aiRunningRef.current = false;
+      setPlayers(state.map(p => ({ ...p })));
+      settleAfterPostflop(state, street);
+      return;
+    }
+
+    const MAX_STEPS = Math.max(8, order.length * 3);
+    let steps = 0;
+
+    const step = (i: number) => {
+      if (streetLatestRef.current !== street) { aiRunningRef.current = false; return; }
+      if (awaitingHeroRef.current) { aiRunningRef.current = false; return; }
+      if (steps++ > MAX_STEPS) {
+        aiRunningRef.current = false;
+        setPlayers(state.map(p => ({ ...p })));
+        // Try to settle if possible
+        if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
+          settleAfterPostflop(state, street);
+        }
+        return;
+      }
+
+      const modI = i % order.length;
+      const idx = order[modI];
+
+      if (mode === "until-hero") {
+        if (idx === heroIdx || i >= order.length) {
+          // Yield to hero; but finish early if only one remains
+          if (allButOneFolded(state)) {
+            aiRunningRef.current = false;
+            setPlayers(state.map(p => ({ ...p })));
+            settleAfterPostflop(state, street);
+            return;
+          }
+          awaitingHeroRef.current = true;
+          aiRunningRef.current = false;
+          setPlayers(state.map(p => ({ ...p })));
+          return;
+        }
+      } else if (mode === "after-hero" && aggressorIdx != null && idx === aggressorIdx) {
+        // When action returns to aggressor, settle if matched or only one left
+        if (allActiveBetsEqual(state) || allButOneFolded(state)) {
+          aiRunningRef.current = false;
+          setPlayers(state.map(p => ({ ...p })));
+          settleAfterPostflop(state, street);
+          return;
+        }
+        scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS);
+        return;
+      }
+
+      const p = state[idx];
+      if (!p || p.folded) { scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS); return; }
+
+      const action = decideActionRestricted(state, p);
+      const amount = betForAction(action, state, bigBlind, p);
+      if (action === "fold") p.folded = true;
+      p.bet = amount;
+      addActionWithPulse(action, amount, street, p.name);
+
+      if (allButOneFolded(state)) {
+        aiRunningRef.current = false;
+        setPlayers(state.map(pl => ({ ...pl })));
+        settleAfterPostflop(state, street);
+        return;
+      }
+
+      setPlayers(state.map(pl => ({ ...pl })));
+      scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS);
+    };
+
+    scheduleAITimeout(() => step(startIdx), AI_STEP_DELAY_MS);
+  }, [addActionWithPulse, allActiveBetsEqual, allButOneFolded, bigBlind, decideActionRestricted, lastRaiserIndex, scheduleAITimeout, setPlayers, settleAfterPostflop]);
+
+  // Keep ref updated
+  useEffect(() => { runPostflopRef.current = runPostflop; }, [runPostflop]);
+
+  // When a new postflop street starts, let AI act until hero if others are first to act
+  useEffect(() => {
+    if (currentStreet === "flop" || currentStreet === "turn" || currentStreet === "river") {
+      // If there are already actions on this street, don't auto-run
+      const hasStreetAction = !!(currentHandHistory?.actions?.some(a => a.street === currentStreet));
+      if (hasStreetAction) return;
+      // Defer slightly to allow state commit from advanceStreet
+      scheduleAITimeout(() => {
+        runPostflopRef.current?.("until-hero", currentStreet);
+      }, AI_STEP_DELAY_MS);
+    }
+  }, [currentStreet, currentHandHistory?.actions, scheduleAITimeout]);
+
   const dealTable = useCallback((n: number) => {
     setHeroFlash("none");
     clearFlash();
+
+    // Clear any pending AI timers to avoid cross-hand state updates
+    aiTimersRef.current.forEach(t => clearTimeout(t));
+    aiTimersRef.current = [];
+    aiRunningRef.current = false;
+    awaitingHeroRef.current = false;
 
     const heroSeat = 0;
     const dealt = engineDealTable(n, bigBlind, { heroSeat });
@@ -141,7 +578,15 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (currentSession) {
       createHandHistory(dealt.players);
     }
-  }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash, createHandHistory]);
+
+    // Kick off simple automated preflop betting for non-hero players until hero's turn
+    // Slight delay to ensure state has committed
+    scheduleAITimeout(() => {
+      try {
+        runPreflopRef.current?.("until-hero");
+      } catch {}
+    }, AI_STEP_DELAY_MS);
+  }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash, createHandHistory, scheduleAITimeout]);
 
   const newHand = useCallback(() => dealTable(numPlayers), [dealTable, numPlayers]);
 
@@ -184,51 +629,11 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     return session;
   }, [beginSession, showFeedback, currentSession, gameType, currentHandHistory, finalizeHand, getTotalPot, communityFromBoard, dealTable, numPlayers]);
 
-  // Persisted settings (migrate old per-key to new object once)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const oldKeys = [
-          "poker.showFeedback","poker.autoNew","poker.facingRaise","poker.feedbackSecs",
-          "poker.showScore","poker.showFlop","poker.showTurn","poker.showRiver","poker.showCommunityCards",
-          "poker.numPlayers","poker.bigBlind"
-        ];
-        const values = await Promise.all(oldKeys.map((k) => Storage.getItem(k)));
-        const anyPresent = values.some((v) => v != null);
-        if (!anyPresent) return;
-        const next: Partial<TrainerSettings> = {};
-        if (values[0] != null) next.showFeedback = values[0] === "1";
-        if (values[1] != null) next.autoNew = values[1] === "1";
-        if (values[2] != null) next.facingRaise = values[2] === "1";
-        if (values[3] != null) { const v = parseFloat(values[3] || "1"); if (!Number.isNaN(v)) next.feedbackSecs = Math.max(0, Math.min(10, v)); }
-        if (values[4] != null) next.showScore = values[4] === "1";
-        if (values[5] != null) next.showFlop = values[5] === "1" || values[5] === "true"; // old used 0 for false
-        if (values[6] != null) next.showTurn = values[6] === "1";
-        if (values[7] != null) next.showRiver = values[7] === "1";
-        if (values[8] != null) next.showCommunityCards = values[8] === "1";
-        if (values[9] != null) { const n = parseInt(values[9] || "6", 10); if (!Number.isNaN(n)) (next as any).numPlayers = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)); }
-        if (values[10] != null) { const n = parseInt(values[10] || "2", 10); if (!Number.isNaN(n)) (next as any).bigBlind = Math.max(MIN_BIG_BLIND, n); }
-        if (Object.keys(next).length > 0) {
-          setSettings((s) => ({ ...s, ...next }));
-        }
-      } catch {}
-      finally {
-        if (!cancelled) {
-          // no-op; settingsReady controls UI
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [setSettings]);
-
   // Auto-init session if none when both settings and session are ready
   useEffect(() => {
     if (!settingsReady || !sessionReady) return;
     if (!currentSession) startNewSession();
   }, [settingsReady, sessionReady, currentSession, startNewSession]);
-
-  const betLabel = useCallback((p: Player) => formatBetLabel(p), []);
 
   // Auto-deal first hand once ready and session exists
   useEffect(() => {
@@ -240,6 +645,27 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     dealTable(numPlayers);
   }, [settingsReady, sessionReady, currentSession, players.length, deck.length, board.flop, board.turn, board.river, dealTable, numPlayers]);
 
+  const canCheck = useMemo(() => canHeroCheck(players, hero), [players, hero]);
+
+  const togglePlayerReveal = useCallback((playerId: number) => {
+    setRevealedPlayers(prev => {
+      const next = new Set(prev);
+      if (next.has(playerId)) next.delete(playerId); else next.add(playerId);
+      return next;
+    });
+  }, []);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      aiTimersRef.current.forEach((t) => clearTimeout(t));
+      if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
+      if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
+      if (disableButtonsTimerRef.current) clearTimeout(disableButtonsTimerRef.current);
+      if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+    };
+  }, []);
+
   const act = useCallback((action: Action) => {
     // Clear any previously scheduled auto-new to avoid overlap
     const dealRef = dealTimerRef.current;
@@ -247,6 +673,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       clearTimeout(dealRef);
       dealTimerRef.current = null;
     }
+
+    // Hero is acting now; resume AI after hero with gating disabled
+    awaitingHeroRef.current = false;
 
     // Disable action buttons for the duration of the feedback window
     const disableMs = Math.max(0, Math.round(feedbackSecs * 1000));
@@ -273,14 +702,33 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     const heroP = heroFromPlayers(players);
     const betAmount = betForAction(action, players, bigBlind, heroP);
 
-    if (currentStreet !== "complete") addActionToHistory(action, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
+    if (currentStreet !== "complete") addActionWithPulse(action, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
 
     const updatedPlayers = players.map(p => (p.isHero ? { ...p, bet: betAmount } : p));
     setPlayers(updatedPlayers);
 
+    // If we're in preflop, have AI finish the rest of the round after hero acts
+    if (currentStreet === "preflop" && action !== "fold") {
+      try {
+        scheduleAITimeout(() => { try { runPreflopRef.current?.("after-hero"); } catch {} }, AI_STEP_DELAY_MS);
+      } catch {}
+    } else if (currentStreet !== "preflop" && currentStreet !== "complete") {
+      // Postflop: let AI respond to hero action (calls/raises) to settle the round properly
+      const streetNow = currentStreet as Exclude<Street, "preflop" | "complete">;
+      try {
+        scheduleAITimeout(() => { try { runPostflopRef.current?.("after-hero", streetNow); } catch {} }, AI_STEP_DELAY_MS);
+      } catch {}
+    }
+
     const updatedTotalPot = getTotalPot();
 
     if (action === "fold") {
+      // Stop any AI immediately; hand is ending due to hero fold
+      aiTimersRef.current.forEach(t => clearTimeout(t));
+      aiTimersRef.current = [];
+      aiRunningRef.current = false;
+      awaitingHeroRef.current = false;
+
       const finalPot = getTotalPot();
       const settleDelayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       setTimeout(() => {
@@ -308,9 +756,13 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         const s: PokerSettings = { showFlop, showTurn, showRiver };
         advanceStreet(s); // transition to complete and settle bets
 
-        // Reveal opponents and compute hero result for display
-        const allPlayerIds = new Set(updatedPlayers.map(p => p.id).filter(id => id !== hero?.id));
-        setRevealedPlayers(allPlayerIds);
+        // Reveal only opponents who did not fold for showdown
+        const revealIds = new Set(
+          updatedPlayers
+            .filter(p => !p.isHero && !p.folded)
+            .map(p => p.id)
+        );
+        setRevealedPlayers(revealIds);
         let heroWon: boolean | undefined = undefined;
         if (hero && board.flop && board.turn && board.river) {
           const communityCards = [...board.flop, board.turn, board.river];
@@ -334,8 +786,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           dealTimerRef.current = setTimeout(() => newHand(), delayMs);
         }
       }, delayMs);
-    } else {
-      // Non-final streets: wait the feedback delay before dealing the next street
+    } else if (currentStreet !== "preflop") {
+      // Non-final, non-preflop streets: wait the feedback delay before dealing the next street
       const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
       if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
       advanceStreetTimerRef.current = setTimeout(() => {
@@ -378,71 +830,96 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionToHistory]);
-
-  const canCheck = useMemo(() => canHeroCheck(players, hero), [players, hero]);
-
-  const togglePlayerReveal = useCallback((playerId: number) => {
-    setRevealedPlayers(prev => {
-      const next = new Set(prev);
-      next.has(playerId) ? next.delete(playerId) : next.add(playerId);
-      return next;
-    });
-  }, []);
-
-  // Cleanup timers on unmount
-  useEffect(() => () => {
-    [hideTimerRef, dealTimerRef, advanceStreetTimerRef, disableButtonsTimerRef].forEach(ref => {
-      if (ref.current) clearTimeout(ref.current);
-    });
-  }, []);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionWithPulse]);
 
   return {
     // settings
-    numPlayers, setNumPlayers,
-    bigBlind, setBigBlind,
-    autoNew, setAutoNew,
-    facingRaise, setFacingRaise,
-    showFeedback, setShowFeedback,
-    feedbackSecs, setFeedbackSecs,
-    showScore, setShowScore,
-    showFlop, setShowFlop,
-    showTurn, setShowTurn,
-    showRiver, setShowRiver,
-    showCommunityCards, setShowCommunityCards,
-    settings, setSettings,
+    showFeedback,
+    showScore,
+    showFlop,
+    showCommunityCards,
+    settings,
+    setSettings,
 
     // game state
-    players, currentStreet, pot,
-    // ...existing code...
+    players,
+    currentStreet,
     board,
-    showAllCards, setShowAllCards,
-    foldedHand, heroWonHand,
-    revealedPlayers, togglePlayerReveal,
+    foldedHand,
+    heroWonHand,
+    revealedPlayers,
+    togglePlayerReveal,
 
     // stats
-    heroAction, lastAction, lastActionCorrect, result,
-    totalHands, correctHands,
+    heroAction,
+    lastActionCorrect,
+    result,
+    totalHands,
+    correctHands,
 
     // session
-    currentSession, setCurrentSession,
-    currentHandHistory, setCurrentHandHistory,
+    currentSession,
+    setCurrentSession,
     startNewSession,
 
     // ui
     isCompact,
-    showSettings, setShowSettings,
-    heroFlash, heroFlashOpacity,
+    showSettings,
+    setShowSettings,
+    heroFlash,
+    heroFlashOpacity,
     buttonsDisabled,
 
     // derived
-    hero, heroScore, recommended,
-    canCheck, totalPot,
+    heroScore,
+    canCheck,
+    totalPot,
     betLabel,
+    actionLabel,
+    pulseKey,
 
     // actions
-    dealTable, newHand, act,
+    dealTable,
+    newHand,
+    act,
   } as const;
 }
 
 export default useHoldemTrainer;
+
+// ---------------- Internal helpers: simple preflop AI ---------------- //
+
+function findIndexByRole(players: Player[], role: Player["role"]) {
+  return players.findIndex((p) => p.role === role);
+}
+
+// UTG is the seat after the big blind in our rotated array [SB, BB, UTG, ...]
+function utgIndex(players: Player[]): number {
+  const bb = findIndexByRole(players, "BB");
+  if (bb < 0) return 0;
+  return (bb + 1) % players.length;
+}
+
+// Preflop acting order starts from UTG through to BB
+function preflopOrder(players: Player[]): number[] {
+  if (!players.length) return [];
+  const start = utgIndex(players);
+  const order: number[] = [];
+  for (let i = 0; i < players.length; i++) order.push((start + i) % players.length);
+  return order;
+}
+
+// Postflop acting order starts with first player after the button (SB if still in)
+function btnIndex(players: Player[]): number {
+  const btn = findIndexByRole(players, "Dealer");
+  if (btn < 0) return 0;
+  return btn;
+}
+
+function postflopOrder(players: Player[]): number[] {
+  if (!players.length) return [];
+  const start = (btnIndex(players) + 1) % players.length;
+  const order: number[] = [];
+  for (let i = 0; i < players.length; i++) order.push((start + i) % players.length);
+  return order;
+}

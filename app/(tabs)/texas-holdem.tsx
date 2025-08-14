@@ -75,6 +75,8 @@ export default function TexasHoldemTab() {
     heroScore,
     canCheck, totalPot,
     betLabel,
+    actionLabel,
+    pulseKey,
 
     // actions
     dealTable, newHand, act,
@@ -172,6 +174,8 @@ export default function TexasHoldemTab() {
                 flashState={item.isHero ? heroFlash : "none"}
                 flashOpacity={item.isHero ? heroFlashOpacity : undefined}
                 betLabel={betLabel}
+                actionLabel={actionLabel}
+                pulseKey={pulseKey(item)}
               />
           )
         }

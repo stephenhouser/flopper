@@ -11,6 +11,8 @@ export type Player = {
   cards: [CardT, CardT];
   isHero: boolean;
   positionLabel?: string;
+  // Added: whether the player has folded this hand
+  folded?: boolean;
 };
 
 export type Action = "check" | "call" | "fold" | "raise";

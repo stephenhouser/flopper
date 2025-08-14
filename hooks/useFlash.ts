@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Animated, Easing } from "react-native";
 
-export type FlashState = "none" | "correct" | "incorrect";
+export type FlashState = "none" | "correct" | "incorrect" | "active";
 
 export function useFlash() {
   const heroFlashOpacity = useRef(new Animated.Value(0)).current;
