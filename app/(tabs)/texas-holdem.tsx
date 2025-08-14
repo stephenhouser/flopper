@@ -1,10 +1,8 @@
 import { ThemedText } from '@/components/ThemedText';
 
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useEffect } from "react";
 import {
   FlatList,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,7 +13,7 @@ import {
 // Replace in-file helpers and types with imports from lib/models
 import { exportSessionToPokerStars } from "@/lib/export/pokerstars";
 import Storage from "@/lib/storage";
-import type { Action, Player } from "@/models/poker";
+import type { Player } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, SESSION_STORAGE_KEY } from "@/models/poker";
 
 // Import extracted UI components
@@ -27,9 +25,9 @@ import RowButton from "@/components/ui/RowButton";
 // New hook for game state/logic
 import useHoldemTrainer from "@/hooks/useHoldemTrainer";
 // Cross-platform download helper and action formatter
+import useHotkeys from "@/hooks/useHotkeys";
 import downloadTextFile from "@/lib/utils/download";
 import { formatAction } from "../../lib/utils/poker";
-import useHotkeys from "@/hooks/useHotkeys";
 
 /* ---------------- UI bits ---------------- */
 

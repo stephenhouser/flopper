@@ -1,5 +1,5 @@
-import type { Action, Player } from "@/models/poker";
 import { minRaise } from "@/lib/gameplay";
+import type { Action, Player } from "@/models/poker";
 
 export function tableCurrentBet(players: Player[]): number {
   if (!players || players.length === 0) return 0;
@@ -26,9 +26,17 @@ export function betForAction(action: Action, players: Player[], bigBlind: number
   return heroBet;
 }
 
+// Small reusable helper to render a bet label with SB/BB tag
+export function formatBetLabel(p: Player): string {
+  const tag = p.role === "SB" ? "SB" : p.role === "BB" ? "BB" : "";
+  const amt = `$${p.bet}`;
+  return tag ? `${amt} (${tag})` : amt;
+}
+
 export default {
   tableCurrentBet,
   heroFromPlayers,
   canHeroCheck,
   betForAction,
+  formatBetLabel,
 };

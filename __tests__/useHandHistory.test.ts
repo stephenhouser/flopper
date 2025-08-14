@@ -1,7 +1,7 @@
-import React from 'react';
-import { act, renderHook } from '@testing-library/react';
 import useHandHistory from '@/hooks/useHandHistory';
 import type { Player, Session } from '@/models/poker';
+import { act, renderHook } from '@testing-library/react';
+import React from 'react';
 
 function makePlayers(): Player[] {
   return Array.from({ length: 2 }).map((_, i) => ({

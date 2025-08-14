@@ -1,6 +1,6 @@
+import type { Action } from "@/models/poker";
 import { useEffect } from "react";
 import { Platform } from "react-native";
-import type { Action } from "@/models/poker";
 
 export type UseHotkeysOptions = {
   disabled?: boolean;

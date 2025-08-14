@@ -5,16 +5,14 @@ import { chenScore, recommendAction } from "@/lib/chen";
 // import { labelForPos } from "@/lib/positions";
 import useFlash from "@/hooks/useFlash";
 import useGameEngine from "@/hooks/useGameEngine";
+import useHandHistory from "@/hooks/useHandHistory";
 import usePersistedState from "@/hooks/usePersistedState";
 import useSession from "@/hooks/useSession";
-import useHandHistory from "@/hooks/useHandHistory";
 import {
-	computeHeroResult as gpComputeHeroResult,
-	// ...existing code...
-	minRaise as gpMinRaise,
+  computeHeroResult as gpComputeHeroResult
 } from "@/lib/gameplay";
-import { betForAction, canHeroCheck, heroFromPlayers } from "@/lib/utils/bets";
 import Storage from "@/lib/storage";
+import { betForAction, canHeroCheck, formatBetLabel, heroFromPlayers } from "@/lib/utils/bets";
 import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -179,11 +177,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (!currentSession) startNewSession();
   }, [settingsReady, sessionReady, currentSession, startNewSession]);
 
-  const betLabel = useCallback((p: Player) => {
-    const tag = p.role === "SB" ? "SB" : p.role === "BB" ? "BB" : "";
-    const amt = `$${p.bet}`;
-    return tag ? `${amt} (${tag})` : amt;
-  }, []);
+  const betLabel = useCallback((p: Player) => formatBetLabel(p), []);
 
   const dealTable = useCallback((n: number) => {
     setHeroFlash("none");
