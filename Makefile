@@ -9,7 +9,7 @@ run:
 	npx expo start
 
 test:
-	npm run test
+	npm test -- --ci --reporters=default --reporters=github-actions
 
 lint:
 	npm run typecheck

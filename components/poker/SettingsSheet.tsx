@@ -272,7 +272,7 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 20 }} showsVerticalScrollIndicator>
           <View style={styles.card}>
             <View style={styles.singleColumnRow}>
-              <View className="controlBlock" style={styles.controlBlock}>
+              <View style={styles.controlBlock}>
                 <ThemedText style={styles.label}>Players</ThemedText>
                 <View style={styles.stepper}>
                   <RowButton label={<Text>-</Text>} onPress={() => { const next = Math.max(MIN_PLAYERS, numPlayers - 1); setNumPlayers(next); dealTable(next); }} />
