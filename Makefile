@@ -20,3 +20,14 @@ deploy:
 	npm run deploy
 
 publish: deploy
+
+bootstrap:
+	npm ci
+
+clean:
+	rm -rf dist
+	rm -rf build
+
+distclean: clean
+	rm -rf node_modules
+	rm -rf .expo
