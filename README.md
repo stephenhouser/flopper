@@ -1,8 +1,6 @@
 # Flopper — a poker training app
 
-[![test](https://github.com/stephenhouser/flopper/actions/workflows/test.yml/badge.svg)](https://github.com/stephenhouser/flopper/actions/workflows/test.yml)
-
-[![webapp](https://github.com/stephenhouser/flopper/actions/workflows/webapp.yml/badge.svg)](https://github.com/stephenhouser/flopper/actions/workflows/webapp.yml)
+[![test](https://github.com/stephenhouser/flopper/actions/workflows/test.yml/badge.svg)](https://github.com/stephenhouser/flopper/actions/workflows/test.yml) [![webapp](https://github.com/stephenhouser/flopper/actions/workflows/webapp.yml/badge.svg)](https://github.com/stephenhouser/flopper/actions/workflows/webapp.yml)
 
 An experiment in building a focused poker training application with Expo + React Native + TypeScript. Runs on the web (PWA) and can run on iOS/Android.
 
@@ -35,28 +33,32 @@ Planned
 
 Prereqs: Node.js (LTS), npm, and Expo CLI (installed by scripts).
 
-Install
+Setup / Bootstrap
 
-- npm install
+- `make bootstrap`
 
 Run
 
-- Web: npm run web
+- Web: `make run`
+
+Not tested thoroughly
+
 - iOS simulator: npm run ios
 - Android emulator: npm run android
 
 Typecheck, lint, test
 
+- Easy lint and test: `make check`
+
 - Typecheck: npm run typecheck
 - Lint: npm run lint
 - Tests: npm test (Jest), npm run test:watch
 
-Deploy to GitHub Pages (web)
+Deploy/Publish to GitHub Pages (web, <https://stephenhouser.com/flopper>)
 
-- npm run predeploy (builds static export)
-- npm run deploy (publishes to gh-pages)
+- `make publish`
 
-## Keyboard shortcuts (pre-flop trainer)
+## Keyboard shortcuts (pre-flop trainer, web only)
 
 - c — check
 - a — call
@@ -65,7 +67,7 @@ Deploy to GitHub Pages (web)
 - space — new hand
 - enter — repeat last action
 
-Note: Native key commands require a dev build and the optional react-native-key-command module. See NOTES.md for setup.
+Note: Native key commands require a dev build and the optional react-native-key-command module. See NOTES.md for setup. I've disabled this in the current version.
 
 ## Architecture (short)
 
@@ -99,4 +101,4 @@ You can export the current session to a PokerStars-like text format from the Set
 
 ## Notes
 
-This project has been built iteratively using AI-assisted pair programming. Expect rapid changes and refactors during active development.
+This project has been built iteratively using AI-assisted pair programming. Expect ugly code, rapid changes, and refactors during active development.
