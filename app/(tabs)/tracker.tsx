@@ -1,13 +1,15 @@
 import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+import { ExportMenu } from '@/components/tracker/ExportMenu';
+import { SessionModal } from '@/components/tracker/SessionModal';
+import { TrackerItem } from '@/components/tracker/TrackerItem';
 import { useTracker } from '@/hooks/useTracker';
-import { listAllAttachments, listAttachmentsFor, listTrackedSessions } from '@/lib/db';
+import { listAllAttachments, listTrackedSessions } from '@/lib/db';
 import { downloadTextFile } from '@/lib/utils/download';
 import type { GameType, TrackedSession } from '@/models/tracker';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useMemo, useState, useCallback } from 'react';
-import { ActionSheetIOS, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActionSheetIOS, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 // Type for attachments from DB
 type AttachmentRow = { id: string; trackedSessionId: string; type: string; mime: string; content: string; createdAt: number };
@@ -62,7 +64,7 @@ function attachmentsToCSV(rows: AttachmentRow[]) {
   const lines = [header.join(',')];
   for (const r of rows) {
     const vals = [r.id, r.trackedSessionId, r.type, r.mime, String(r.createdAt)];
-    lines.push(vals.map(v => /[,\n\"]/ .test(v) ? JSON.stringify(v) : v).join(','));
+    lines.push(vals.map(v => /[\,\n\"]/ .test(v) ? JSON.stringify(v) : v).join(','));
   }
   return lines.join('\n');
 }
@@ -206,7 +208,7 @@ export default function TrackerTab() {
         ) : (
           <View style={{ gap: 10 }}>
             {sessions.map((item) => (
-              <TrackerItem key={item.id} item={item} onRemove={remove} onRefresh={refresh} onEdit={onStartEdit} />
+              <TrackerItem key={item.id} item={item} onRemove={remove} onEdit={onStartEdit} />
             ))}
           </View>
         )}
@@ -218,166 +220,46 @@ export default function TrackerTab() {
       </Pressable>
 
       {/* Export menu (Android/Web) */}
-      <Modal visible={showExportMenu} transparent animationType="fade" onRequestClose={() => setShowExportMenu(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowExportMenu(false)} />
-        <View pointerEvents="box-none" style={{ flex: 1 }}>
-          <ThemedView style={styles.menuCard}>
-            <Pressable onPress={() => { setShowExportMenu(false); onExportCSV(); }} style={styles.menuItem}>
-              <Ionicons name="document-text-outline" size={18} color="#111827" />
-              <ThemedText>Export sessions CSV</ThemedText>
-            </Pressable>
-            <Pressable onPress={() => { setShowExportMenu(false); onExportAttachmentsCSV(); }} style={styles.menuItem}>
-              <Ionicons name="document-attach-outline" size={18} color="#111827" />
-              <ThemedText>Export attachments CSV</ThemedText>
-            </Pressable>
-          </ThemedView>
-        </View>
-      </Modal>
+      <ExportMenu visible={showExportMenu} onRequestClose={() => setShowExportMenu(false)} onExportSessions={onExportCSV} onExportAttachments={onExportAttachmentsCSV} />
 
       {/* Add Session Modal */}
-      <Modal visible={showAddModal} transparent animationType="fade" onRequestClose={() => setShowAddModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowAddModal(false)} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalCardWrapper}>
-          <ThemedView style={styles.modalCard}>
-            <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Add Session</ThemedText>
-
-            {/* Date & Time */}
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Date (YYYY-MM-DD)" value={dateStr} onChangeText={setDateStr} />
-              <TextInput style={styles.input} placeholder="Time (HH:MM)" value={timeStr} onChangeText={setTimeStr} />
-            </View>
-
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Session name" value={name} onChangeText={setName} autoFocus />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Game (Texas Holdem/Omaha/Blackjack)" value={game} onChangeText={(t) => setGame((t as GameType) || 'Texas Holdem')} />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Starting stake" keyboardType="numeric" value={starting} onChangeText={setStarting} />
-              <TextInput style={styles.input} placeholder="Exit amount" keyboardType="numeric" value={exit} onChangeText={setExit} />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Hands played (optional)" keyboardType="numeric" value={hands} onChangeText={setHands} />
-            </View>
-            <View style={[styles.formRow, { justifyContent: 'space-between' }]}>
-              <ThemedText>Real money?</ThemedText>
-              <Switch value={isReal} onValueChange={setIsReal} />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={[styles.input, { height: 64 }]} placeholder="Notes" value={notes} onChangeText={setNotes} multiline />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable onPress={() => setShowAddModal(false)} style={[styles.modalBtn, { backgroundColor: '#6b7280' }]}>
-                <ThemedText style={styles.modalBtnText}>Cancel</ThemedText>
-              </Pressable>
-              <Pressable onPress={onAdd} disabled={!canAdd} style={[styles.modalBtn, { backgroundColor: canAdd ? '#3b82f6' : '#93c5fd' }]}>
-                <ThemedText style={styles.modalBtnText}>Add</ThemedText>
-              </Pressable>
-            </View>
-          </ThemedView>
-        </KeyboardAvoidingView>
-      </Modal>
+      <SessionModal
+        title="Add Session"
+        visible={showAddModal}
+        onRequestClose={() => setShowAddModal(false)}
+        onSubmitLabel="Add"
+        onSubmit={onAdd}
+        canSubmit={canAdd}
+        name={name} setName={setName}
+        game={game} setGame={setGame}
+        starting={starting} setStarting={setStarting}
+        exit={exit} setExit={setExit}
+        hands={hands} setHands={setHands}
+        isReal={isReal} setIsReal={setIsReal}
+        notes={notes} setNotes={setNotes}
+        dateStr={dateStr} setDateStr={setDateStr}
+        timeStr={timeStr} setTimeStr={setTimeStr}
+      />
 
       {/* Edit Session Modal */}
-      <Modal visible={showEditModal} transparent animationType="fade" onRequestClose={() => setShowEditModal(false)}>
-        <Pressable style={styles.modalOverlay} onPress={() => setShowEditModal(false)} />
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalCardWrapper}>
-          <ThemedView style={styles.modalCard}>
-            <ThemedText type="subtitle" style={{ marginBottom: 8 }}>Edit Session</ThemedText>
-
-            {/* Date & Time */}
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Date (YYYY-MM-DD)" value={editDateStr} onChangeText={setEditDateStr} />
-              <TextInput style={styles.input} placeholder="Time (HH:MM)" value={editTimeStr} onChangeText={setEditTimeStr} />
-            </View>
-
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Session name" value={editName} onChangeText={setEditName} autoFocus />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Game (Texas Holdem/Omaha/Blackjack)" value={editGame} onChangeText={(t) => setEditGame((t as GameType) || 'Texas Holdem')} />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Starting stake" keyboardType="numeric" value={editStarting} onChangeText={setEditStarting} />
-              <TextInput style={styles.input} placeholder="Exit amount" keyboardType="numeric" value={editExit} onChangeText={setEditExit} />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={styles.input} placeholder="Hands played (optional)" keyboardType="numeric" value={editHands} onChangeText={setEditHands} />
-            </View>
-            <View style={[styles.formRow, { justifyContent: 'space-between' }]}>
-              <ThemedText>Real money?</ThemedText>
-              <Switch value={editIsReal} onValueChange={setEditIsReal} />
-            </View>
-            <View style={styles.formRow}>
-              <TextInput style={[styles.input, { height: 64 }]} placeholder="Notes" value={editNotes} onChangeText={setEditNotes} multiline />
-            </View>
-
-            <View style={styles.modalActions}>
-              <Pressable onPress={() => setShowEditModal(false)} style={[styles.modalBtn, { backgroundColor: '#6b7280' }]}>
-                <ThemedText style={styles.modalBtnText}>Cancel</ThemedText>
-              </Pressable>
-              <Pressable onPress={onSaveEdit} disabled={!canSaveEdit} style={[styles.modalBtn, { backgroundColor: canSaveEdit ? '#3b82f6' : '#93c5fd' }]}>
-                <ThemedText style={styles.modalBtnText}>Save</ThemedText>
-              </Pressable>
-            </View>
-          </ThemedView>
-        </KeyboardAvoidingView>
-      </Modal>
+      <SessionModal
+        title="Edit Session"
+        visible={showEditModal}
+        onRequestClose={() => setShowEditModal(false)}
+        onSubmitLabel="Save"
+        onSubmit={onSaveEdit}
+        canSubmit={canSaveEdit}
+        name={editName} setName={setEditName}
+        game={editGame} setGame={setEditGame}
+        starting={editStarting} setStarting={setEditStarting}
+        exit={editExit} setExit={setEditExit}
+        hands={editHands} setHands={setEditHands}
+        isReal={editIsReal} setIsReal={setEditIsReal}
+        notes={editNotes} setNotes={setEditNotes}
+        dateStr={editDateStr} setDateStr={setEditDateStr}
+        timeStr={editTimeStr} setTimeStr={setEditTimeStr}
+      />
     </>
-  );
-}
-
-function TrackerItem({ item, onRemove, onRefresh, onEdit }: { item: TrackedSession, onRemove: (id: string) => void, onRefresh: () => void, onEdit: (item: TrackedSession) => void }) {
-  const net = item.exitAmount - item.startingStake;
-  const date = new Date(item.date);
-  const subtitle = `${date.toLocaleDateString()} ${date.toLocaleTimeString()} • ${item.game}`;
-
-  const onExportAttachments = async () => {
-    const atts = await listAttachmentsFor(item.id) as unknown as AttachmentRow[];
-    const pokerstars = atts.find((a: AttachmentRow) => a.type === 'pokerstars');
-    if (pokerstars) {
-      downloadTextFile(`${item.name.replace(/\s+/g, '_')}_pokerstars.txt`, pokerstars.content);
-    } else {
-      // fallback
-      if (item.sessionId) {
-        // Attachment should exist soon, allow user to refresh
-        alert('Attachment not ready yet. Please try again after a hand is played.');
-      } else {
-        alert('No PokerStars attachment available for this session.');
-      }
-    }
-  };
-
-  return (
-    <ThemedView style={styles.item}>
-      <View style={{ flex: 1 }}>
-        <ThemedText type="subtitle">{item.name}</ThemedText>
-        <ThemedText style={{ opacity: 0.8, fontSize: 12 }}>{subtitle}</ThemedText>
-        <View style={{ marginTop: 4, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
-          <ThemedText>Start {currency(item.startingStake)} • Exit {currency(item.exitAmount)} • Net {currency(net)}</ThemedText>
-          {typeof item.handsPlayed === 'number' ? <ThemedText style={{ opacity: 0.8 }}> • Hands {item.handsPlayed}</ThemedText> : null}
-        </View>
-        <View style={{ flexDirection: 'row', gap: 6, marginTop: 6 }}>
-          <View style={[styles.tag, item.isRealMoney ? styles.tagReal : styles.tagPlay]}>
-            <ThemedText style={[styles.tagText, item.isRealMoney ? styles.tagTextReal : styles.tagTextPlay]}>{item.isRealMoney ? 'Real Money' : 'Play Money'}</ThemedText>
-          </View>
-        </View>
-        {item.notes ? <ThemedText style={{ marginTop: 6, opacity: 0.9 }}>{item.notes}</ThemedText> : null}
-      </View>
-      <View style={{ gap: 6 }}>
-        <Pressable onPress={() => onEdit(item)} style={[styles.removeBtn, { backgroundColor: '#3b82f6' }]} >
-          <ThemedText style={{ color: 'white', fontWeight: '600' }}>Edit</ThemedText>
-        </Pressable>
-        <Pressable onPress={() => onRemove(item.id)} style={styles.removeBtn}>
-          <ThemedText style={{ color: 'white', fontWeight: '600' }}>Delete</ThemedText>
-        </Pressable>
-        <Pressable onPress={onExportAttachments} style={[styles.removeBtn, { backgroundColor: '#6366f1' }]}>
-          <ThemedText style={{ color: 'white', fontWeight: '600' }}>Export HH</ThemedText>
-        </Pressable>
-      </View>
-    </ThemedView>
   );
 }
 
@@ -397,46 +279,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 38,
   },
-  // Removed old toolbar export button styles
-  formRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginVertical: 6,
-  },
-  input: {
-    flex: 1,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#999',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  tag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 4, borderWidth: StyleSheet.hairlineWidth },
-  tagText: { fontSize: 11, fontWeight: '600' },
-  tagReal: { backgroundColor: '#ecfeff', borderColor: '#06b6d4' },
-  tagPlay: { backgroundColor: '#f0fdf4', borderColor: '#16a34a' },
-  tagTextReal: { color: '#0891b2' },
-  tagTextPlay: { color: '#166534' },
-  removeBtn: {
-    backgroundColor: '#ef4444',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-  },
   fab: {
     position: 'absolute',
     right: 20,
@@ -454,38 +296,4 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   fabText: { color: 'white', fontSize: 28, lineHeight: 30, marginTop: -2 },
-  modalOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  modalCardWrapper: { flex: 1, justifyContent: 'center', padding: 16 },
-  modalCard: { borderRadius: 12, padding: 16 },
-  modalActions: { marginTop: 8, flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  modalBtn: { borderRadius: 8, paddingHorizontal: 14, paddingVertical: 10 },
-  modalBtnText: { color: 'white', fontWeight: '600' },
-  menuCard: {
-    position: 'absolute',
-    top: 88,
-    right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingVertical: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-    minWidth: 220,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
 });
