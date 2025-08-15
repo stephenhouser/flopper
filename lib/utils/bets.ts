@@ -1,6 +1,7 @@
 import { chenScore, recommendAction } from "@/lib/chen";
 import { minRaise } from "@/lib/gameplay";
-import type { Action, Player } from "@/models/poker";
+import type { Action } from "@/models/poker";
+import { Player } from "@/models/poker";
 
 export function tableCurrentBet(players: Player[]): number {
   if (!players || players.length === 0) return 0;
@@ -29,7 +30,7 @@ export function betForAction(action: Action, players: Player[], bigBlind: number
 
 // Small reusable helper to render a bet label with SB/BB tag
 export function formatBetLabel(p: Player): string {
-  const tag = p.role === "SB" ? "SB" : p.role === "BB" ? "BB" : "";
+  const tag = p.position === 1 ? "SB" : p.position === 2 ? "BB" : "";
   const amt = `$${p.bet}`;
   return tag ? `${amt} (${tag})` : amt;
 }

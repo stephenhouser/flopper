@@ -1,19 +1,72 @@
 import type { CardT } from "@/lib/cards";
 
-// Roles for seats relative to the button
-export type Role = "Dealer" | "SB" | "BB" | "";
-
-export type Player = {
+// Player seating is now modeled by numeric table position relative to the button (Dealer)
+// position: 0 = Dealer (BTN), 1 = SB, 2 = BB, 3 = UTG, ...
+export class Player {
   id: number;
   name: string;
-  role: Role;
   bet: number;
   cards: [CardT, CardT];
   isHero: boolean;
+  // New: numeric position from the dealer (0 = Dealer/BTN)
+  position: number;
+  // New: convenience flag (derived from position === 0)
+  isDealer: boolean;
+  // Cached label for UI (e.g. Dealer, SB, BB, UTG, UTG+1, ...)
   positionLabel?: string;
-  // Added: whether the player has folded this hand
+  // Whether the player has folded this hand
   folded?: boolean;
-};
+
+  constructor(params: {
+    id: number;
+    name: string;
+    cards: [CardT, CardT];
+    position: number; // 0 = Dealer/BTN
+    nPlayers: number;
+    bet?: number;
+    isHero?: boolean;
+    folded?: boolean;
+  }) {
+    const { id, name, cards, position, nPlayers, bet = 0, isHero = false, folded } = params;
+    this.id = id;
+    this.name = name;
+    this.cards = cards;
+    this.position = position;
+    this.isDealer = position === 0;
+    this.positionLabel = Player.labelForPos(position, nPlayers);
+    this.bet = bet;
+    this.isHero = isHero;
+    this.folded = folded;
+  }
+
+  // Convenience getters
+  get isSB(): boolean { return this.position === 1; }
+  get isBB(): boolean { return this.position === 2; }
+
+  // Static helpers (integrated from lib/positions.ts)
+  static labelForPos(posFromDealer: number, n: number): string {
+    if (posFromDealer === 0) return "Dealer"; // BTN
+    if (posFromDealer === 1) return "SB";
+    if (posFromDealer === 2) return "BB";
+    const rest = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO"];
+    return rest[posFromDealer - 3] || `Seat ${posFromDealer}`;
+  }
+
+  static positionBadgeStyle(label?: string) {
+    switch (label) {
+      case "Dealer": return { backgroundColor: "#EDE2FF" };
+      case "SB":     return { backgroundColor: "#D7E8FF" };
+      case "BB":     return { backgroundColor: "#FFE8C7" };
+      case "UTG":    return { backgroundColor: "#E6F6EB" };
+      case "UTG+1":  return { backgroundColor: "#E3F4FF" };
+      case "MP":     return { backgroundColor: "#FFF5CC" };
+      case "LJ":     return { backgroundColor: "#FDE2F2" };
+      case "HJ":     return { backgroundColor: "#E0E7FF" };
+      case "CO":     return { backgroundColor: "#ECECEC" };
+      default:        return { backgroundColor: "#F1F1F6" };
+    }
+  }
+}
 
 export type Action = "check" | "call" | "fold" | "raise";
 

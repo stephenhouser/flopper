@@ -8,7 +8,8 @@ import {
   nextStreet as gpNextStreet,
   settleBetsIntoPot as gpSettleBets,
 } from "@/lib/gameplay";
-import type { Board, Player, Settings, Street } from "@/models/poker";
+import type { Board, Settings, Street } from "@/models/poker";
+import { Player } from "@/models/poker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type GameEngineState = {

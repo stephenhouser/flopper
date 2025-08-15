@@ -1,22 +1,18 @@
 import type { CardT } from "@/lib/cards";
 import { didHeroWin } from "@/lib/hand-eval";
-import { labelForPos } from "@/lib/positions";
-import type { Player, Settings, Street } from "@/models/poker";
-import { MIN_SMALL_BLIND, SMALL_BLIND_FACTOR } from "@/models/poker";
+import type { Settings, Street } from "@/models/poker";
+import { MIN_SMALL_BLIND, Player, SMALL_BLIND_FACTOR } from "@/models/poker";
 
 export function assignRolesAndPositions(n: number, btnIndex: number) {
+  // Now returns numeric positions (0 = Dealer/BTN, 1 = SB, 2 = BB, ...)
   return Array.from({ length: n }).map((_, idx) => {
     const pos = (idx - btnIndex + n) % n;
-    let role: Player["role"] = "";
-    if (pos === 0) role = "Dealer";
-    else if (pos === 1) role = "SB";
-    else if (pos === 2) role = "BB";
-    return { idx, pos, role, positionLabel: labelForPos(pos, n) };
+    return { idx, pos, positionLabel: Player.labelForPos(pos, n) };
   });
 }
 
 export function rotateToSmallBlindFirst(players: Player[]): Player[] {
-  const sbIndex = players.findIndex((p) => p.role === "SB");
+  const sbIndex = players.findIndex((p) => p.position === 1);
   return sbIndex >= 0 ? [...players.slice(sbIndex), ...players.slice(0, sbIndex)] : players;
 }
 
@@ -31,35 +27,34 @@ export function dealPlayers(
   heroSeat = 0,
   btnIndex = 0
 ): { players: Player[]; deck: CardT[] } {
-  const roles = assignRolesAndPositions(n, btnIndex);
+  const posInfo = assignRolesAndPositions(n, btnIndex);
   const nextDeck = [...deck];
   const players: Player[] = Array.from({ length: n }).map((_, i) => {
     const c1 = nextDeck.pop();
     const c2 = nextDeck.pop();
     if (!c1 || !c2) throw new Error("Deck exhausted while dealing players");
-    const { role, positionLabel } = roles[i];
-    const p: Player = {
+    const { pos } = posInfo[i];
+    const p = new Player({
       id: i,
       name: i === heroSeat ? "Hero" : `Player ${i + 1}`,
-      role,
+      position: pos,
+      nPlayers: n,
       bet: 0,
       cards: [c1, c2],
       isHero: i === heroSeat,
-      positionLabel,
-    };
+    });
     return p;
   });
 
   // Post blinds
   const sb = smallBlindFromBigBlind(bigBlind);
-  const withBlinds = players.map((p) => {
-    if (p.role === "SB") return { ...p, bet: sb };
-    if (p.role === "BB") return { ...p, bet: bigBlind };
-    return p;
+  players.forEach((p) => {
+    if (p.position === 1) p.bet = sb;
+    else if (p.position === 2) p.bet = bigBlind;
   });
 
   // Rotate so SB is first (matches existing UI expectations)
-  const rotated = rotateToSmallBlindFirst(withBlinds);
+  const rotated = rotateToSmallBlindFirst(players);
 
   return { players: rotated, deck: nextDeck };
 }
@@ -69,7 +64,7 @@ export function collectBets(players: Player[]): number {
 }
 
 export function resetBets(players: Player[]): Player[] {
-  return players.map((p) => ({ ...p, bet: 0 }));
+  return players.map((p) => ({ ...p, bet: 0 } as unknown as Player));
 }
 
 export function totalPot(pot: number, players: Player[]): number {

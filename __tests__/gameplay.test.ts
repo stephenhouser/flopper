@@ -7,17 +7,17 @@ function topN(deck: CardT[], n: number): CardT[] { return deck.slice(-n); }
 describe('gameplay core helpers', () => {
   test('assignRolesAndPositions assigns BTN/SB/BB correctly', () => {
     const roles = assignRolesAndPositions(6, 0);
-    expect(roles[0].role).toBe('Dealer');
-    expect(roles[1].role).toBe('SB');
-    expect(roles[2].role).toBe('BB');
+    expect(roles[0].pos).toBe(0); // Dealer
+    expect(roles[1].pos).toBe(1); // SB
+    expect(roles[2].pos).toBe(2); // BB
   });
 
   test('rotateToSmallBlindFirst rotates correctly', () => {
     const deck = shuffle(makeDeck());
     const { players } = dealPlayers(6, deck, 2, 0, 0);
-    const order = players.map(p => p.role);
-    expect(order[0]).toBe('SB');
-    expect(order[1]).toBe('BB');
+    const order = players.map(p => p.position);
+    expect(order[0]).toBe(1); // SB first
+    expect(order[1]).toBe(2); // BB second
   });
 
   test('smallBlindFromBigBlind respects min and factor', () => {
@@ -56,16 +56,16 @@ describe('gameplay core helpers', () => {
     const deck = shuffle(makeDeck());
     const { players } = dealPlayers(6, deck, 2, 0, 0);
     const updated = players.map(p => ({ ...p, bet: 2 }));
-    const { pot, players: cleared } = settleBetsIntoPot(10, updated);
+    const { pot, players: cleared } = settleBetsIntoPot(10, updated as any);
     expect(pot).toBe(10 + 6 * 2);
-    expect(cleared.every(p => p.bet === 0)).toBe(true);
+    expect((cleared as any).every((p: any) => p.bet === 0)).toBe(true);
   });
 
   test('totalPot adds bets to pot', () => {
     const deck = shuffle(makeDeck());
     const { players } = dealPlayers(6, deck, 2, 0, 0);
     const updated = players.map(p => ({ ...p, bet: 1 }));
-    const sum = totalPot(5, updated);
+    const sum = totalPot(5, updated as any);
     expect(sum).toBe(5 + 6);
   });
 
@@ -73,8 +73,8 @@ describe('gameplay core helpers', () => {
     const deck = shuffle(makeDeck());
     const { players } = dealPlayers(6, deck, 2, 0, 0);
     const updated = players.map(p => ({ ...p, bet: 3 }));
-    expect(collectBets(updated)).toBe(18);
-    const cleared = resetBets(updated);
-    expect(collectBets(cleared)).toBe(0);
+    expect(collectBets(updated as any)).toBe(18);
+    const cleared = resetBets(updated as any);
+    expect(collectBets(cleared as any)).toBe(0);
   });
 });

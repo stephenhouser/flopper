@@ -1,8 +1,7 @@
 import { PlayingCard } from "@/components/poker/PlayingCard";
 import { Pill } from "@/components/ui/Pill";
 import { chenScore } from "@/lib/chen";
-import { positionBadgeStyle } from "@/lib/positions";
-import type { Player } from "@/models/poker";
+import { Player } from "@/models/poker";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -72,7 +71,7 @@ const PlayerRowComponent = React.memo(
         <View style={styles.metaCol}>
           <View style={styles.nameRow1}>
             {!!player.positionLabel && (
-              <View style={[styles.badge, positionBadgeStyle(player.positionLabel)]}>
+              <View style={[styles.badge, Player.positionBadgeStyle(player.positionLabel)]}>
                 <Text style={styles.badgeText}>{player.positionLabel}</Text>
               </View>
             )}

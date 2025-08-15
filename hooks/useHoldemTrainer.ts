@@ -9,8 +9,8 @@ import {
 } from "@/lib/gameplay";
 import { closeTrackedSessionForAppSession } from "@/lib/tracker";
 import { allActiveBetsEqual, betForAction, canHeroCheck, chooseActionForPlayer, formatBetLabel, heroFromPlayers, tableCurrentBet } from "@/lib/utils/bets";
-import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
-import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
+import type { Action, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
+import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, Player, SETTINGS_STORAGE_KEY } from "@/models/poker";
 import type { GameType } from "@/models/tracker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -132,6 +132,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     aiTimersRef.current.push(t);
     return t;
   }, []);
+  // New hand invoker ref to break declaration-order cycles
+  const newHandRef = useRef<() => void>(() => {});
 
   // Ref indirection to avoid using runPreflop before it's declared
   const runPreflopRef = useRef<((mode: "until-hero" | "after-hero") => void) | null>(null);
@@ -232,7 +234,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         }
         if (autoNew) {
           if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+          dealTimerRef.current = setTimeout(() => newHandRef.current(), delayMs);
         }
       }, Math.max(0, Math.round(feedbackSecs * 1000)));
       return true;
@@ -244,12 +246,32 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     return true;
   }, [advanceStreet, allButOneFolded, autoNew, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot]);
 
+  // Helper: clone Player preserving class instance
+  const clonePlayer = useCallback((p: Player, nPlayersForLabels: number) => {
+    const np = new Player({
+      id: p.id,
+      name: p.name,
+      cards: p.cards,
+      position: p.position,
+      nPlayers: nPlayersForLabels,
+      bet: p.bet,
+      isHero: p.isHero,
+      folded: p.folded,
+    });
+    return np;
+  }, []);
+
+  const clonePlayers = useCallback((arr: Player[]) => {
+    const n = arr.length;
+    return arr.map(p => clonePlayer(p, n));
+  }, [clonePlayer]);
+
   // Unified preflop runner
   const runPreflop = useCallback((mode: "until-hero" | "after-hero") => {
     if (aiRunningRef.current) return;
     aiRunningRef.current = true;
 
-    let state = playersLatestRef.current.map(p => ({ ...p }));
+    let state = clonePlayers(playersLatestRef.current);
     const order = preflopOrder(state);
     const heroIdx = state.findIndex(p => p.isHero);
     const startIdx = mode === "until-hero" ? 0 : Math.max(0, order.indexOf(heroIdx) + 1);
@@ -258,7 +280,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     // Early settle for after-hero if already matched
     if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
       aiRunningRef.current = false;
-      setPlayers(state.map(p => ({ ...p })));
+      setPlayers(clonePlayers(state));
       if (allButOneFolded(state)) { settleOrAdvance(state); }
       else if (streetLatestRef.current === "preflop") {
         const s: PokerSettings = { showFlop, showTurn, showRiver };
@@ -275,7 +297,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       if (awaitingHeroRef.current) { aiRunningRef.current = false; return; }
       if (steps++ > MAX_STEPS) {
         aiRunningRef.current = false;
-        setPlayers(state.map(p => ({ ...p })));
+        setPlayers(clonePlayers(state));
         if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
           settleOrAdvance(state);
         }
@@ -290,20 +312,20 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           // Yield to hero; but finish early if only one remains
           if (allButOneFolded(state)) {
             aiRunningRef.current = false;
-            setPlayers(state.map(p => ({ ...p })));
+            setPlayers(clonePlayers(state));
             settleOrAdvance(state);
             return;
           }
           awaitingHeroRef.current = true;
           aiRunningRef.current = false;
-          setPlayers(state.map(p => ({ ...p })));
+          setPlayers(clonePlayers(state));
           return;
         }
       } else if (mode === "after-hero" && aggressorIdx != null && idx === aggressorIdx) {
         // When action returns to aggressor, settle if matched or only one left
         if (allActiveBetsEqual(state) || allButOneFolded(state)) {
           aiRunningRef.current = false;
-          setPlayers(state.map(p => ({ ...p })));
+          setPlayers(clonePlayers(state));
           settleOrAdvance(state);
           return;
         }
@@ -323,17 +345,17 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
       if (allButOneFolded(state)) {
         aiRunningRef.current = false;
-        setPlayers(state.map(pl => ({ ...pl })));
+        setPlayers(clonePlayers(state));
         settleOrAdvance(state);
         return;
       }
 
-      setPlayers(state.map(pl => ({ ...pl })));
+      setPlayers(clonePlayers(state));
       scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS);
     };
 
     scheduleAITimeout(() => step(startIdx), AI_STEP_DELAY_MS);
-  }, [addActionWithPulse, allActiveBetsEqual, allButOneFolded, bigBlind, decideActionRestricted, lastRaiserIndex, scheduleAITimeout, setPlayers]);
+  }, [addActionWithPulse, allActiveBetsEqual, allButOneFolded, bigBlind, decideActionRestricted, lastRaiserIndex, scheduleAITimeout, setPlayers, settleOrAdvance, showFlop, showTurn, showRiver, advanceStreet, clonePlayers]);
 
   // Keep ref updated
   useEffect(() => { runPreflopRef.current = runPreflop; }, [runPreflop]);
@@ -354,7 +376,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         }
         if (autoNew) {
           if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+          dealTimerRef.current = setTimeout(() => newHandRef.current(), delayMs);
         }
       }, delayMs);
       return;
@@ -400,7 +422,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
         if (autoNew) {
           if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+          dealTimerRef.current = setTimeout(() => newHandRef.current(), delayMs);
         }
       } else {
         // Kick off next street until hero, if others act first
@@ -411,14 +433,14 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         }, AI_STEP_DELAY_MS);
       }
     }, delayMs);
-  }, [advanceStreet, allButOneFolded, autoNew, board, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout, settleBets]);
+  }, [advanceStreet, allButOneFolded, autoNew, board, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout, settleBets, showFlop, showTurn, showRiver]);
 
   const runPostflop = useCallback((mode: "until-hero" | "after-hero", street: Exclude<Street, "preflop" | "complete">) => {
     if (aiRunningRef.current) return;
     if (streetLatestRef.current !== street) return; // guard
     aiRunningRef.current = true;
 
-    let state = playersLatestRef.current.map(p => ({ ...p }));
+    let state = clonePlayers(playersLatestRef.current);
     const order = postflopOrder(state);
     const heroIdx = state.findIndex(p => p.isHero);
     const startIdx = mode === "until-hero" ? 0 : Math.max(0, order.indexOf(heroIdx) + 1);
@@ -427,7 +449,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     // Early settle for after-hero if already matched
     if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
       aiRunningRef.current = false;
-      setPlayers(state.map(p => ({ ...p })));
+      setPlayers(clonePlayers(state));
       settleAfterPostflop(state, street);
       return;
     }
@@ -440,7 +462,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       if (awaitingHeroRef.current) { aiRunningRef.current = false; return; }
       if (steps++ > MAX_STEPS) {
         aiRunningRef.current = false;
-        setPlayers(state.map(p => ({ ...p })));
+        setPlayers(clonePlayers(state));
         // Try to settle if possible
         if (mode === "after-hero" && (allActiveBetsEqual(state) || allButOneFolded(state))) {
           settleAfterPostflop(state, street);
@@ -456,20 +478,20 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           // Yield to hero; but finish early if only one remains
           if (allButOneFolded(state)) {
             aiRunningRef.current = false;
-            setPlayers(state.map(p => ({ ...p })));
+            setPlayers(clonePlayers(state));
             settleAfterPostflop(state, street);
             return;
           }
           awaitingHeroRef.current = true;
           aiRunningRef.current = false;
-          setPlayers(state.map(p => ({ ...p })));
+          setPlayers(clonePlayers(state));
           return;
         }
       } else if (mode === "after-hero" && aggressorIdx != null && idx === aggressorIdx) {
         // When action returns to aggressor, settle if matched or only one left
         if (allActiveBetsEqual(state) || allButOneFolded(state)) {
           aiRunningRef.current = false;
-          setPlayers(state.map(p => ({ ...p })));
+          setPlayers(clonePlayers(state));
           settleAfterPostflop(state, street);
           return;
         }
@@ -493,17 +515,17 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
       if (allButOneFolded(state)) {
         aiRunningRef.current = false;
-        setPlayers(state.map(pl => ({ ...pl })));
+        setPlayers(clonePlayers(state));
         settleAfterPostflop(state, street);
         return;
       }
 
-      setPlayers(state.map(pl => ({ ...pl })));
+      setPlayers(clonePlayers(state));
       scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS);
     };
 
     scheduleAITimeout(() => step(startIdx), AI_STEP_DELAY_MS);
-  }, [addActionWithPulse, allActiveBetsEqual, allButOneFolded, bigBlind, decideActionRestricted, lastRaiserIndex, scheduleAITimeout, setPlayers, settleAfterPostflop]);
+  }, [addActionWithPulse, allActiveBetsEqual, allButOneFolded, bigBlind, decideActionRestricted, lastRaiserIndex, scheduleAITimeout, setPlayers, settleAfterPostflop, clonePlayers]);
 
   // Keep ref updated
   useEffect(() => { runPostflopRef.current = runPostflop; }, [runPostflop]);
@@ -557,6 +579,11 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   }, [bigBlind, currentSession, engineDealTable, clearFlash, showFeedback, setHeroFlash, createHandHistory, scheduleAITimeout]);
 
   const newHand = useCallback(() => dealTable(numPlayers), [dealTable, numPlayers]);
+
+  // Keep an up-to-date invoker for newHand to avoid declaration-order issues
+  useEffect(() => {
+    newHandRef.current = () => newHand();
+  }, [newHand]);
 
   const startNewSession = useCallback(() => {
     // Determine whether the current hand has any actions
@@ -679,7 +706,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
     if (currentStreet !== "complete") addActionWithPulse(effectiveAction, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
 
-    const updatedPlayers = players.map(p => (p.isHero ? { ...p, bet: betAmount } : p));
+    const updatedPlayers = clonePlayers(players).map(p => {
+      if (p.isHero) p.bet = betAmount;
+      return p;
+    });
     setPlayers(updatedPlayers);
 
     // If we're in preflop, have AI finish the rest of the round after hero acts
@@ -721,7 +751,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       // After fold, auto-deal after the feedback delay (single-step flow)
       if (autoNew) {
         if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-        dealTimerRef.current = setTimeout(() => newHand(), settleDelayMs);
+        dealTimerRef.current = setTimeout(() => newHandRef.current(), settleDelayMs);
       }
     } else if (currentStreet === "river") {
       // First show feedback during the delay, then complete and reveal WIN/LOST
@@ -758,7 +788,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         // After showing WIN/LOST, schedule next hand for another feedback window duration
         if (autoNew) {
           if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-          dealTimerRef.current = setTimeout(() => newHand(), delayMs);
+          dealTimerRef.current = setTimeout(() => newHandRef.current(), delayMs);
         }
       }, delayMs);
     } // Removed auto-advance on non-final postflop streets; handled by postflop AI via settleAfterPostflop
@@ -780,7 +810,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionWithPulse]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionWithPulse, clonePlayers]);
 
   return {
     // settings
@@ -834,8 +864,12 @@ export default useHoldemTrainer;
 
 // ---------------- Internal helpers: simple preflop AI ---------------- //
 
-function findIndexByRole(players: Player[], role: Player["role"]) {
-  return players.findIndex((p) => p.role === role);
+function findIndexByRole(players: Player[], role: any) {
+  // Deprecated; retained signature for minimal diff but map roles to positions if strings used elsewhere
+  if (role === "Dealer") return players.findIndex((p) => p.isDealer);
+  if (role === "SB") return players.findIndex((p) => p.position === 1);
+  if (role === "BB") return players.findIndex((p) => p.position === 2);
+  return -1;
 }
 
 // UTG is the seat after the big blind in our rotated array [SB, BB, UTG, ...]

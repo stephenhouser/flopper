@@ -1,20 +1,20 @@
 import { useHandHistory } from '@/hooks/useHandHistory';
-import type { Player, Session } from '@/models/poker';
+import { Player, type Session } from '@/models/poker';
 import { act, renderHook } from '@testing-library/react';
 import React from 'react';
 
 function makePlayers(): Player[] {
-  return Array.from({ length: 2 }).map((_, i) => ({
-    id: i + 1,
-    name: i === 0 ? 'Hero' : `P${i+1}`,
-    isHero: i === 0,
-    position: i === 0 ? 'SB' : 'BB',
-    positionLabel: i === 0 ? 'SB' : 'BB',
-    role: i === 0 ? 'SB' : 'BB',
-    bet: 0,
-    stack: 100,
-    cards: [ { rank: 'A', suit: 's' }, { rank: 'K', suit: 's' } ],
-  })) as unknown as Player[];
+  return Array.from({ length: 2 }).map((_, i) => (
+    new Player({
+      id: i + 1,
+      name: i === 0 ? 'Hero' : `P${i+1}`,
+      isHero: i === 0,
+      position: i === 0 ? 1 : 2, // SB, BB
+      nPlayers: 2,
+      bet: 0,
+      cards: [ { rank: 'A', suit: 's' } as any, { rank: 'K', suit: 's' } as any ],
+    })
+  ));
 }
 
 describe('useHandHistory', () => {

@@ -28,8 +28,8 @@ describe('useGameEngine hook', () => {
     expect(street).toBe('preflop');
     expect(pot).toBe(0);
 
-    const sb = players.find(p => p.role === 'SB');
-    const bb = players.find(p => p.role === 'BB');
+    const sb = players.find(p => p.position === 1);
+    const bb = players.find(p => p.position === 2);
     expect(sb?.bet).toBe(1);
     expect(bb?.bet).toBe(2);
   });
@@ -61,10 +61,10 @@ describe('useGameEngine hook', () => {
     const { result } = renderHook(() => useGameEngine());
 
     act(() => { result.current.dealTable(6, 2); });
-    const firstDealerId = result.current.players.find(p => p.role === 'Dealer')?.id;
+    const firstDealerId = result.current.players.find(p => p.isDealer)?.id;
 
     act(() => { result.current.dealTable(6, 2); });
-    const secondDealerId = result.current.players.find(p => p.role === 'Dealer')?.id;
+    const secondDealerId = result.current.players.find(p => p.isDealer)?.id;
 
     expect(secondDealerId).not.toBe(firstDealerId);
   });
@@ -77,8 +77,8 @@ describe('useGameEngine hook', () => {
 
     // Simulate bets on flop: everyone bets 1
     act(() => {
-      const updated = result.current.players.map(p => ({ ...p, bet: 1 }));
-      result.current.setPlayers(updated);
+      const updated = result.current.players.map(p => Object.assign(p, { bet: 1 }));
+      result.current.setPlayers(updated as any);
     });
     act(() => { result.current.advanceStreet(settingsPlayAll); }); // turn (pot += 6)
 
@@ -88,8 +88,8 @@ describe('useGameEngine hook', () => {
 
     // Simulate bets on turn: 2 each
     act(() => {
-      const updated = result.current.players.map(p => ({ ...p, bet: 2 }));
-      result.current.setPlayers(updated);
+      const updated = result.current.players.map(p => Object.assign(p, { bet: 2 }));
+      result.current.setPlayers(updated as any);
     });
     act(() => { result.current.advanceStreet(settingsPlayAll); }); // river (pot += 12)
 
