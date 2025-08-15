@@ -4,13 +4,6 @@ import { labelForPos } from "@/lib/positions";
 import type { Player, Settings, Street } from "@/models/poker";
 import { MIN_SMALL_BLIND, SMALL_BLIND_FACTOR } from "@/models/poker";
 
-// New: explicit community type used by some helpers
-export type Community = {
-  flop: [CardT, CardT, CardT] | null;
-  turn: CardT | null;
-  river: CardT | null;
-};
-
 export function assignRolesAndPositions(n: number, btnIndex: number) {
   return Array.from({ length: n }).map((_, idx) => {
     const pos = (idx - btnIndex + n) % n;
