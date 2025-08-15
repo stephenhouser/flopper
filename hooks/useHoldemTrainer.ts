@@ -69,6 +69,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     advanceStreet,
     completeHand,
     getTotalPot,
+    // NEW: settleBets API so we can settle immediately after a matched round
+    settleBets,
   } = useGameEngine();
 
   // UI-level state
@@ -402,6 +404,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       return;
     }
 
+    // Bets are matched: immediately settle into pot so UI reflects calls before advancing
+    // Defer by a tick to ensure the latest setPlayers has committed to the engine state refs
+    try { scheduleAITimeout(() => { try { settleBets(); } catch {} }, 0); } catch {}
+
     // Otherwise, advance street after feedback delay
     const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
     if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
@@ -421,6 +427,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
         let heroWon: boolean | undefined = undefined;
         if (hero && board.flop && board.turn && board.river) {
+          // Fix community array construction
           const communityCards = [...board.flop, board.turn, board.river];
           heroWon = gpComputeHeroResult(hero, state, communityCards);
           setHeroWonHand(heroWon ?? null);
@@ -448,7 +455,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         }, AI_STEP_DELAY_MS);
       }
     }, delayMs);
-  }, [advanceStreet, allButOneFolded, autoNew, board.flop, board.river, board.turn, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout]);
+  }, [advanceStreet, allButOneFolded, autoNew, board.flop, board.river, board.turn, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout, settleBets]);
 
   const runPostflop = useCallback((mode: "until-hero" | "after-hero", street: Exclude<Street, "preflop" | "complete">) => {
     if (aiRunningRef.current) return;
@@ -517,10 +524,15 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       const p = state[idx];
       if (!p || p.folded) { scheduleAITimeout(() => step(i + 1), AI_STEP_DELAY_MS); return; }
 
-      const action = decideActionRestricted(state, p);
+      let action = decideActionRestricted(state, p);
+      const currentBetNow = tableCurrentBet(state);
+      if (action === "check" && (p.bet || 0) < currentBetNow) {
+        action = "call";
+      }
       const amount = betForAction(action, state, bigBlind, p);
       if (action === "fold") p.folded = true;
       p.bet = amount;
+      // FIX: Log postflop actions with the correct street
       addActionWithPulse(action, amount, street, p.name);
 
       if (allButOneFolded(state)) {
@@ -685,30 +697,37 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       disableButtonsTimerRef.current = setTimeout(() => setButtonsDisabled(false), disableMs);
     }
 
-    setHeroAction(action);
-    setLastAction(action);
+    // Enforce: if hero is behind the current bet, a "check" becomes a "call"
+    const heroP = heroFromPlayers(players);
+    const currentBetNow = tableCurrentBet(players);
+    let effectiveAction: Action = action;
+    if (effectiveAction === "check" && heroP && (heroP.bet || 0) < currentBetNow) {
+      effectiveAction = "call";
+    }
+
+    setHeroAction(effectiveAction);
+    setLastAction(effectiveAction);
 
     let correct = false;
     let bucket = "";
     if (currentStreet === "preflop") {
-      bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
+      bucket = effectiveAction === "fold" ? "fold" : effectiveAction === "raise" ? "raise" : "call/check";
       correct = bucket === recommended;
     } else {
       correct = true;
-      bucket = action === "fold" ? "fold" : action === "raise" ? "raise" : "call/check";
+      bucket = effectiveAction === "fold" ? "fold" : effectiveAction === "raise" ? "raise" : "call/check";
     }
     setLastActionCorrect(correct);
 
-    const heroP = heroFromPlayers(players);
-    const betAmount = betForAction(action, players, bigBlind, heroP);
+    const betAmount = betForAction(effectiveAction, players, bigBlind, heroP);
 
-    if (currentStreet !== "complete") addActionWithPulse(action, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
+    if (currentStreet !== "complete") addActionWithPulse(effectiveAction, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
 
     const updatedPlayers = players.map(p => (p.isHero ? { ...p, bet: betAmount } : p));
     setPlayers(updatedPlayers);
 
     // If we're in preflop, have AI finish the rest of the round after hero acts
-    if (currentStreet === "preflop" && action !== "fold") {
+    if (currentStreet === "preflop" && effectiveAction !== "fold") {
       try {
         scheduleAITimeout(() => { try { runPreflopRef.current?.("after-hero"); } catch {} }, AI_STEP_DELAY_MS);
       } catch {}
@@ -722,7 +741,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
     const updatedTotalPot = getTotalPot();
 
-    if (action === "fold") {
+    if (effectiveAction === "fold") {
       // Stop any AI immediately; hand is ending due to hero fold
       aiTimersRef.current.forEach(t => clearTimeout(t));
       aiTimersRef.current = [];
@@ -786,32 +805,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
           dealTimerRef.current = setTimeout(() => newHand(), delayMs);
         }
       }, delayMs);
-    } else if (currentStreet !== "preflop") {
-      // Non-final, non-preflop streets: wait the feedback delay before dealing the next street
-      const delayMs = Math.max(0, Math.round(feedbackSecs * 1000));
-      if (advanceStreetTimerRef.current) clearTimeout(advanceStreetTimerRef.current);
-      advanceStreetTimerRef.current = setTimeout(() => {
-        const s: PokerSettings = { showFlop, showTurn, showRiver };
-        const next = advanceStreet(s);
-
-        if (next === "complete") {
-          // Non-river completion (e.g., skipping streets via settings)
-          if (currentSession) {
-            finalizeHand({
-              pot: getTotalPot(),
-              result: "completed",
-              communityCards: communityFromBoard(),
-            });
-          }
-          // Auto-deal immediately after the single feedback delay (no extra delay step)
-          if (autoNew) {
-            if (dealTimerRef.current) clearTimeout(dealTimerRef.current);
-            dealTimerRef.current = null;
-            newHand();
-          }
-        }
-      }, delayMs);
-    }
+    } // Removed auto-advance on non-final postflop streets; handled by postflop AI via settleAfterPostflop
 
     // Flash feedback
     triggerFlash(!!correct, Math.max(0, Math.round(feedbackSecs * 1000)));
@@ -824,7 +818,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     const why = currentStreet === "preflop" ? `Score: ${heroScore} (Chen). ${facingRaise ? "Facing a raise." : "No raise yet."} ${numPlayers} players.` : `${currentStreet} betting. Continue playing or fold.`;
     const resultText = currentStreet === "preflop"
       ? (correct ? `✅ ` : `❌ `) + `Recommended: ${recommended.toUpperCase()}. ${why} Pot: $${updatedTotalPot}.`
-      : `${currentStreet.toUpperCase()} Action: ${action.toUpperCase()}. ${why} Pot: $${updatedTotalPot}.`;
+      : `${currentStreet.toUpperCase()} Action: ${effectiveAction.toUpperCase()}. ${why} Pot: $${updatedTotalPot}.`;
     setResult(resultText);
 
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
