@@ -1,8 +1,8 @@
-import type { CardT } from '@/lib/cards';
+import { CardT, type Rank, type Suit } from '@/lib/cards';
 import { exportSessionToPokerStars } from '@/lib/export/pokerstars';
 import type { HandHistory, Session } from '@/models/poker';
 
-function card(rank: CardT['rank'], suit: CardT['suit']): CardT { return { rank, suit }; }
+function card(rank: Rank, suit: Suit): CardT { return new CardT(rank, suit); }
 
 describe('exportSessionToPokerStars', () => {
   test('returns message when no session or empty', () => {

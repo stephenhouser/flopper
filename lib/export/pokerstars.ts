@@ -1,5 +1,4 @@
 import type { Session } from "../../models/poker";
-import { cardToPokerStarsStr } from "../cards";
 
 /**
  * Export a full session to a PokerStars-like hand history string.
@@ -37,7 +36,7 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
     output += "*** HOLE CARDS ***\n";
     const heroPlayer = hand.players.find((p) => p.isHero);
     if (heroPlayer) {
-      output += `Dealt to ${heroPlayer.name} [${cardToPokerStarsStr(heroPlayer.cards[0])} ${cardToPokerStarsStr(heroPlayer.cards[1])}]\n`;
+      output += `Dealt to ${heroPlayer.name} [${heroPlayer.cards[0].cardToPokerStarsStr()} ${heroPlayer.cards[1].cardToPokerStarsStr()}]\n`;
     }
 
     // Trainer-specific: include ALL players' hole cards (even if not revealed)
@@ -45,7 +44,7 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
     if (hand.players && hand.players.length > 0) {
       output += "*** ALL HOLE CARDS (TRAINER) ***\n";
       hand.players.forEach((p) => {
-        output += `${p.name}: [${cardToPokerStarsStr(p.cards[0])} ${cardToPokerStarsStr(p.cards[1])}]\n`;
+        output += `${p.name}: [${p.cards[0].cardToPokerStarsStr()} ${p.cards[1].cardToPokerStarsStr()}]\n`;
       });
     }
 
@@ -65,7 +64,7 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
 
     // Flop
     if (hand.communityCards.flop) {
-      output += `*** FLOP *** [${hand.communityCards.flop.map(cardToPokerStarsStr).join(" ")}]\n`;
+      output += `*** FLOP *** [${hand.communityCards.flop.map((c) => c.cardToPokerStarsStr()).join(" ")}]\n`;
       const flopActions = hand.actions.filter((a) => a.street === "flop");
       flopActions.forEach((action) => {
         const actionStr =
@@ -82,8 +81,8 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
 
     // Turn
     if (hand.communityCards.turn) {
-      const flopStr = hand.communityCards.flop?.map(cardToPokerStarsStr).join(" ") ?? "";
-      output += `*** TURN *** [${flopStr} ${cardToPokerStarsStr(hand.communityCards.turn)}]\n`;
+      const flopStr = hand.communityCards.flop?.map((c) => c.cardToPokerStarsStr()).join(" ") ?? "";
+      output += `*** TURN *** [${flopStr} ${hand.communityCards.turn.cardToPokerStarsStr()}]\n`;
       const turnActions = hand.actions.filter((a) => a.street === "turn");
       turnActions.forEach((action) => {
         const actionStr =
@@ -100,9 +99,9 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
 
     // River
     if (hand.communityCards.river) {
-      const flopStr = hand.communityCards.flop?.map(cardToPokerStarsStr).join(" ") ?? "";
-      const turnStr = hand.communityCards.turn ? cardToPokerStarsStr(hand.communityCards.turn) : "";
-      output += `*** RIVER *** [${flopStr} ${turnStr} ${cardToPokerStarsStr(hand.communityCards.river)}]\n`;
+      const flopStr = hand.communityCards.flop?.map((c) => c.cardToPokerStarsStr()).join(" ") ?? "";
+      const turnStr = hand.communityCards.turn ? hand.communityCards.turn.cardToPokerStarsStr() : "";
+      output += `*** RIVER *** [${flopStr} ${turnStr} ${hand.communityCards.river.cardToPokerStarsStr()}]\n`;
       const riverActions = hand.actions.filter((a) => a.street === "river");
       riverActions.forEach((action) => {
         const actionStr =
@@ -130,9 +129,9 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
         hand.communityCards.turn,
         hand.communityCards.river,
       ];
-      output += `Board [${finalBoard.map(cardToPokerStarsStr).join(" ")}]\n`;
+      output += `Board [${finalBoard.map((c) => c.cardToPokerStarsStr()).join(" ")}]\n`;
       hand.players.forEach((player) => {
-        output += `${player.name}: shows [${cardToPokerStarsStr(player.cards[0])} ${cardToPokerStarsStr(player.cards[1])}]\n`;
+        output += `${player.name}: shows [${player.cards[0].cardToPokerStarsStr()} ${player.cards[1].cardToPokerStarsStr()}]\n`;
       });
     }
 
@@ -151,7 +150,7 @@ export function exportSessionToPokerStars(session: Session | null | undefined): 
         hand.communityCards.turn,
         hand.communityCards.river,
       ];
-      output += `Board [${finalBoard.map(cardToPokerStarsStr).join(" ")}]\n`;
+      output += `Board [${finalBoard.map((c) => c.cardToPokerStarsStr()).join(" ")}]\n`;
     }
 
     const heroPlayerName = heroPlayerNameFromHand(hand);

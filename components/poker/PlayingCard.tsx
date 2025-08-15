@@ -1,5 +1,4 @@
 import type { CardT } from "@/lib/cards";
-import { cardToStr } from "@/lib/cards";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
@@ -10,7 +9,7 @@ export const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean }> = ({ card
       {hidden ? (
         <View style={styles.cardHidden} />
       ) : (
-        <Text style={[styles.cardText, red && { color: "#d11" }]}>{cardToStr(card)}</Text>
+        <Text style={[styles.cardText, red && { color: "#d11" }]}>{card ? card.cardToStr() : ""}</Text>
       )}
     </View>
   );
