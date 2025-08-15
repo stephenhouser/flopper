@@ -25,7 +25,6 @@ import { useHoldemTrainer } from "@/hooks/useHoldemTrainer";
 // Cross-platform download helper and action formatter
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { downloadTextFile } from "@/lib/utils/download";
-import { formatAction } from "../../lib/utils/poker";
 
 /* ---------------- UI bits ---------------- */
 
@@ -136,7 +135,7 @@ export default function TexasHoldemTab() {
               </Text>
               <View style={styles.feedbackRight}>
                 <View style={styles.pill}>
-                  <Text style={styles.pillText}>Last: {formatAction(heroAction)}</Text>
+                  <Text style={styles.pillText}>Last: {heroAction ? heroAction.toUpperCase() : "—"}</Text>
                 </View>
               </View>
             </View>
