@@ -7,14 +7,12 @@ import { chenScore, recommendAction } from "@/lib/chen";
 import {
   computeHeroResult as gpComputeHeroResult
 } from "@/lib/gameplay";
-import Storage from "@/lib/storage";
 import { closeTrackedSessionForAppSession } from "@/lib/tracker";
 import { allActiveBetsEqual, betForAction, canHeroCheck, chooseActionForPlayer, formatBetLabel, heroFromPlayers, tableCurrentBet } from "@/lib/utils/bets";
 import type { Action, Player, Settings as PokerSettings, Street, TrainerSettings } from "@/models/poker";
 import { DEFAULT_TRAINER_SETTINGS, MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SETTINGS_STORAGE_KEY } from "@/models/poker";
 import type { GameType } from "@/models/tracker";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Platform } from "react-native";
 
 export type UseHoldemTrainerOptions = {
   initialNumPlayers?: number;
@@ -74,7 +72,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   } = useGameEngine();
 
   // UI-level state
-  const [showAllCards, setShowAllCards] = useState(false);
   const [foldedHand, setFoldedHand] = useState(false);
   const [heroWonHand, setHeroWonHand] = useState<boolean | null>(null);
   const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
@@ -120,7 +117,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
   // UI
   const [showSettings, setShowSettings] = useState(false);
-  const isCompact = Platform.OS !== "web";
 
   const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dealTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -174,44 +170,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     ...(board.turn && { turn: board.turn }),
     ...(board.river && { river: board.river }),
   }), [board.flop, board.turn, board.river]);
-
-  // Persisted settings (migrate old per-key to new object once)
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const oldKeys = [
-          "poker.showFeedback","poker.autoNew","poker.facingRaise","poker.feedbackSecs",
-          "poker.showScore","poker.showFlop","poker.showTurn","poker.showRiver","poker.showCommunityCards",
-          "poker.numPlayers","poker.bigBlind"
-        ];
-        const values = await Promise.all(oldKeys.map((k) => Storage.getItem(k)));
-        const anyPresent = values.some((v) => v != null);
-        if (!anyPresent) return;
-        const next: Partial<TrainerSettings> = {};
-        if (values[0] != null) next.showFeedback = values[0] === "1";
-        if (values[1] != null) next.autoNew = values[1] === "1";
-        if (values[2] != null) next.facingRaise = values[2] === "1";
-        if (values[3] != null) { const v = parseFloat(values[3] || "1"); if (!Number.isNaN(v)) next.feedbackSecs = Math.max(0, Math.min(10, v)); }
-        if (values[4] != null) next.showScore = values[4] === "1";
-        if (values[5] != null) next.showFlop = values[5] === "1" || values[5] === "true"; // old used 0 for false
-        if (values[6] != null) next.showTurn = values[6] === "1";
-        if (values[7] != null) next.showRiver = values[7] === "1";
-        if (values[8] != null) next.showCommunityCards = values[8] === "1";
-        if (values[9] != null) { const n = parseInt(values[9] || "6", 10); if (!Number.isNaN(n)) (next as any).numPlayers = Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)); }
-        if (values[10] != null) { const n = parseInt(values[10] || "2", 10); if (!Number.isNaN(n)) (next as any).bigBlind = Math.max(MIN_BIG_BLIND, n); }
-        if (Object.keys(next).length > 0) {
-          setSettings((s) => ({ ...s, ...next }));
-        }
-      } catch {}
-      finally {
-        if (!cancelled) {
-          // no-op; settingsReady controls UI
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [setSettings]);
 
   const betLabel = useCallback((p: Player) => formatBetLabel(p), []);
 
@@ -578,7 +536,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     const heroSeat = 0;
     const dealt = engineDealTable(n, bigBlind, { heroSeat });
 
-    setShowAllCards(false);
+    // Removed legacy showAllCards state reset
     setFoldedHand(false);
     setHeroWonHand(null);
     setRevealedPlayers(new Set());
@@ -857,7 +815,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     startNewSession,
 
     // ui
-    isCompact,
     showSettings,
     setShowSettings,
     heroFlash,

@@ -66,7 +66,6 @@ export default function TexasHoldemTab() {
     startNewSession,
 
     // ui
-    isCompact,
     showSettings, setShowSettings,
     heroFlash, heroFlashOpacity,
     buttonsDisabled,
@@ -154,7 +153,6 @@ export default function TexasHoldemTab() {
             street={currentStreet}
             board={board}
             totalPot={totalPot}
-            isCompact={isCompact}
             heroWon={heroWonHand}
             folded={foldedHand}
           />
@@ -165,10 +163,8 @@ export default function TexasHoldemTab() {
           players.map((item) => 
               <PlayerRow key={item.id}
                 player={item}
-                isCompact={isCompact}
-                showScore={showScore}
-                heroScore={heroScore}
-                showAllCards={false}
+                showHandScore={showScore}
+                handScore={heroScore}
                 revealed={revealedPlayers.has(item.id)}
                 onToggleReveal={togglePlayerReveal}
                 flashState={item.isHero ? heroFlash : "none"}

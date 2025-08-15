@@ -3,17 +3,14 @@ import { cardToStr } from "@/lib/cards";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-export const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean; compact?: boolean }> = ({ card, hidden, compact }) => {
+export const PlayingCard: React.FC<{ card?: CardT; hidden?: boolean }> = ({ card, hidden }) => {
   const red = card && (card.suit === "♥" || card.suit === "♦");
-  const box = compact ? { width: 44, height: 60 } : { width: 50, height: 68 };
-  const inner = compact ? { width: 36, height: 52 } : { width: 40, height: 58 };
-  const font = compact ? { fontSize: 20 } : { fontSize: 22 };
   return (
-    <View style={[styles.cardBox, box]}>
+    <View style={styles.cardBox}>
       {hidden ? (
-        <View style={[styles.cardHidden, inner]} />
+        <View style={styles.cardHidden} />
       ) : (
-        <Text style={[styles.cardText, font, red && { color: "#d11" }]}>{cardToStr(card)}</Text>
+        <Text style={[styles.cardText, red && { color: "#d11" }]}>{cardToStr(card)}</Text>
       )}
     </View>
   );
