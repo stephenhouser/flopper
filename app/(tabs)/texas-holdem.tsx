@@ -46,10 +46,6 @@ function withHotkey(label: string, hotkey: string) {
 export default function TexasHoldemTab() {
   const {
     // settings
-    showFeedback,
-    showScore,
-    showFlop,
-    showCommunityCards,
     settings, setSettings,
 
     // game state
@@ -128,7 +124,7 @@ export default function TexasHoldemTab() {
         </View>
 
         {/* Feedback row: always visible when Show why is ON; shows last action pill and pot */}
-        {showFeedback && (
+        {settings.showFeedback && (
           <View style={[
             styles.card,
             lastActionCorrect === true && { backgroundColor: "#b9efd2" },
@@ -148,7 +144,7 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Community Cards Row (uses extracted component) */}
-        {((showFlop && ((board.length >= 3) || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
+        {((settings.showFlop && ((board.length >= 3) || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && settings.showCommunityCards))) || settings.showCommunityCards) && (
           <CommunityCards
             street={currentStreet}
             board={board}
@@ -163,7 +159,7 @@ export default function TexasHoldemTab() {
           players.map((item) => 
               <PlayerRow key={item.id}
                 player={item}
-                showHandScore={showScore}
+                showHandScore={settings.showScore}
                 handScore={heroScore}
                 revealed={revealedPlayers.has(item.id)}
                 onToggleReveal={togglePlayerReveal}

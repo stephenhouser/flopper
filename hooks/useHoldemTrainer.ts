@@ -784,10 +784,6 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
   return {
     // settings
-    showFeedback,
-    showScore,
-    showFlop,
-    showCommunityCards,
     settings,
     setSettings,
 
