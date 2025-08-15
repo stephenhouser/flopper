@@ -148,7 +148,7 @@ export default function TexasHoldemTab() {
         )}
 
         {/* Community Cards Row (uses extracted component) */}
-        {((showFlop && ((board.flop && board.flop.length === 3) || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
+        {((showFlop && ((board.length >= 3) || (currentStreet !== "preflop" && !foldedHand) || (currentStreet === "complete" && showCommunityCards))) || showCommunityCards) && (
           <CommunityCards
             street={currentStreet}
             board={board}

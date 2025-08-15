@@ -39,11 +39,7 @@ export const MIN_SMALL_BLIND = 1;
 export const smallBlindFromBigBlind = (bb: number) =>
   Math.max(MIN_SMALL_BLIND, Math.floor(bb * SMALL_BLIND_FACTOR));
 
-export type CommunityCards = {
-  flop?: [CardT, CardT, CardT];
-  turn?: CardT;
-  river?: CardT;
-};
+export type CommunityCards = CardT[];
 
 export type HandHistory = {
   handId: string;
@@ -124,12 +120,8 @@ export const HAND_STATE_MACHINE: Readonly<Record<Street, Street>> = {
   complete: "complete",
 };
 
-// Optional board representation for engine state
-export type Board = {
-  flop: [CardT, CardT, CardT] | null;
-  turn: CardT | null;
-  river: CardT | null;
-};
+// Optional board representation for engine state (array-based community cards)
+export type Board = CardT[];
 
 export type GameState = {
   players: Player[];

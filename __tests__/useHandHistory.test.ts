@@ -43,7 +43,7 @@ describe('useHandHistory', () => {
 
     // finalize as folded
     act(() => {
-      result.current.finalizeHand({ pot: 6, result: 'folded', communityCards: {} });
+      result.current.finalizeHand({ pot: 6, result: 'folded', communityCards: [] });
     });
 
     expect(result.current.currentHandHistory).toBeNull();

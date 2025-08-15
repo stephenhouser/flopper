@@ -25,7 +25,7 @@ export function useHandHistory(params: {
       timestamp: Date.now(),
       players: players.map((p) => ({ name: p.name, position: p.positionLabel || "", cards: p.cards, isHero: p.isHero })),
       blinds: { smallBlind: smallBlindFromBigBlind(bigBlind), bigBlind },
-      communityCards: {},
+      communityCards: [],
       actions: [],
       pot: 0,
       result: "folded",
@@ -56,9 +56,7 @@ export function useHandHistory(params: {
         ...prev,
         pot: f.pot,
         result: f.result,
-        communityCards: {
-          ...f.communityCards,
-        },
+        communityCards: [...f.communityCards],
         ...(typeof f.heroWon === "boolean" ? { heroWon: f.heroWon } : {}),
       };
       setSession((s) => {

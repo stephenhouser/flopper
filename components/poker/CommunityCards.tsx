@@ -27,12 +27,12 @@ export const CommunityCards: React.FC<Props> = ({ street, board, totalPot, heroW
         <View style={styles.communityActions}>
           <Text style={styles.streetLabel}>{leftLabel}</Text>
         </View>
-        <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>
-          {board.flop ? <PlayingCard card={board.flop[0]} /> : <PlayingCard hidden />}
-          {board.flop ? <PlayingCard card={board.flop[1]} /> : <PlayingCard hidden />}
-          {board.flop ? <PlayingCard card={board.flop[2]} /> : <PlayingCard hidden />}
-          {board.turn ? <PlayingCard card={board.turn} /> : <PlayingCard hidden />}
-          {board.river ? <PlayingCard card={board.river} /> : <PlayingCard hidden />}
+        <View style={[styles.flopCards, { flex: 1, justifyContent: "center" }]}>          
+          <PlayingCard card={board[0]} hidden={board.length < 1} />
+          <PlayingCard card={board[1]} hidden={board.length < 2} />
+          <PlayingCard card={board[2]} hidden={board.length < 3} />
+          <PlayingCard card={board[3]} hidden={board.length < 4} />
+          <PlayingCard card={board[4]} hidden={board.length < 5} />
         </View>
         <View style={styles.communityActions}>
           <Text style={styles.streetLabel}>Pot: ${totalPot}</Text>

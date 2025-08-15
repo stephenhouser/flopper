@@ -21,7 +21,7 @@ describe('exportSessionToPokerStars', () => {
         { name: 'P3', position: 'BB', cards: [card('9','♣'), card('9','♦')], isHero: false },
       ],
       blinds: { smallBlind: 1, bigBlind: 2 },
-      communityCards: {},
+      communityCards: [],
       actions: [
         { player: 'Hero', action: 'fold', amount: 0, street: 'preflop', timestamp: 1700000001000 },
       ],
@@ -46,11 +46,11 @@ describe('exportSessionToPokerStars', () => {
         { name: 'Villain', position: 'SB', cards: [card('Q','♣'), card('Q','♥')], isHero: false },
       ],
       blinds: { smallBlind: 1, bigBlind: 2 },
-      communityCards: {
-        flop: [card('2','♠'), card('5','♦'), card('T','♣')],
-        turn: card('J','♠'),
-        river: card('A','♣'),
-      },
+      communityCards: [
+        card('2','♠'), card('5','♦'), card('T','♣'),
+        card('J','♠'),
+        card('A','♣'),
+      ],
       actions: [
         { player: 'Hero', action: 'raise', amount: 4, street: 'preflop', timestamp: 1700000001000 },
         { player: 'Villain', action: 'call', amount: 4, street: 'preflop', timestamp: 1700000002000 },

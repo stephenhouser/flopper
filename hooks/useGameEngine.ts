@@ -24,7 +24,7 @@ export function useGameEngine() {
   const [deck, setDeck] = useState<CardT[]>([]);
   const [street, setStreet] = useState<Street>("preflop");
   const [pot, setPot] = useState(0);
-  const [board, setBoard] = useState<Board>({ flop: null, turn: null, river: null });
+  const [board, setBoard] = useState<Board>([]);
 
   // Refs to avoid stale closures when actions are called from delayed callbacks
   const playersRef = useRef<Player[]>(players);
@@ -43,7 +43,7 @@ export function useGameEngine() {
   const buttonIndexRef = useRef<number | null>(null);
 
   const resetBoard = useCallback(() => {
-    setBoard({ flop: null, turn: null, river: null });
+    setBoard([]);
   }, []);
 
   const dealTable = useCallback((n: number, bigBlind: number, opts?: { heroSeat?: number }): { players: Player[]; deck: CardT[] } => {
@@ -74,11 +74,11 @@ export function useGameEngine() {
   const dealFlop = useCallback(() => {
     const curDeck = deckRef.current;
     const curBoard = boardRef.current;
-    if (curDeck.length < 3 || curBoard.flop) return false;
+    if (curDeck.length < 3 || curBoard.length >= 3) return false;
     const { flop: f, deck: d } = gpDealFlop(curDeck);
     setDeck(d);
     setStreet("flop");
-    setBoard((b) => ({ ...b, flop: f }));
+    setBoard(() => [...f]);
     settleBets();
     return true;
   }, [settleBets]);
@@ -86,11 +86,11 @@ export function useGameEngine() {
   const dealTurn = useCallback(() => {
     const curDeck = deckRef.current;
     const curBoard = boardRef.current;
-    if (curDeck.length < 1 || !curBoard.flop || curBoard.turn) return false;
+    if (curDeck.length < 1 || curBoard.length !== 3) return false;
     const { turn: t, deck: d } = gpDealTurn(curDeck);
     setDeck(d);
     setStreet("turn");
-    setBoard((b) => ({ ...b, turn: t }));
+    setBoard((b) => [...b, t]);
     settleBets();
     return true;
   }, [settleBets]);
@@ -98,11 +98,11 @@ export function useGameEngine() {
   const dealRiver = useCallback(() => {
     const curDeck = deckRef.current;
     const curBoard = boardRef.current;
-    if (curDeck.length < 1 || !curBoard.turn || curBoard.river) return false;
+    if (curDeck.length < 1 || curBoard.length !== 4) return false;
     const { river: r, deck: d } = gpDealRiver(curDeck);
     setDeck(d);
     setStreet("river");
-    setBoard((b) => ({ ...b, river: r }));
+    setBoard((b) => [...b, r]);
     settleBets();
     return true;
   }, [settleBets]);

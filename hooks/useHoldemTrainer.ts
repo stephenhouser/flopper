@@ -164,12 +164,10 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
   const heroScore = useMemo(() => (hero ? chenScore(hero.cards[0], hero.cards[1]) : 0), [hero]);
   const recommended = useMemo(() => recommendAction(heroScore, numPlayers, facingRaise), [heroScore, numPlayers, facingRaise]);
 
-  // Helper to transform board into communityCards payloads
-  const communityFromBoard = useCallback(() => ({
-    ...(board.flop && { flop: board.flop }),
-    ...(board.turn && { turn: board.turn }),
-    ...(board.river && { river: board.river }),
-  }), [board.flop, board.turn, board.river]);
+  // Helper to transform board into communityCards payloads (array-based)
+  const communityFromBoard = useCallback(() => {
+    return [...board];
+  }, [board]);
 
   const betLabel = useCallback((p: Player) => formatBetLabel(p), []);
 
@@ -384,9 +382,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         setRevealedPlayers(revealIds);
 
         let heroWon: boolean | undefined = undefined;
-        if (hero && board.flop && board.turn && board.river) {
-          // Fix community array construction
-          const communityCards = [...board.flop, board.turn, board.river];
+        if (hero && board.length === 5) {
+          // compute using final board
+          const communityCards = [...board];
           heroWon = gpComputeHeroResult(hero, state, communityCards);
           setHeroWonHand(heroWon ?? null);
         }
@@ -413,7 +411,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         }, AI_STEP_DELAY_MS);
       }
     }, delayMs);
-  }, [advanceStreet, allButOneFolded, autoNew, board.flop, board.river, board.turn, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout, settleBets]);
+  }, [advanceStreet, allButOneFolded, autoNew, board, communityFromBoard, completeHand, currentSession, feedbackSecs, finalizeHand, getTotalPot, hero, scheduleAITimeout, settleBets]);
 
   const runPostflop = useCallback((mode: "until-hero" | "after-hero", street: Exclude<Street, "preflop" | "complete">) => {
     if (aiRunningRef.current) return;
@@ -611,9 +609,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (!currentSession) return;
     if (players.length > 0) return;
     if (deck.length > 0) return;
-    if (board.flop || board.turn || board.river) return;
+    if (board.length > 0) return;
     dealTable(numPlayers);
-  }, [settingsReady, sessionReady, currentSession, players.length, deck.length, board.flop, board.turn, board.river, dealTable, numPlayers]);
+  }, [settingsReady, sessionReady, currentSession, players.length, deck.length, board.length, dealTable, numPlayers]);
 
   const canCheck = useMemo(() => canHeroCheck(players, hero), [players, hero]);
 
@@ -741,8 +739,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
         );
         setRevealedPlayers(revealIds);
         let heroWon: boolean | undefined = undefined;
-        if (hero && board.flop && board.turn && board.river) {
-          const communityCards = [...board.flop, board.turn, board.river];
+        if (hero && board.length === 5) {
+          const communityCards = [...board];
           heroWon = gpComputeHeroResult(hero, updatedPlayers, communityCards);
           setHeroWonHand(heroWon ?? null);
         }
@@ -782,7 +780,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
     const delay = Math.max(0, Math.round(feedbackSecs * 1000));
     if (!showFeedback && feedbackSecs > 0) hideTimerRef.current = setTimeout(() => setResult(""), delay);
-  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board.flop, board.river, board.turn, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionWithPulse]);
+  }, [advanceStreet, autoNew, bigBlind, completeHand, currentStreet, dealTimerRef, deck.length, facingRaise, feedbackSecs, board, hero, heroScore, newHand, numPlayers, players, recommended, showCommunityCards, showFlop, showRiver, showTurn, triggerFlash, communityFromBoard, getTotalPot, finalizeHand, addActionWithPulse]);
 
   return {
     // settings
