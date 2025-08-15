@@ -1,12 +1,12 @@
 import type { CardT } from '@/lib/cards';
 import { makeDeck, shuffle } from '@/lib/cards';
-import { assignRolesAndPositions, collectBets, dealFlopFromDeck, dealPlayers, dealRiverFromDeck, dealTurnFromDeck, minRaise, nextStreet, resetBets, settleBetsIntoPot, smallBlindFromBigBlind, totalPot } from '@/lib/gameplay';
+import { assignPositions, collectBets, dealFlopFromDeck, dealPlayers, dealRiverFromDeck, dealTurnFromDeck, minRaise, nextStreet, resetBets, settleBetsIntoPot, smallBlindFromBigBlind, totalPot } from '@/lib/gameplay';
 
 function topN(deck: CardT[], n: number): CardT[] { return deck.slice(-n); }
 
 describe('gameplay core helpers', () => {
-  test('assignRolesAndPositions assigns BTN/SB/BB correctly', () => {
-    const roles = assignRolesAndPositions(6, 0);
+  test('assignPositions assigns BTN/SB/BB correctly', () => {
+    const roles = assignPositions(6, 0);
     expect(roles[0].pos).toBe(0); // Dealer
     expect(roles[1].pos).toBe(1); // SB
     expect(roles[2].pos).toBe(2); // BB

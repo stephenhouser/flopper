@@ -28,8 +28,8 @@ describe('useGameEngine hook', () => {
     expect(street).toBe('preflop');
     expect(pot).toBe(0);
 
-    const sb = players.find(p => p.position === 1);
-    const bb = players.find(p => p.position === 2);
+    const sb = players.find(p => p.isSmallBlind);
+    const bb = players.find(p => p.isBigBlind);
     expect(sb?.bet).toBe(1);
     expect(bb?.bet).toBe(2);
   });
@@ -75,10 +75,10 @@ describe('useGameEngine hook', () => {
     act(() => { result.current.dealTable(6, 2); });
     act(() => { result.current.advanceStreet(settingsPlayAll); }); // flop (pot=3)
 
-    // Simulate bets on flop: everyone bets 1
+    // Simulate bets on flop: everyone bets 1 (preserve Player prototype)
     act(() => {
-      const updated = result.current.players.map(p => Object.assign(p, { bet: 1 }));
-      result.current.setPlayers(updated as any);
+      const updated = result.current.players.map(p => Object.assign(Object.create(Object.getPrototypeOf(p)), p, { bet: 1 }));
+      result.current.setPlayers(updated);
     });
     act(() => { result.current.advanceStreet(settingsPlayAll); }); // turn (pot += 6)
 
@@ -86,10 +86,10 @@ describe('useGameEngine hook', () => {
     expect(result.current.pot).toBe(3 + 6);
     expect(result.current.players.every(p => p.bet === 0)).toBe(true);
 
-    // Simulate bets on turn: 2 each
+    // Simulate bets on turn: 2 each (preserve Player prototype)
     act(() => {
-      const updated = result.current.players.map(p => Object.assign(p, { bet: 2 }));
-      result.current.setPlayers(updated as any);
+      const updated = result.current.players.map(p => Object.assign(Object.create(Object.getPrototypeOf(p)), p, { bet: 2 }));
+      result.current.setPlayers(updated);
     });
     act(() => { result.current.advanceStreet(settingsPlayAll); }); // river (pot += 12)
 

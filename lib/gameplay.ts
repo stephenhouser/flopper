@@ -3,16 +3,32 @@ import { didHeroWin } from "@/lib/hand-eval";
 import type { Settings, Street } from "@/models/poker";
 import { MIN_SMALL_BLIND, Player, SMALL_BLIND_FACTOR } from "@/models/poker";
 
-export function assignRolesAndPositions(n: number, btnIndex: number) {
-  // Now returns numeric positions (0 = Dealer/BTN, 1 = SB, 2 = BB, ...)
+// New: compute position label using Player helper
+function positionLabel(pos: number, n: number): string {
+  return Player.labelForPos(pos, n);
+}
+
+// New: compute blind flags based on table size and position
+function blindFlagsFor(n: number, posFromDealer: number): { isSmallBlind: boolean; isBigBlind: boolean } {
+  if (n <= 1) return { isSmallBlind: false, isBigBlind: false };
+  if (n === 2) {
+    // Heads-up special: Dealer is also Big Blind, other is Small Blind
+    const isDealer = posFromDealer === 0;
+    return { isSmallBlind: !isDealer, isBigBlind: isDealer };
+  }
+  return { isSmallBlind: posFromDealer === 1, isBigBlind: posFromDealer === 2 };
+}
+
+export function assignPositions(n: number, btnIndex: number) {
   return Array.from({ length: n }).map((_, idx) => {
     const pos = (idx - btnIndex + n) % n;
-    return { idx, pos, positionLabel: Player.labelForPos(pos, n) };
+    const { isSmallBlind, isBigBlind } = blindFlagsFor(n, pos);
+    return { idx, pos, positionLabel: positionLabel(pos, n), isSmallBlind, isBigBlind, isDealer: pos === 0 };
   });
 }
 
 export function rotateToSmallBlindFirst(players: Player[]): Player[] {
-  const sbIndex = players.findIndex((p) => p.position === 1);
+  const sbIndex = players.findIndex((p) => p.isSmallBlind);
   return sbIndex >= 0 ? [...players.slice(sbIndex), ...players.slice(0, sbIndex)] : players;
 }
 
@@ -27,34 +43,40 @@ export function dealPlayers(
   heroSeat = 0,
   btnIndex = 0
 ): { players: Player[]; deck: CardT[] } {
-  const posInfo = assignRolesAndPositions(n, btnIndex);
+  const positions = assignPositions(n, btnIndex);
   const nextDeck = [...deck];
   const players: Player[] = Array.from({ length: n }).map((_, i) => {
     const c1 = nextDeck.pop();
     const c2 = nextDeck.pop();
     if (!c1 || !c2) throw new Error("Deck exhausted while dealing players");
-    const { pos } = posInfo[i];
+    const { pos, positionLabel, isSmallBlind, isBigBlind } = positions[i];
     const p = new Player({
       id: i,
       name: i === heroSeat ? "Hero" : `Player ${i + 1}`,
+      cards: [c1, c2],
       position: pos,
       nPlayers: n,
-      bet: 0,
-      cards: [c1, c2],
-      isHero: i === heroSeat,
     });
+    // Attach blind flags
+    (p as any).isSmallBlind = isSmallBlind;
+    (p as any).isBigBlind = isBigBlind;
+    p.isDealer = pos === 0;
+    p.positionLabel = positionLabel;
+    p.bet = 0;
+    p.isHero = i === heroSeat;
     return p;
   });
 
   // Post blinds
   const sb = smallBlindFromBigBlind(bigBlind);
-  players.forEach((p) => {
-    if (p.position === 1) p.bet = sb;
-    else if (p.position === 2) p.bet = bigBlind;
+  const withBlinds = players.map((p) => {
+    if ((p as any).isSmallBlind) return { ...p, bet: sb } as Player;
+    if ((p as any).isBigBlind) return { ...p, bet: bigBlind } as Player;
+    return p;
   });
 
   // Rotate so SB is first (matches existing UI expectations)
-  const rotated = rotateToSmallBlindFirst(players);
+  const rotated = rotateToSmallBlindFirst(withBlinds);
 
   return { players: rotated, deck: nextDeck };
 }
@@ -64,7 +86,7 @@ export function collectBets(players: Player[]): number {
 }
 
 export function resetBets(players: Player[]): Player[] {
-  return players.map((p) => ({ ...p, bet: 0 } as unknown as Player));
+  return players.map((p) => ({ ...p, bet: 0 } as Player));
 }
 
 export function totalPot(pot: number, players: Player[]): number {

@@ -864,17 +864,15 @@ export default useHoldemTrainer;
 
 // ---------------- Internal helpers: simple preflop AI ---------------- //
 
-function findIndexByRole(players: Player[], role: any) {
-  // Deprecated; retained signature for minimal diff but map roles to positions if strings used elsewhere
-  if (role === "Dealer") return players.findIndex((p) => p.isDealer);
-  if (role === "SB") return players.findIndex((p) => p.position === 1);
-  if (role === "BB") return players.findIndex((p) => p.position === 2);
-  return -1;
+function findIndexByFlag(players: Player[], which: "SB" | "BB" | "Dealer") {
+  if (which === "SB") return players.findIndex(p => p.isSmallBlind);
+  if (which === "BB") return players.findIndex(p => p.isBigBlind);
+  return players.findIndex(p => p.isDealer);
 }
 
 // UTG is the seat after the big blind in our rotated array [SB, BB, UTG, ...]
 function utgIndex(players: Player[]): number {
-  const bb = findIndexByRole(players, "BB");
+  const bb = findIndexByFlag(players, "BB");
   if (bb < 0) return 0;
   return (bb + 1) % players.length;
 }
@@ -890,7 +888,7 @@ function preflopOrder(players: Player[]): number[] {
 
 // Postflop acting order starts with first player after the button (SB if still in)
 function btnIndex(players: Player[]): number {
-  const btn = findIndexByRole(players, "Dealer");
+  const btn = findIndexByFlag(players, "Dealer");
   if (btn < 0) return 0;
   return btn;
 }

@@ -8,12 +8,16 @@ export class Player {
   bet: number;
   cards: [CardT, CardT];
   isHero: boolean;
-  // New: numeric position from the dealer (0 = Dealer/BTN)
+  // Numeric position from the dealer (0 = Dealer/BTN)
   position: number;
+  positionLabel?: string;
+  // Total players at table (used for HU blind rules)
+  nPlayers: number;
   // New: convenience flag (derived from position === 0)
   isDealer: boolean;
-  // Cached label for UI (e.g. Dealer, SB, BB, UTG, UTG+1, ...)
-  positionLabel?: string;
+  // Blind flags (computed from nPlayers + position)
+  isSmallBlind: boolean;
+  isBigBlind: boolean;
   // Whether the player has folded this hand
   folded?: boolean;
 
@@ -32,7 +36,16 @@ export class Player {
     this.name = name;
     this.cards = cards;
     this.position = position;
+    this.nPlayers = nPlayers;
     this.isDealer = position === 0;
+    // Compute blind flags (HU: dealer is BB, other is SB; 3+ players: SB=1, BB=2)
+    if (nPlayers === 2) {
+      this.isSmallBlind = position === 1;
+      this.isBigBlind = position === 0;
+    } else {
+      this.isSmallBlind = position === 1;
+      this.isBigBlind = position === 2;
+    }
     this.positionLabel = Player.labelForPos(position, nPlayers);
     this.bet = bet;
     this.isHero = isHero;
@@ -40,8 +53,8 @@ export class Player {
   }
 
   // Convenience getters
-  get isSB(): boolean { return this.position === 1; }
-  get isBB(): boolean { return this.position === 2; }
+  get isSB(): boolean { return this.isSmallBlind; }
+  get isBB(): boolean { return this.isBigBlind; }
 
   // Static helpers (integrated from lib/positions.ts)
   static labelForPos(posFromDealer: number, n: number): string {

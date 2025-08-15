@@ -49,6 +49,16 @@ const PlayerRowComponent = React.memo(
       return null;
     }, [player.isHero, flashState, flashOpacity]);
 
+    // Build badge list: Dealer + blind tags as separate pills
+    const badges: Array<{ label: string; style: any }> = [];
+    if (player.isDealer) badges.push({ label: "Dealer", style: Player.positionBadgeStyle("Dealer") });
+    if (player.isSmallBlind) badges.push({ label: "SB", style: Player.positionBadgeStyle("SB") });
+    if (player.isBigBlind) badges.push({ label: "BB", style: Player.positionBadgeStyle("BB") });
+    // Also include positionLabel for non-blind seats (e.g., UTG, MP, ...)
+    if (player.positionLabel && !["Dealer", "SB", "BB"].includes(player.positionLabel)) {
+      badges.push({ label: player.positionLabel, style: Player.positionBadgeStyle(player.positionLabel) });
+    }
+
     return (
       <Pressable
         onPress={!player.isHero && onToggleReveal ? () => onToggleReveal(player.id) : undefined}
@@ -70,11 +80,11 @@ const PlayerRowComponent = React.memo(
 
         <View style={styles.metaCol}>
           <View style={styles.nameRow1}>
-            {!!player.positionLabel && (
-              <View style={[styles.badge, Player.positionBadgeStyle(player.positionLabel)]}>
-                <Text style={styles.badgeText}>{player.positionLabel}</Text>
+            {badges.map((b, i) => (
+              <View key={`${b.label}-${i}`} style={[styles.badge, b.style]}>
+                <Text style={styles.badgeText}>{b.label}</Text>
               </View>
-            )}
+            ))}
           </View>
           <View style={styles.nameRow2}>
             <Text style={styles.playerName}>{player.name}</Text>
