@@ -1,6 +1,6 @@
+import { getRandomAIType, makeAIDecision } from '@/lib/ai-models';
 import { makeDeck, shuffle, type CardT } from '@/lib/cards';
 import { chenScore } from '@/lib/chen';
-import { makeAIDecision, getRandomAIType, type AIType } from '@/lib/ai-models';
 import { DEFAULT_TRAINER_SETTINGS, Player, type Action, type Street, type TexasHoldemSettings } from '@/models/poker';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Animated } from 'react-native';
@@ -20,30 +20,6 @@ export type GameState = {
   activePlayerIndex: number;
   bigBlind: number;
 };
-
-// AI models
-const AI_TYPES = ['chen', 'aggressive', 'tight', 'positional', 'pot-odds', 'random'] as const;
-
-function getRandomAIType(): string {
-  return AI_TYPES[Math.floor(Math.random() * AI_TYPES.length)];
-}
-
-function makeAIDecision(player: Player, gameState: GameState): { action: Action; amount: number } {
-  const score = chenScore(player.cards[0], player.cards[1]);
-  const callAmount = Math.max(0, gameState.currentBet - player.bet);
-  const maxBet = Math.min(player.stack, gameState.bigBlind * 2);
-  
-  // Simple AI logic based on Chen score
-  if (score < 4) {
-    return { action: 'fold', amount: 0 };
-  } else if (score > 8 && Math.random() > 0.3) {
-    return { action: gameState.currentBet === 0 ? 'check' : 'raise', amount: gameState.currentBet === 0 ? 0 : maxBet };
-  } else if (callAmount <= player.stack) {
-    return { action: gameState.currentBet === 0 ? 'check' : 'call', amount: gameState.currentBet === 0 ? 0 : callAmount };
-  } else {
-    return { action: 'fold', amount: 0 };
-  }
-}
 
 // Create initial players
 function createPlayers(numPlayers: number, bigBlind: number, dealerPosition: number): Player[] {
