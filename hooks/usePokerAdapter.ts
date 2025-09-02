@@ -178,23 +178,6 @@ export function usePokerGame() {
     setRevealedPlayers(new Set());
   }, [settings.bigBlind, startNewGame]);
 
-  // Format bet label (simplified version of what you had)
-  const betLabel = useCallback((player: Player): string => {
-    if (player.bet === 0) return '';
-    return `$${player.bet}`;
-  }, []);
-
-  // Action label (shows last action for all players)
-  const actionLabel = useCallback((player: Player): string => {
-    if (player.isHero && lastAction) {
-      return lastAction.toUpperCase();
-    }
-    if (!player.isHero && player.lastAction) {
-      return player.lastAction.toUpperCase();
-    }
-    return '';
-  }, [lastAction]);
-
   // Pulse key for animations
   const pulseKey = useCallback((player: Player): number => {
     return lastActionPlayerRef.current === player.id ? pulseCounter : 0;
@@ -309,8 +292,6 @@ export function usePokerGame() {
     heroScore,
     canCheck,
     totalPot,
-    betLabel,
-    actionLabel,
     pulseKey,
     
     // Actions

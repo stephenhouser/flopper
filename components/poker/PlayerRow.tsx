@@ -15,17 +15,18 @@ type Props = {
   onToggleReveal?: (playerId: number) => void;
   flashState?: FlashState;
   flashOpacity?: Animated.Value;
-  betLabel: (p: Player) => string;
-  actionLabel?: (p: Player) => string;
   pulseKey?: number; // increments when this player acts
   isActive?: boolean; // New: highlight when it's this player's turn
 };
 
 const PlayerRowComponent = React.memo(
-  ({ player, showHandScore, handScore, revealed, onToggleReveal, flashState = "none", flashOpacity, betLabel, actionLabel, pulseKey, isActive = false }: Props) => {
+  ({ player, showHandScore, handScore, revealed, onToggleReveal, flashState = "none", flashOpacity, pulseKey, isActive = false }: Props) => {
     const isPlayerRevealed = revealed;
 
-    const actionText = actionLabel ? (actionLabel(player) || "") : "";
+    const actionText = player.lastAction ? player.lastAction.toUpperCase() : "";
+
+    // Format bet display directly here
+    const betText = player.bet === 0 ? "" : `$${player.bet}`;
 
     // Local transient highlight for non-hero when they act
     const pulseOpacityRef = useRef(new Animated.Value(0));
@@ -102,7 +103,7 @@ const PlayerRowComponent = React.memo(
                 <Text style={styles.actionPillText}>{actionText}</Text>
               </View>
             )}
-            <Pill large text={betLabel(player)} />
+            <Pill large text={betText} />
           </View>
         </View>
       </Pressable>

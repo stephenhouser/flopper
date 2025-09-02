@@ -25,6 +25,8 @@ export class Player {
   isDealer: boolean;
   // Position labels for this player (Dealer, SB, BB, UTG, etc.)
   labels: string[];
+  // AI type for non-hero players ('chen', 'aggressive', 'tight', 'random', etc.)
+  aiType?: string;
 
   constructor(params: {
     id: number;
@@ -38,8 +40,9 @@ export class Player {
     folded?: boolean;
     stack?: number;
     lastAction?: Action;
+    aiType?: string; // For AI players
   }) {
-    const { id, name, cards, position, nPlayers, dealerPosition, bet = 0, isHero = false, folded, stack = DEFAULT_STACK, lastAction } = params;
+    const { id, name, cards, position, nPlayers, dealerPosition, bet = 0, isHero = false, folded, stack = DEFAULT_STACK, lastAction, aiType } = params;
     this.id = id;
     this.name = name;
     this.cards = cards;
@@ -65,6 +68,7 @@ export class Player {
     this.isHero = isHero;
     this.folded = folded;
     this.lastAction = lastAction;
+    this.aiType = aiType;
   }
 
   // Convenience getters
