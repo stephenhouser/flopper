@@ -7,7 +7,7 @@ Concise, prioritized tasks to finish the refactor, improve correctness, performa
 - ✅ Centralized domain types/constants in `models/poker.ts`.
 - ✅ Engine logic in `lib/gameplay.ts`; stateful engine in `hooks/useGameEngine.ts`.
 - ✅ Trainer orchestration in `hooks/useHoldemTrainer.ts` with unified settings.
-- ✅ Persisted state via `hooks/usePersistedState`; session/history in `hooks/useSession`; timers/flash in `hooks/useFlash`.
+- ✅ Persisted state via `hooks/usePersistedState`; session/history in `hooks/useSession`; flash functionality integrated into main hook.
 - ✅ Board model adopted; pot tracking and win/loss feedback fixed; auto-deal consistent.
 - ✅ SettingsSheet unified to a single `settings` API with shared bounds.
 - ✅ Tests added (gameplay, engine, state machine) and CI in place; typecheck/lint pass.

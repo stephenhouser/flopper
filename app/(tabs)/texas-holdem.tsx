@@ -14,9 +14,9 @@ import { PlayerRow } from "@/components/poker/PlayerRow";
 import { SettingsSheet } from "@/components/poker/SettingsSheet";
 import { RowButton } from "@/components/ui/RowButton";
 
-// Use the enhanced adapter hook
+// Use the consolidated hook
 import { useHotkeys } from "@/hooks/useHotkeys";
-import { usePokerGame } from "@/hooks/usePokerAdapter";
+import { useTexasHoldem } from "@/hooks/useTexasHoldem";
 import { downloadTextFile, exportSessionToText } from "@/lib/export";
 
 /* ---------------- UI bits ---------------- */
@@ -69,7 +69,7 @@ export default function TexasHoldemTab() {
 
     // actions
     dealTable, newHand, act,
-  } = usePokerGame();
+  } = useTexasHoldem();
 
   // Export session data
   function downloadSessionExport() {

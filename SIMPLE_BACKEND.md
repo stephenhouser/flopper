@@ -1,16 +1,16 @@
-# Enhanced Simple Poker Backend - Complete UI Integration
+# Consolidated Texas Hold'em Backend - Final Architecture
 
 ## What We Built
 
-A completely new, clean backend system that supports **all existing UI features** while being much simpler and more extensible than the original complex backend.
+A unified, clean backend system that consolidates all poker logic and UI state management into a single hook, eliminating unnecessary abstraction layers and type conversions.
 
-## Key Files Created
+## Key Files
 
 ### Core Game Engine
 
-- **`hooks/useTexasHoldem.ts`** - Main game state management (320 lines)
-- **`hooks/usePokerAdapter.ts`** - Enhanced adapter providing full UI compatibility (200 lines)  
-- **`lib/ai-models.ts`** - Pluggable AI personality system (168 lines)
+- **`hooks/useTexasHoldem.ts`** - Unified game state and UI management (435 lines) - **CONSOLIDATED**
+- **`models/poker.ts`** - Player class with position logic (258 lines)
+- **`app/(tabs)/texas-holdem.tsx`** - Main UI using the unified hook (246 lines)
 
 ### UI Components (Full Feature Parity)
 
@@ -31,16 +31,13 @@ A completely new, clean backend system that supports **all existing UI features*
 - **Statistics** - Hands played, accuracy percentage tracking
 - **Session Management** - Start/reset sessions (simplified)
 
-### 🤖 **Enhanced AI System**
+### 🤖 **Simplified AI System**
 
-Each AI player can use different personalities:
+AI logic has been streamlined and integrated directly into the main hook:
 
-- **Chen AI** - Uses Chen rating system (your current approach)
-- **Aggressive AI** - Bets/raises frequently, lower hand thresholds  
-- **Tight AI** - Only plays premium hands, high selectivity
-- **Positional AI** - Adjusts strategy based on table position
-- **Pot Odds AI** - Makes mathematically-driven decisions
-- **Random AI** - For testing and variety
+- **Simple Chen-based AI** - Uses Chen rating system for decision making
+- **Randomized personalities** - Each AI player gets a random type assignment  
+- **Consolidated logic** - No more external AI model files
 
 ### 🎮 **Game Features**
 
@@ -128,6 +125,7 @@ interface GameState {
 ## Why This is Better
 
 ### ❌ **Old System Problems**
+
 - Complex interdependent hooks
 - Stack persistence issues  
 - Player rotation bugs
@@ -135,6 +133,7 @@ interface GameState {
 - 2000+ lines of complex state management
 
 ### ✅ **New System Benefits**  
+
 - Simple, linear game flow
 - Perfect stack management
 - No rotation issues
