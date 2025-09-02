@@ -5,7 +5,8 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { useSession } from "@/hooks/useSession";
 import { chenScore, recommendAction } from "@/lib/chen";
 import {
-  computeHeroResult as gpComputeHeroResult
+  computeHeroResult as gpComputeHeroResult,
+  placeBet
 } from "@/lib/gameplay";
 import { closeTrackedSessionForAppSession } from "@/lib/tracker";
 import { allActiveBetsEqual, betForAction, canHeroCheck, chooseActionForPlayer, formatBetLabel, heroFromPlayers, tableCurrentBet } from "@/lib/utils/bets";
@@ -60,8 +61,8 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     deck,
     street: currentStreet,
     pot,
-    // ...existing code...
     board,
+    dealerPosition,
     totalPot,
     dealTable: engineDealTable,
     advanceStreet,
@@ -339,8 +340,13 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
 
       const action = decideActionRestricted(state, p);
       const amount = betForAction(action, state, bigBlind, p);
-      if (action === "fold") p.folded = true;
-      p.bet = amount;
+      if (action === "fold") {
+        p.folded = true;
+      } else {
+        // Use placeBet to handle both bet amount and stack deduction
+        const updatedPlayer = placeBet(p, amount);
+        Object.assign(p, updatedPlayer);
+      }
       addActionWithPulse(action, amount, "preflop", p.name);
 
       if (allButOneFolded(state)) {
@@ -441,7 +447,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     aiRunningRef.current = true;
 
     let state = clonePlayers(playersLatestRef.current);
-    const order = postflopOrder(state);
+    const order = postflopOrder(state, dealerPosition);
     const heroIdx = state.findIndex(p => p.isHero);
     const startIdx = mode === "until-hero" ? 0 : Math.max(0, order.indexOf(heroIdx) + 1);
     const aggressorIdx = mode === "after-hero" ? (lastRaiserIndex(state) ?? heroIdx) : undefined;
@@ -509,7 +515,9 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
       }
       const amount = betForAction(action, state, bigBlind, p);
       if (action === "fold") p.folded = true;
-      p.bet = amount;
+      // Use placeBet to handle both bet amount and stack deduction
+      const updatedPlayer = placeBet(p, amount);
+      Object.assign(p, updatedPlayer);
       // FIX: Log postflop actions with the correct street
       addActionWithPulse(action, amount, street, p.name);
 
@@ -566,7 +574,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (!showFeedback) setResult("");
 
     if (currentSession) {
-      createHandHistory(dealt.players);
+      createHandHistory(dealt.players, dealerPosition);
     }
 
     // Kick off simple automated preflop betting for non-hero players until hero's turn
@@ -707,7 +715,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     if (currentStreet !== "complete") addActionWithPulse(effectiveAction, betAmount, currentStreet as Exclude<Street, "complete">, hero?.name);
 
     const updatedPlayers = clonePlayers(players).map(p => {
-      if (p.isHero) p.bet = betAmount;
+      if (p.isHero) return placeBet(p, betAmount);
       return p;
     });
     setPlayers(updatedPlayers);
@@ -821,6 +829,7 @@ export function useHoldemTrainer(opts: UseHoldemTrainerOptions = {}) {
     players,
     currentStreet,
     board,
+    dealerPosition,
     foldedHand,
     heroWonHand,
     revealedPlayers,
@@ -864,10 +873,10 @@ export default useHoldemTrainer;
 
 // ---------------- Internal helpers: simple preflop AI ---------------- //
 
-function findIndexByFlag(players: Player[], which: "SB" | "BB" | "Dealer") {
+function findIndexByFlag(players: Player[], which: "SB" | "BB") {
   if (which === "SB") return players.findIndex(p => p.isSmallBlind);
   if (which === "BB") return players.findIndex(p => p.isBigBlind);
-  return players.findIndex(p => p.isDealer);
+  return -1;
 }
 
 // UTG is the seat after the big blind in our rotated array [SB, BB, UTG, ...]
@@ -887,15 +896,9 @@ function preflopOrder(players: Player[]): number[] {
 }
 
 // Postflop acting order starts with first player after the button (SB if still in)
-function btnIndex(players: Player[]): number {
-  const btn = findIndexByFlag(players, "Dealer");
-  if (btn < 0) return 0;
-  return btn;
-}
-
-function postflopOrder(players: Player[]): number[] {
+function postflopOrder(players: Player[], dealerPosition: number): number[] {
   if (!players.length) return [];
-  const start = (btnIndex(players) + 1) % players.length;
+  const start = (dealerPosition + 1) % players.length;
   const order: number[] = [];
   for (let i = 0; i < players.length; i++) order.push((start + i) % players.length);
   return order;

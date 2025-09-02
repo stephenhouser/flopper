@@ -1,7 +1,7 @@
 import { PlayingCard } from "@/components/poker/PlayingCard";
 import { Pill } from "@/components/ui/Pill";
 import { chenScore } from "@/lib/chen";
-import { Player } from "@/models/poker";
+import { Player, labelsForPosition, positionBadgeStyle } from "@/models/poker";
 import React, { useEffect, useMemo, useRef } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -9,6 +9,7 @@ export type FlashState = "none" | "correct" | "incorrect" | "active";
 
 type Props = {
   player: Player;
+  dealerPosition: number; // Add dealer position prop
   showHandScore: boolean; // renamed prop
   handScore: number; // renamed prop
   revealed: boolean;
@@ -21,7 +22,7 @@ type Props = {
 };
 
 const PlayerRowComponent = React.memo(
-  ({ player, showHandScore, handScore, revealed, onToggleReveal, flashState = "none", flashOpacity, betLabel, actionLabel, pulseKey }: Props) => {
+  ({ player, dealerPosition, showHandScore, handScore, revealed, onToggleReveal, flashState = "none", flashOpacity, betLabel, actionLabel, pulseKey }: Props) => {
     const isPlayerRevealed = revealed;
 
     const actionText = actionLabel ? (actionLabel(player) || "") : "";
@@ -49,15 +50,12 @@ const PlayerRowComponent = React.memo(
       return null;
     }, [player.isHero, flashState, flashOpacity]);
 
-    // Build badge list: Dealer + blind tags as separate pills
-    const badges: Array<{ label: string; style: any }> = [];
-    if (player.isDealer) badges.push({ label: "Dealer", style: Player.positionBadgeStyle("Dealer") });
-    if (player.isSmallBlind) badges.push({ label: "SB", style: Player.positionBadgeStyle("SB") });
-    if (player.isBigBlind) badges.push({ label: "BB", style: Player.positionBadgeStyle("BB") });
-    // Also include positionLabel for non-blind seats (e.g., UTG, MP, ...)
-    if (player.positionLabel && !["Dealer", "SB", "BB"].includes(player.positionLabel)) {
-      badges.push({ label: player.positionLabel, style: Player.positionBadgeStyle(player.positionLabel) });
-    }
+    // Build badge list using all labels for the player
+    const playerLabels = labelsForPosition(player.position, dealerPosition, player.nPlayers);
+    const badges: { label: string; style: any }[] = playerLabels.map((label: string) => ({
+      label,
+      style: positionBadgeStyle(label)
+    }));
 
     return (
       <Pressable
@@ -87,7 +85,7 @@ const PlayerRowComponent = React.memo(
             ))}
           </View>
           <View style={styles.nameRow2}>
-            <Text style={styles.playerName}>{player.name}</Text>
+            <Text style={styles.playerName}>{player.name} (${player.stack})</Text>
             {player.isHero && showHandScore ? (
               <Text style={styles.playerSub}>Score: {handScore}</Text>
             ) : null}

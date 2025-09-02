@@ -1,6 +1,6 @@
 import { updateHandsPlayedForSession, upsertPokerStarsAttachmentForSession } from "@/lib/tracker";
 import type { Action, HandAction, HandHistory, Player, Session, Street } from "@/models/poker";
-import { smallBlindFromBigBlind } from "@/models/poker";
+import { labelsForPosition, smallBlindFromBigBlind } from "@/models/poker";
 import { useCallback, useState } from "react";
 
 export type FinalizeParams = {
@@ -18,12 +18,18 @@ export function useHandHistory(params: {
   const { session, setSession, bigBlind } = params;
   const [currentHandHistory, setCurrentHandHistory] = useState<HandHistory | null>(null);
 
-  const createHandHistory = useCallback((players: Player[]): HandHistory => {
+  const createHandHistory = useCallback((players: Player[], dealerPosition: number): HandHistory => {
     const handId = `hand_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const hh: HandHistory = {
       handId,
       timestamp: Date.now(),
-      players: players.map((p) => ({ name: p.name, position: p.positionLabel || "", cards: p.cards, isHero: p.isHero })),
+      players: players.map((p) => {
+        // Get all labels and use the primary one for position (first non-dealer label, or dealer if that's the only one)
+        const labels = labelsForPosition(p.position, dealerPosition, p.nPlayers);
+        const primaryLabel = labels.find(label => label !== "Dealer") || labels[0] || "Unknown";
+        return { name: p.name, position: primaryLabel, cards: p.cards, isHero: p.isHero };
+      }),
       blinds: { smallBlind: smallBlindFromBigBlind(bigBlind), bigBlind },
       communityCards: [],
       actions: [],

@@ -129,3 +129,45 @@ export type Board = {
 - Older code referenced standalone `flop/turn/river` fields; those have been removed in favor of `Board` everywhere.
 
 - UI and tests have been updated to consume `Board` consistently.
+
+## Position Labeling Refactor (Completed)
+
+### Overview
+
+The position labeling system has been refactored to remove stored position information from the `Player` class and compute position labels dynamically in the frontend.
+
+### Changes made
+
+- **Removed** `positionLabel` and `isDealer` properties from the `Player` class.
+- **Added** `labelsForPosition(position, dealerPosition, nPlayers)` utility function in `models/poker.ts`.
+- **Added** `dealerPosition` as explicit state parameter in `useGameEngine.ts`.
+- **Updated** all components and hooks to use the new dynamic position labeling system.
+
+### Key utilities
+
+```typescript
+// Compute all position labels for a player dynamically
+function labelsForPosition(
+  position: number,     // Player's position (0 = Dealer)
+  dealerPosition: number, // Current dealer position 
+  nPlayers: number      // Total players at table
+): string[]
+
+// Usage
+const labels = labelsForPosition(player.position, dealerPosition, player.nPlayers);
+// Returns array like ["Dealer", "SB"] or ["BB"] or ["UTG"] etc.
+```
+
+### Architecture benefits
+
+- **Dynamic**: Position labels are computed on-demand based on current game state.
+- **Flexible**: Dealer position can change without updating stored player data.
+- **Testable**: Position labeling logic is pure and easily unit-tested.
+- **Consistent**: Single source of truth for position label computation.
+
+### Position labeling migration notes
+
+- All references to `player.isDealer` and `player.positionLabel` have been removed.
+- `PlayerRow` component now uses `labelsForPosition()` for position badges.
+- Hand history recording uses dynamic position labels.
+- Tests updated to pass `dealerPosition` parameter where needed.

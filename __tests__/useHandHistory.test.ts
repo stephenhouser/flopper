@@ -30,7 +30,7 @@ describe('useHandHistory', () => {
     const players = makePlayers();
 
     act(() => {
-      result.current.createHandHistory(players);
+      result.current.createHandHistory(players, 0); // dealerPosition = 0
     });
 
     // add two actions on preflop

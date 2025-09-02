@@ -1,6 +1,7 @@
 import type { CardT } from "@/lib/cards";
 import { makeDeck, shuffle } from "@/lib/cards";
 import {
+  createInitialPlayers as gpCreateInitialPlayers,
   dealFlopFromDeck as gpDealFlop,
   dealPlayers as gpDealPlayers,
   dealRiverFromDeck as gpDealRiver,
@@ -18,6 +19,7 @@ export type GameEngineState = {
   street: Street;
   pot: number;
   board: Board;
+  dealerPosition: number; // Index into players array
 };
 
 export function useGameEngine() {
@@ -26,6 +28,7 @@ export function useGameEngine() {
   const [street, setStreet] = useState<Street>("preflop");
   const [pot, setPot] = useState(0);
   const [board, setBoard] = useState<Board>([]);
+  const [dealerPosition, setDealerPosition] = useState(0);
 
   // Refs to avoid stale closures when actions are called from delayed callbacks
   const playersRef = useRef<Player[]>(players);
@@ -33,15 +36,14 @@ export function useGameEngine() {
   const streetRef = useRef<Street>(street);
   const potRef = useRef<number>(pot);
   const boardRef = useRef<Board>(board);
+  const dealerPositionRef = useRef<number>(dealerPosition);
 
   useEffect(() => { playersRef.current = players; }, [players]);
   useEffect(() => { deckRef.current = deck; }, [deck]);
   useEffect(() => { streetRef.current = street; }, [street]);
   useEffect(() => { potRef.current = pot; }, [pot]);
   useEffect(() => { boardRef.current = board; }, [board]);
-
-  // Keep button index across hands
-  const buttonIndexRef = useRef<number | null>(null);
+  useEffect(() => { dealerPositionRef.current = dealerPosition; }, [dealerPosition]);
 
   const resetBoard = useCallback(() => {
     setBoard([]);
@@ -49,21 +51,51 @@ export function useGameEngine() {
 
   const dealTable = useCallback((n: number, bigBlind: number, opts?: { heroSeat?: number }): { players: Player[]; deck: CardT[] } => {
     const heroSeat = opts?.heroSeat ?? 0;
-    // init button index
-    if (buttonIndexRef.current == null) buttonIndexRef.current = Math.floor(Math.random() * n);
-    else buttonIndexRef.current = (buttonIndexRef.current + 1) % n;
+    
+    // Preserve existing players and their stacks when possible
+    let currentPlayers = players;
+    if (players.length !== n) {
+      // Create initial players only if the count changed
+      currentPlayers = gpCreateInitialPlayers(n, heroSeat, bigBlind);
+      
+      // If we had existing players, preserve their stacks
+      if (players.length > 0) {
+        currentPlayers = currentPlayers.map((newPlayer, i) => {
+          const existingPlayer = players[i]; // Might be undefined if we added players
+          if (existingPlayer) {
+            // Preserve stack and hero status from existing player
+            return new Player({
+              id: newPlayer.id,
+              name: newPlayer.name,
+              cards: newPlayer.cards,
+              position: newPlayer.position,
+              nPlayers: newPlayer.nPlayers,
+              stack: existingPlayer.stack, // Preserve existing stack
+              isHero: newPlayer.isHero,
+              bet: 0,
+              folded: false,
+            });
+          }
+          return newPlayer; // New player, use default stack
+        });
+      }
+    }
+    
+    // Advance dealer position (or initialize randomly)
+    const newDealerPosition = dealerPosition !== undefined ? (dealerPosition + 1) % n : Math.floor(Math.random() * n);
 
     const fresh = shuffle(makeDeck());
-    const { players: dealtPlayers, deck: nextDeck } = gpDealPlayers(n, fresh, bigBlind, heroSeat, buttonIndexRef.current);
+    const { players: dealtPlayers, deck: nextDeck } = gpDealPlayers(currentPlayers, fresh, bigBlind, newDealerPosition);
 
     resetBoard();
     setStreet("preflop");
     setDeck(nextDeck);
     setPot(0);
     setPlayers(dealtPlayers);
+    setDealerPosition(newDealerPosition);
 
     return { players: dealtPlayers, deck: nextDeck };
-  }, [resetBoard]);
+  }, [resetBoard, dealerPosition, players]);
 
   const settleBets = useCallback(() => {
     // Use refs to guarantee we settle latest bets into latest pot
@@ -142,7 +174,7 @@ export function useGameEngine() {
 
   return {
     // state
-    players, deck, street, pot, board,
+    players, deck, street, pot, board, dealerPosition,
 
     // derived
     totalPot,

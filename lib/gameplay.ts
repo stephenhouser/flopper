@@ -1,20 +1,15 @@
-import type { CardT } from "@/lib/cards";
+import { CardT } from "@/lib/cards";
 import { didHeroWin } from "@/lib/hand-eval";
 import type { Settings, Street } from "@/models/poker";
-import { MIN_SMALL_BLIND, Player, SMALL_BLIND_FACTOR } from "@/models/poker";
-
-// New: compute position label using Player helper
-function positionLabel(pos: number, n: number): string {
-  return Player.labelForPos(pos, n);
-}
+import { defaultStackForBigBlind, MIN_SMALL_BLIND, Player, SMALL_BLIND_FACTOR } from "@/models/poker";
 
 // New: compute blind flags based on table size and position
 function blindFlagsFor(n: number, posFromDealer: number): { isSmallBlind: boolean; isBigBlind: boolean } {
   if (n <= 1) return { isSmallBlind: false, isBigBlind: false };
   if (n === 2) {
-    // Heads-up special: Dealer is also Big Blind, other is Small Blind
+    // Heads-up special: Dealer is Small Blind, other player is Big Blind
     const isDealer = posFromDealer === 0;
-    return { isSmallBlind: !isDealer, isBigBlind: isDealer };
+    return { isSmallBlind: isDealer, isBigBlind: !isDealer };
   }
   return { isSmallBlind: posFromDealer === 1, isBigBlind: posFromDealer === 2 };
 }
@@ -23,62 +18,61 @@ export function assignPositions(n: number, btnIndex: number) {
   return Array.from({ length: n }).map((_, idx) => {
     const pos = (idx - btnIndex + n) % n;
     const { isSmallBlind, isBigBlind } = blindFlagsFor(n, pos);
-    return { idx, pos, positionLabel: positionLabel(pos, n), isSmallBlind, isBigBlind, isDealer: pos === 0 };
+    return { idx, pos, isSmallBlind, isBigBlind };
   });
 }
 
-export function rotateToSmallBlindFirst(players: Player[]): Player[] {
-  const sbIndex = players.findIndex((p) => p.isSmallBlind);
-  return sbIndex >= 0 ? [...players.slice(sbIndex), ...players.slice(0, sbIndex)] : players;
-}
+
 
 export function smallBlindFromBigBlind(bb: number): number {
   return Math.max(MIN_SMALL_BLIND, Math.floor(bb * SMALL_BLIND_FACTOR));
 }
 
 export function dealPlayers(
-  n: number,
+  players: Player[],
   deck: CardT[],
   bigBlind: number,
-  heroSeat = 0,
   btnIndex = 0
 ): { players: Player[]; deck: CardT[] } {
+  const n = players.length;
   const positions = assignPositions(n, btnIndex);
   const nextDeck = [...deck];
-  const players: Player[] = Array.from({ length: n }).map((_, i) => {
+  
+  // Deal new cards to existing players and update their positions
+  const dealtPlayers: Player[] = players.map((existingPlayer, i) => {
     const c1 = nextDeck.pop();
     const c2 = nextDeck.pop();
     if (!c1 || !c2) throw new Error("Deck exhausted while dealing players");
-    const { pos, positionLabel, isSmallBlind, isBigBlind } = positions[i];
+    
+    const { pos, isSmallBlind, isBigBlind } = positions[i];
+    
+    // Create new player instance with updated position and fresh cards
     const p = new Player({
-      id: i,
-      name: i === heroSeat ? "Hero" : `Player ${i + 1}`,
+      id: existingPlayer.id,
+      name: existingPlayer.name,
       cards: [c1, c2],
       position: pos,
       nPlayers: n,
+      stack: existingPlayer.stack, // Preserve stack from previous hand
+      isHero: existingPlayer.isHero,
     });
+    
     // Attach blind flags
     (p as any).isSmallBlind = isSmallBlind;
     (p as any).isBigBlind = isBigBlind;
-    p.isDealer = pos === 0;
-    p.positionLabel = positionLabel;
     p.bet = 0;
-    p.isHero = i === heroSeat;
     return p;
   });
 
-  // Post blinds
+  // Post blinds - use placeBet to deduct from stack
   const sb = smallBlindFromBigBlind(bigBlind);
-  const withBlinds = players.map((p) => {
-    if ((p as any).isSmallBlind) return { ...p, bet: sb } as Player;
-    if ((p as any).isBigBlind) return { ...p, bet: bigBlind } as Player;
+  const withBlinds = dealtPlayers.map((p) => {
+    if ((p as any).isSmallBlind) return placeBet(p, sb);
+    if ((p as any).isBigBlind) return placeBet(p, bigBlind);
     return p;
   });
 
-  // Rotate so SB is first (matches existing UI expectations)
-  const rotated = rotateToSmallBlindFirst(withBlinds);
-
-  return { players: rotated, deck: nextDeck };
+  return { players: withBlinds, deck: nextDeck };
 }
 
 export function collectBets(players: Player[]): number {
@@ -146,4 +140,104 @@ export function dealRiverFromDeck(deck: CardT[]): { river: CardT; deck: CardT[] 
   const c = next.pop();
   if (!c) throw new Error("Deck exhausted while dealing river");
   return { river: c, deck: next };
+}
+
+// Helper to create initial player array with default stacks (100 big blinds)
+export function createInitialPlayers(
+  n: number,
+  heroSeat = 0,
+  bigBlind = 2
+): Player[] {
+  const stackSize = defaultStackForBigBlind(bigBlind);
+  return Array.from({ length: n }).map((_, i) => {
+    // Create dummy cards (will be replaced when dealing)
+    const dummyCards: [CardT, CardT] = [
+      new CardT("A", "♠"),
+      new CardT("K", "♥")
+    ];
+    
+    return new Player({
+      id: i,
+      name: i === heroSeat ? "Hero" : `Player ${i + 1}`,
+      cards: dummyCards,
+      position: i, // Initial position, will be updated when dealing
+      nPlayers: n,
+      stack: stackSize,
+      isHero: i === heroSeat,
+    });
+  });
+}
+
+// Stack management utilities
+export function deductBetFromStack(player: Player, betAmount: number): Player {
+  const newStack = Math.max(0, player.stack - betAmount);
+  const newPlayer = new Player({
+    id: player.id,
+    name: player.name,
+    cards: player.cards,
+    position: player.position,
+    nPlayers: player.nPlayers,
+    bet: player.bet + betAmount,
+    isHero: player.isHero,
+    folded: player.folded,
+    stack: newStack,
+  });
+  // Preserve blind flags
+  (newPlayer as any).isSmallBlind = player.isSmallBlind;
+  (newPlayer as any).isBigBlind = player.isBigBlind;
+  return newPlayer;
+}
+
+export function awardPotToWinner(player: Player, potAmount: number): Player {
+  const newPlayer = new Player({
+    id: player.id,
+    name: player.name,
+    cards: player.cards,
+    position: player.position,
+    nPlayers: player.nPlayers,
+    bet: player.bet,
+    isHero: player.isHero,
+    folded: player.folded,
+    stack: player.stack + potAmount,
+  });
+  // Preserve blind flags
+  (newPlayer as any).isSmallBlind = player.isSmallBlind;
+  (newPlayer as any).isBigBlind = player.isBigBlind;
+  return newPlayer;
+}
+
+export function canPlayerAfford(player: Player, betAmount: number): boolean {
+  return player.stack >= betAmount;
+}
+
+// Helper function to place a bet and deduct from stack
+export function placeBet(player: Player, betAmount: number): Player {
+  const currentBet = player.bet || 0;
+  const additionalBet = Math.max(0, betAmount - currentBet);
+  
+  if (additionalBet === 0) {
+    return player; // No additional bet needed
+  }
+  
+  // Don't allow betting more than the stack (all-in protection)
+  const actualBet = Math.min(additionalBet, player.stack);
+  const totalBet = currentBet + actualBet;
+  
+  const newPlayer = new Player({
+    id: player.id,
+    name: player.name,
+    cards: player.cards,
+    position: player.position,
+    nPlayers: player.nPlayers,
+    bet: totalBet,
+    isHero: player.isHero,
+    folded: player.folded,
+    stack: player.stack - actualBet,
+  });
+  
+  // Preserve blind flags
+  (newPlayer as any).isSmallBlind = (player as any).isSmallBlind;
+  (newPlayer as any).isBigBlind = (player as any).isBigBlind;
+  
+  return newPlayer;
 }

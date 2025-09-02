@@ -30,12 +30,7 @@ export function betForAction(action: Action, players: Player[], bigBlind: number
 
 // Small reusable helper to render a bet label with SB/BB/Dealer tag(s)
 export function formatBetLabel(p: Player): string {
-  const tags: string[] = [];
-  if (p.isDealer) tags.push("Dealer");
-  if (p.isSmallBlind) tags.push("SB");
-  if (p.isBigBlind) tags.push("BB");
-  const amt = `$${p.bet}`;
-  return tags.length ? `${amt} (${tags.join(", ")})` : amt;
+  return `$${p.bet}`;
 }
 
 // New: determine if a player can check (for non-hero)

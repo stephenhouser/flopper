@@ -48,7 +48,7 @@ export default function TexasHoldemTab() {
     settings, setSettings,
 
     // game state
-    players, currentStreet, board,
+    players, currentStreet, board, dealerPosition,
     foldedHand, heroWonHand,
     revealedPlayers, togglePlayerReveal,
 
@@ -158,6 +158,7 @@ export default function TexasHoldemTab() {
           players.map((item) => 
               <PlayerRow key={item.id}
                 player={item}
+                dealerPosition={dealerPosition}
                 showHandScore={settings.showScore}
                 handScore={heroScore}
                 revealed={revealedPlayers.has(item.id)}

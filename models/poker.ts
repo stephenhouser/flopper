@@ -10,16 +10,15 @@ export class Player {
   isHero: boolean;
   // Numeric position from the dealer (0 = Dealer/BTN)
   position: number;
-  positionLabel?: string;
   // Total players at table (used for HU blind rules)
   nPlayers: number;
-  // New: convenience flag (derived from position === 0)
-  isDealer: boolean;
   // Blind flags (computed from nPlayers + position)
   isSmallBlind: boolean;
   isBigBlind: boolean;
   // Whether the player has folded this hand
   folded?: boolean;
+  // Player's chip stack (persists across hands)
+  stack: number;
 
   constructor(params: {
     id: number;
@@ -30,14 +29,15 @@ export class Player {
     bet?: number;
     isHero?: boolean;
     folded?: boolean;
+    stack?: number;
   }) {
-    const { id, name, cards, position, nPlayers, bet = 0, isHero = false, folded } = params;
+    const { id, name, cards, position, nPlayers, bet = 0, isHero = false, folded, stack = DEFAULT_STACK } = params;
     this.id = id;
     this.name = name;
     this.cards = cards;
     this.position = position;
     this.nPlayers = nPlayers;
-    this.isDealer = position === 0;
+    this.stack = stack;
     // Compute blind flags (HU: dealer is BB, other is SB; 3+ players: SB=1, BB=2)
     if (nPlayers === 2) {
       this.isSmallBlind = position === 1;
@@ -46,7 +46,6 @@ export class Player {
       this.isSmallBlind = position === 1;
       this.isBigBlind = position === 2;
     }
-    this.positionLabel = Player.labelForPos(position, nPlayers);
     this.bet = bet;
     this.isHero = isHero;
     this.folded = folded;
@@ -55,29 +54,51 @@ export class Player {
   // Convenience getters
   get isSB(): boolean { return this.isSmallBlind; }
   get isBB(): boolean { return this.isBigBlind; }
+}
 
-  // Static helpers (integrated from lib/positions.ts)
-  static labelForPos(posFromDealer: number, n: number): string {
-    if (posFromDealer === 0) return "Dealer"; // BTN
-    if (posFromDealer === 1) return "SB";
-    if (posFromDealer === 2) return "BB";
-    const rest = ["UTG", "UTG+1", "MP", "LJ", "HJ", "CO"];
-    return rest[posFromDealer - 3] || `Seat ${posFromDealer}`;
+// Position utility functions (moved from Player class)
+export function labelsForPosition(position: number, dealerPosition: number, nPlayers: number): string[] {
+  const labels: string[] = [];
+  
+  // Calculate position relative to dealer
+  const posFromDealer = (position - dealerPosition + nPlayers) % nPlayers;
+  
+  // Add dealer label
+  if (posFromDealer === 0) {
+    labels.push("Dealer");
   }
+  
+  // Add blind labels based on table size and position
+  if (nPlayers === 2) {
+    // Heads-up: dealer is also big blind, other is small blind
+    if (posFromDealer === 0) labels.push("BB");
+    if (posFromDealer === 1) labels.push("SB");
+    return labels;
+  } else if (posFromDealer > 0) {
+    // 3+ players: standard blind positions
+    // Add position labels for non-dealer, non-blind seats
+    const positionNames = ["SB", "BB", "UTG", "UTG+1", "MP", "LJ", "HJ", "CO"];
+    const positionIndex = posFromDealer - 1;
+    const positionName = positionNames[positionIndex] || `Seat ${posFromDealer + 1}`;
+    
+    labels.push(positionName);
+  }
+  
+  return labels;
+}
 
-  static positionBadgeStyle(label?: string) {
-    switch (label) {
-      case "Dealer": return { backgroundColor: "#EDE2FF" };
-      case "SB":     return { backgroundColor: "#D7E8FF" };
-      case "BB":     return { backgroundColor: "#FFE8C7" };
-      case "UTG":    return { backgroundColor: "#E6F6EB" };
-      case "UTG+1":  return { backgroundColor: "#E3F4FF" };
-      case "MP":     return { backgroundColor: "#FFF5CC" };
-      case "LJ":     return { backgroundColor: "#FDE2F2" };
-      case "HJ":     return { backgroundColor: "#E0E7FF" };
-      case "CO":     return { backgroundColor: "#ECECEC" };
-      default:        return { backgroundColor: "#F1F1F6" };
-    }
+export function positionBadgeStyle(label?: string) {
+  switch (label) {
+    case "Dealer": return { backgroundColor: "#EDE2FF" };
+    case "SB":     return { backgroundColor: "#D7E8FF" };
+    case "BB":     return { backgroundColor: "#FFE8C7" };
+    case "UTG":    return { backgroundColor: "#E6F6EB" };
+    case "UTG+1":  return { backgroundColor: "#E3F4FF" };
+    case "MP":     return { backgroundColor: "#FFF5CC" };
+    case "LJ":     return { backgroundColor: "#FDE2F2" };
+    case "HJ":     return { backgroundColor: "#E0E7FF" };
+    case "CO":     return { backgroundColor: "#ECECEC" };
+    default:        return { backgroundColor: "#F1F1F6" };
   }
 }
 
@@ -102,6 +123,9 @@ export type Blinds = {
 
 export const SMALL_BLIND_FACTOR = 0.5;
 export const MIN_SMALL_BLIND = 1;
+export const DEFAULT_STACK_BB_MULTIPLIER = 100; // 100 big blinds
+// Function to calculate default stack based on big blind
+export const defaultStackForBigBlind = (bigBlind: number) => bigBlind * DEFAULT_STACK_BB_MULTIPLIER;
 export const smallBlindFromBigBlind = (bb: number) =>
   Math.max(MIN_SMALL_BLIND, Math.floor(bb * SMALL_BLIND_FACTOR));
 
@@ -204,6 +228,9 @@ export const DEFAULT_NUM_PLAYERS = DEFAULT_TRAINER_SETTINGS.numPlayers;
 
 export const MIN_BIG_BLIND = 1 as const;
 export const DEFAULT_BIG_BLIND = DEFAULT_TRAINER_SETTINGS.bigBlind;
+
+// Default stack size: 100 big blinds
+export const DEFAULT_STACK = defaultStackForBigBlind(DEFAULT_BIG_BLIND);
 
 // Storage keys
 export const SETTINGS_STORAGE_KEY = "poker.trainerSettings.v1" as const;

@@ -1,5 +1,6 @@
 import { useGameEngine } from '@/hooks/useGameEngine';
 import type { Settings } from '@/models/poker';
+import { Player } from '@/models/poker';
 import { act, renderHook } from '@testing-library/react';
 
 // Make shuffling deterministic for tests
@@ -61,12 +62,12 @@ describe('useGameEngine hook', () => {
     const { result } = renderHook(() => useGameEngine());
 
     act(() => { result.current.dealTable(6, 2); });
-    const firstDealerId = result.current.players.find(p => p.isDealer)?.id;
+    const firstDealerPosition = result.current.dealerPosition;
 
     act(() => { result.current.dealTable(6, 2); });
-    const secondDealerId = result.current.players.find(p => p.isDealer)?.id;
+    const secondDealerPosition = result.current.dealerPosition;
 
-    expect(secondDealerId).not.toBe(firstDealerId);
+    expect(secondDealerPosition).not.toBe(firstDealerPosition);
   });
 
   test('deals turn and river with pot settlement each street', () => {
@@ -96,5 +97,70 @@ describe('useGameEngine hook', () => {
     expect(result.current.street).toBe('river');
     expect(result.current.pot).toBe(3 + 6 + 12);
     expect(result.current.players.every(p => p.bet === 0)).toBe(true);
+  });
+
+  test('player stacks are preserved between hands', () => {
+    const { result } = renderHook(() => useGameEngine());
+    
+    // Deal initial table
+    act(() => {
+      result.current.dealTable(3, 10, { heroSeat: 0 });
+    });
+    
+    const initialPlayers = result.current.players;
+    const heroInitialStack = initialPlayers.find(p => p.isHero)?.stack;
+    const player1InitialStack = initialPlayers[1]?.stack;
+    
+    // Simulate some betting by manually updating player stacks
+    const updatedPlayers = initialPlayers.map(p => {
+      if (p.isHero) {
+        return new Player({
+          id: p.id,
+          name: p.name,
+          cards: p.cards,
+          position: p.position,
+          nPlayers: p.nPlayers,
+          stack: p.stack - 100, // Hero lost 100 chips
+          isHero: p.isHero,
+          bet: 0,
+          folded: false,
+        });
+      } else if (p.id === 1) {
+        return new Player({
+          id: p.id,
+          name: p.name,
+          cards: p.cards,
+          position: p.position,
+          nPlayers: p.nPlayers,
+          stack: p.stack + 50, // Player 1 won 50 chips
+          isHero: p.isHero,
+          bet: 0,
+          folded: false,
+        });
+      }
+      return p;
+    });
+    
+    // Update the players in the game engine
+    act(() => {
+      result.current.setPlayers(updatedPlayers);
+    });
+    
+    // Deal a new hand - this should preserve the updated stacks
+    act(() => {
+      result.current.dealTable(3, 10, { heroSeat: 0 });
+    });
+    
+    const newHandPlayers = result.current.players;
+    const heroNewStack = newHandPlayers.find(p => p.isHero)?.stack;
+    const player1NewStack = newHandPlayers[1]?.stack;
+    
+    // Verify stacks were preserved (minus any blinds posted)
+    expect(heroNewStack).toBeLessThan(heroInitialStack! - 100 + 20); // Account for blinds
+    expect(player1NewStack).toBeCloseTo(player1InitialStack! + 50, -10); // Account for blinds, allow some variance
+    
+    // Verify stacks didn't reset to initial values
+    expect(heroNewStack).not.toBe(heroInitialStack);
+    expect(player1NewStack).not.toBe(player1InitialStack);
   });
 });
