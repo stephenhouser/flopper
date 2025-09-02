@@ -2,7 +2,7 @@ import { PlayingCard } from "@/components/poker/PlayingCard";
 import { Pill } from "@/components/ui/Pill";
 import { chenScore } from "@/lib/chen";
 import { Player, positionBadgeStyle } from "@/models/poker";
-import React, { useEffect, useMemo, useRef } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from "react-native";
 
 export type FlashState = "none" | "correct" | "incorrect" | "active";
@@ -10,9 +10,6 @@ export type FlashState = "none" | "correct" | "incorrect" | "active";
 type Props = {
   player: Player;
   showHandScore: boolean;
-  handScore: number;
-  revealed: boolean;
-  onToggleReveal?: (playerId: number) => void;
   flashState?: FlashState;
   flashOpacity?: Animated.Value;
   pulseKey?: number; // increments when this player acts
@@ -20,13 +17,26 @@ type Props = {
 };
 
 const PlayerRowComponent = React.memo(
-  ({ player, showHandScore, handScore, revealed, onToggleReveal, flashState = "none", flashOpacity, pulseKey, isActive = false }: Props) => {
-    const isPlayerRevealed = revealed;
+  ({ player, showHandScore, flashState = "none", flashOpacity, pulseKey, isActive = false }: Props) => {
+    // Local reveal state for non-hero players
+    const [isRevealed, setIsRevealed] = useState(false);
+    
+    const isPlayerRevealed = player.isHero || isRevealed; // Hero cards are always visible
+    
+    // Calculate Chen score locally for all players
+    const playerScore = chenScore(player.cards[0], player.cards[1]);
 
     const actionText = player.lastAction ? player.lastAction.toUpperCase() : "";
 
     // Format bet display directly here
     const betText = player.bet === 0 ? "" : `$${player.bet}`;
+
+    // Toggle reveal for non-hero players
+    const handleToggleReveal = () => {
+      if (!player.isHero) {
+        setIsRevealed(prev => !prev);
+      }
+    };
 
     // Local transient highlight for non-hero when they act
     const pulseOpacityRef = useRef(new Animated.Value(0));
@@ -59,7 +69,7 @@ const PlayerRowComponent = React.memo(
 
     return (
       <Pressable
-        onPress={!player.isHero && onToggleReveal ? () => onToggleReveal(player.id) : undefined}
+        onPress={!player.isHero ? handleToggleReveal : undefined}
         style={({ pressed }) => [
           styles.row,
           !player.isHero && player.folded && styles.rowFolded,
@@ -88,10 +98,10 @@ const PlayerRowComponent = React.memo(
           <View style={styles.nameRow2}>
             <Text style={[styles.playerName, player.folded && { color: '#4b5563' }]}>{player.name} (${player.stack})</Text>
             {player.isHero && showHandScore ? (
-              <Text style={styles.playerSub}>Score: {handScore}</Text>
+              <Text style={styles.playerSub}>Score: {playerScore}</Text>
             ) : null}
             {!player.isHero && isPlayerRevealed && showHandScore ? (
-              <Text style={styles.playerSub}>Score: {chenScore(player.cards[0], player.cards[1])}</Text>
+              <Text style={styles.playerSub}>Score: {playerScore}</Text>
             ) : null}
           </View>
         </View>

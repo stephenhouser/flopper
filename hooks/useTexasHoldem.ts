@@ -98,7 +98,6 @@ export function useTexasHoldem() {
 
   // UI state
   const [showSettings, setShowSettings] = useState(false);
-  const [revealedPlayers, setRevealedPlayers] = useState<Set<number>>(new Set());
   const [lastAction, setLastAction] = useState<'' | Action>('');
   const [lastActionCorrect, setLastActionCorrect] = useState<boolean | null>(null);
   const [result, setResult] = useState<string>('');
@@ -160,7 +159,6 @@ export function useTexasHoldem() {
       bigBlind
     });
     
-    setRevealedPlayers(new Set());
     setLastAction('');
     setLastActionCorrect(null);
     setResult('');
@@ -286,19 +284,6 @@ export function useTexasHoldem() {
     }
   }, [gameState.activePlayerIndex, gameState.phase, processAITurn, currentPlayer]);
 
-  // Toggle player reveal
-  const togglePlayerReveal = useCallback((playerId: number) => {
-    setRevealedPlayers(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(playerId)) {
-        newSet.delete(playerId);
-      } else {
-        newSet.add(playerId);
-      }
-      return newSet;
-    });
-  }, []);
-
   // Pulse key for animations
   const pulseKey = useCallback((player: Player): number => {
     return lastActionPlayerRef.current === player.id ? pulseCounter : 0;
@@ -358,8 +343,6 @@ export function useTexasHoldem() {
     dealerPosition: gameState.dealerPosition,
     foldedHand: hero?.folded ?? false,
     heroWonHand: null,
-    revealedPlayers,
-    togglePlayerReveal,
     
     // Stats and feedback
     heroAction: lastAction,

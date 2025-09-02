@@ -43,7 +43,6 @@ export default function TexasHoldemTab() {
     // game state
     players, currentStreet, board, dealerPosition,
     foldedHand, heroWonHand,
-    revealedPlayers, togglePlayerReveal,
 
     // stats
     heroAction, lastActionCorrect, result,
@@ -63,7 +62,6 @@ export default function TexasHoldemTab() {
     isHeroTurn,
 
     // derived
-    heroScore,
     canCheck, totalPot,
     pulseKey,
 
@@ -153,9 +151,6 @@ export default function TexasHoldemTab() {
               <PlayerRow key={item.id}
                 player={item}
                 showHandScore={settings.showScore}
-                handScore={heroScore}
-                revealed={revealedPlayers.has(item.id)}
-                onToggleReveal={togglePlayerReveal}
                 flashState={item.isHero ? heroFlash : "none"}
                 flashOpacity={item.isHero ? heroFlashOpacity : undefined}
                 pulseKey={pulseKey(item)}
