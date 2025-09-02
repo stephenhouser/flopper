@@ -19,6 +19,12 @@ export class Player {
   folded?: boolean;
   // Player's chip stack (persists across hands)
   stack: number;
+  // Last action taken by this player
+  lastAction?: Action;
+  // Whether this player is the dealer
+  isDealer: boolean;
+  // Position labels for this player (Dealer, SB, BB, UTG, etc.)
+  labels: string[];
 
   constructor(params: {
     id: number;
@@ -26,18 +32,27 @@ export class Player {
     cards: [CardT, CardT];
     position: number; // 0 = Dealer/BTN
     nPlayers: number;
+    dealerPosition: number; // Current dealer position
     bet?: number;
     isHero?: boolean;
     folded?: boolean;
     stack?: number;
+    lastAction?: Action;
   }) {
-    const { id, name, cards, position, nPlayers, bet = 0, isHero = false, folded, stack = DEFAULT_STACK } = params;
+    const { id, name, cards, position, nPlayers, dealerPosition, bet = 0, isHero = false, folded, stack = DEFAULT_STACK, lastAction } = params;
     this.id = id;
     this.name = name;
     this.cards = cards;
     this.position = position;
     this.nPlayers = nPlayers;
     this.stack = stack;
+    
+    // Compute dealer status
+    this.isDealer = position === dealerPosition;
+    
+    // Compute position labels
+    this.labels = labelsForPosition(position, dealerPosition, nPlayers);
+    
     // Compute blind flags (HU: dealer is BB, other is SB; 3+ players: SB=1, BB=2)
     if (nPlayers === 2) {
       this.isSmallBlind = position === 1;
@@ -49,6 +64,7 @@ export class Player {
     this.bet = bet;
     this.isHero = isHero;
     this.folded = folded;
+    this.lastAction = lastAction;
   }
 
   // Convenience getters
@@ -168,7 +184,7 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 // Trainer-level settings (superset of gameplay Settings)
-export type TrainerSettings = Settings & {
+export type TexasHoldemSettings = Settings & {
   autoNew: boolean;
   facingRaise: boolean;
   showFeedback: boolean;
@@ -180,7 +196,7 @@ export type TrainerSettings = Settings & {
   bigBlind: number;
 };
 
-export const DEFAULT_TRAINER_SETTINGS: TrainerSettings = {
+export const DEFAULT_TRAINER_SETTINGS: TexasHoldemSettings = {
   ...DEFAULT_SETTINGS,
   autoNew: true,
   facingRaise: false,

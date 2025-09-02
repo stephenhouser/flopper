@@ -7,11 +7,11 @@ import { IconSymbol } from '@/components/ui/IconSymbol';
 import { useHotkeys } from '@/hooks/useHotkeys';
 import { usePersistedState } from '@/hooks/usePersistedState';
 import { useSession } from '@/hooks/useSession';
-import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from '@/models/poker';
+import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TexasHoldemSettings } from '@/models/poker';
 
 export default function BlackjackTab() {
   const { currentSession, setCurrentSession } = useSession('Blackjack');
-  const [settings] = usePersistedState<TrainerSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
+  const [settings] = usePersistedState<TexasHoldemSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
   const sb = smallBlindFromBigBlind(settings.bigBlind);
 
   // Scaffolding: initialize hand history hook (not used yet)

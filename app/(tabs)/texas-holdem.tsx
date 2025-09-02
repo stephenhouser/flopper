@@ -1,11 +1,11 @@
 import { ThemedText } from '@/components/ThemedText';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-	Pressable,
-	ScrollView,
-	StyleSheet,
-	Text,
-	View
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View
 } from "react-native";
 
 // Import existing UI components
@@ -17,6 +17,7 @@ import { RowButton } from "@/components/ui/RowButton";
 // Use the enhanced adapter hook
 import { useHotkeys } from "@/hooks/useHotkeys";
 import { usePokerGame } from "@/hooks/usePokerAdapter";
+import { downloadTextFile, exportSessionToText } from "@/lib/export";
 
 /* ---------------- UI bits ---------------- */
 
@@ -57,6 +58,10 @@ export default function TexasHoldemTab() {
     heroFlash, heroFlashOpacity,
     buttonsDisabled,
 
+    // turn management
+    activePlayerIndex,
+    isHeroTurn,
+
     // derived
     heroScore,
     canCheck, totalPot,
@@ -68,9 +73,16 @@ export default function TexasHoldemTab() {
     dealTable, newHand, act,
   } = usePokerGame();
 
-  // Export is simplified for now - can be enhanced later
+  // Export session data
   function downloadSessionExport() {
-    console.log('Export functionality would go here');
+    if (!currentSession) {
+      console.log('No session available to export');
+      return;
+    }
+    
+    const content = exportSessionToText(currentSession);
+    const filename = `flopper-session-${currentSession.id || Date.now()}.txt`;
+    downloadTextFile(filename, content);
   }
 
   async function resetAll() {
@@ -139,10 +151,9 @@ export default function TexasHoldemTab() {
 
         {/* Table */}
         {
-          players.map((item) => 
+          players.map((item, index) => 
               <PlayerRow key={item.id}
                 player={item}
-                dealerPosition={dealerPosition}
                 showHandScore={settings.showScore}
                 handScore={heroScore}
                 revealed={revealedPlayers.has(item.id)}
@@ -152,6 +163,7 @@ export default function TexasHoldemTab() {
                 betLabel={betLabel}
                 actionLabel={actionLabel}
                 pulseKey={pulseKey(item)}
+                isActive={index === activePlayerIndex && currentStreet !== "complete"}
               />
           )
         }

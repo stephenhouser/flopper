@@ -8,7 +8,7 @@ A completely new, clean backend system that supports **all existing UI features*
 
 ### Core Game Engine
 
-- **`hooks/useSimplePoker.ts`** - Main game state management (320 lines)
+- **`hooks/useTexasHoldem.ts`** - Main game state management (320 lines)
 - **`hooks/usePokerAdapter.ts`** - Enhanced adapter providing full UI compatibility (200 lines)  
 - **`lib/ai-models.ts`** - Pluggable AI personality system (168 lines)
 
@@ -53,7 +53,7 @@ Each AI player can use different personalities:
 
 ### 🧹 **Much Simpler (600 lines vs 2000+ old)**
 
-- Single source of truth in `useSimplePoker`
+- Single source of truth in `useTexasHoldem`
 - No complex state machines or interdependent hooks  
 - Linear game flow with clear progression
 - Direct stack management (addition/subtraction)

@@ -1,10 +1,11 @@
 // Enhanced adapter to connect new simple backend to existing UI components
 import { chenScore } from '@/lib/chen';
-import { DEFAULT_TRAINER_SETTINGS, Player, type Action, type Street, type TrainerSettings } from '@/models/poker';
+import { DEFAULT_TRAINER_SETTINGS, Player, type Action, type Street, type TexasHoldemSettings } from '@/models/poker';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 import { usePersistedState } from './usePersistedState';
-import { useSimplePoker, type GameState, type SimplePlayer } from './useSimplePoker';
+import { useSession } from './useSession';
+import { useTexasHoldem, type GameState, type SimplePlayer } from './useTexasHoldem';
 
 // Convert SimplePlayer to the UI's expected Player format
 function adaptPlayer(simplePlayer: SimplePlayer, gameState: GameState): Player {
@@ -14,17 +15,19 @@ function adaptPlayer(simplePlayer: SimplePlayer, gameState: GameState): Player {
     cards: simplePlayer.cards,
     position: simplePlayer.position,
     nPlayers: gameState.players.length,
+    dealerPosition: gameState.dealerPosition,
     stack: simplePlayer.stack,
     isHero: simplePlayer.isHero,
     bet: simplePlayer.bet,
     folded: simplePlayer.folded,
+    lastAction: simplePlayer.lastAction,
   });
 }
 
 // Enhanced adapter hook that provides the same interface your UI expects
 export function usePokerGame() {
   // Settings management (must be first)
-  const [settings, setSettings] = usePersistedState<TrainerSettings>(
+  const [settings, setSettings] = usePersistedState<TexasHoldemSettings>(
     'flopper_trainer_settings',
     DEFAULT_TRAINER_SETTINGS
   );
@@ -37,8 +40,17 @@ export function usePokerGame() {
     isHeroTurn,
     activePlayers,
     totalPot,
-    lastActions,
-  } = useSimplePoker(settings);
+  } = useTexasHoldem(settings);
+
+  // Session management with proper tracking
+  const { currentSession, setCurrentSession, startNewSession: createNewSession, ready } = useSession('Texas Holdem');
+
+  // Ensure session exists when app starts
+  useEffect(() => {
+    if (ready && !currentSession) {
+      createNewSession();
+    }
+  }, [ready, currentSession, createNewSession]);
 
   // UI state
   const [showSettings, setShowSettings] = useState(false);
@@ -59,12 +71,11 @@ export function usePokerGame() {
   // Action pulse tracking
   const [pulseCounter, setPulseCounter] = useState(0);
   const lastActionPlayerRef = useRef<number | null>(null);
-  const [playerLastActions, setPlayerLastActions] = useState<Record<number, Action>>({});
 
   // Convert simple players to UI Player objects
   const players = useMemo(() => 
     gameState.players.map(p => adaptPlayer(p, gameState)),
-    [gameState.players, gameState]
+    [gameState.players, gameState.activePlayerIndex] // Add activePlayerIndex to deps to force refresh when actions happen
   );
 
   // Hero-specific data
@@ -159,7 +170,6 @@ export function usePokerGame() {
     setResult('');
     setButtonsDisabled(false);
     setPulseCounter(prev => prev + 1);
-    setPlayerLastActions({}); // Clear AI actions
   }, [settings.numPlayers, settings.bigBlind, startNewGame]);
 
   // Deal table (for settings compatibility)
@@ -176,33 +186,68 @@ export function usePokerGame() {
 
   // Action label (shows last action for all players)
   const actionLabel = useCallback((player: Player): string => {
-    console.log(`ActionLabel for player ${player.id} (${player.name}), lastActions:`, lastActions);
     if (player.isHero && lastAction) {
       return lastAction.toUpperCase();
     }
-    if (!player.isHero && lastActions[player.id]) {
-      console.log(`AI Player ${player.id} (${player.name}) last action: ${lastActions[player.id]}`);
-      return lastActions[player.id].toUpperCase();
+    if (!player.isHero && player.lastAction) {
+      return player.lastAction.toUpperCase();
     }
     return '';
-  }, [lastAction, lastActions]);
+  }, [lastAction]);
 
   // Pulse key for animations
   const pulseKey = useCallback((player: Player): number => {
     return lastActionPlayerRef.current === player.id ? pulseCounter : 0;
   }, [pulseCounter]);
 
-  // Session management (simplified)
-  const currentSession = { 
-    id: 'simple-session', 
-    startTime: Date.now(),
-    hands: []
-  };
+  // Hand completion tracking
+  const handCompletedRef = useRef(false);
+  
+  // Track hand completion for history
+  useEffect(() => {
+    if (gameState.phase === 'complete' && !handCompletedRef.current && currentSession) {
+      handCompletedRef.current = true;
+      
+      // Add hand to session history
+      const finalPot = gameState.pot + gameState.players.reduce((sum, p) => sum + p.bet, 0);
+      const hand = {
+        handId: `hand_${Date.now()}`,
+        timestamp: Date.now(),
+        players: gameState.players.map(p => ({
+          name: p.name,
+          position: p.position.toString(),
+          cards: p.cards,
+          isHero: p.isHero
+        })),
+        blinds: { smallBlind: gameState.bigBlind / 2, bigBlind: gameState.bigBlind },
+        communityCards: gameState.board,
+        actions: [], // Could be enhanced to track all actions
+        pot: finalPot,
+        result: 'completed' as const,
+        heroWon: gameState.players.find(p => p.isHero && !p.folded) ? true : undefined
+      };
+      
+      const updatedSession = {
+        ...currentSession,
+        hands: [...currentSession.hands, hand]
+      };
+      setCurrentSession(updatedSession);
+      
+      // Update tracker with the new hand
+      import('@/lib/tracker').then(({ upsertPokerStarsAttachmentForSession }) => {
+        upsertPokerStarsAttachmentForSession(updatedSession, 'Texas Holdem').catch(() => {});
+      });
+    } else if (gameState.phase !== 'complete') {
+      handCompletedRef.current = false;
+    }
+  }, [gameState.phase, gameState.players, gameState.board, gameState.pot, currentSession, setCurrentSession]);
+
   const startNewSession = useCallback(() => {
     setTotalHands(0);
     setCorrectHands(0);
-    newHand();
-  }, [newHand]);
+    createNewSession();
+    startNewGame();
+  }, [createNewSession, startNewGame]);
 
   // Re-enable buttons when it becomes hero's turn
   useEffect(() => {
@@ -245,7 +290,7 @@ export function usePokerGame() {
     
     // Session
     currentSession,
-    setCurrentSession: () => {},
+    setCurrentSession,
     startNewSession,
     
     // UI state
@@ -253,7 +298,12 @@ export function usePokerGame() {
     setShowSettings,
     heroFlash,
     heroFlashOpacity,
-    buttonsDisabled,
+    buttonsDisabled: buttonsDisabled || !isHeroTurn, // Disable when not hero's turn
+    
+    // Turn management
+    currentPlayer,
+    isHeroTurn,
+    activePlayerIndex: gameState.activePlayerIndex,
     
     // Derived values
     heroScore,
@@ -275,7 +325,6 @@ export function usePokerGame() {
            gameState.phase === 'turn' ? 'turn' as Street :
            gameState.phase === 'river' ? 'river' as Street : 'complete' as Street,
     hero,
-    isHeroTurn,
     handleHeroAction: act, // Alias for compatibility
     gamePhase: gameState.phase,
     currentBet: gameState.currentBet,

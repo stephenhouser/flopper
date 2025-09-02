@@ -1,4 +1,4 @@
-import { AIDecisionMaker, ActionResult, GameState, SimplePlayer } from '@/hooks/useSimplePoker';
+import { AIDecisionMaker, ActionResult, GameState, SimplePlayer } from '@/hooks/useTexasHoldem';
 import { chenScore } from '@/lib/chen';
 
 // Aggressive AI - likes to bet and raise

@@ -1,6 +1,6 @@
 import { ThemedText } from "@/components/ThemedText";
 import { RowButton } from "@/components/ui/RowButton";
-import type { Session, TrainerSettings } from "@/models/poker";
+import type { Session, TexasHoldemSettings } from "@/models/poker";
 import { MAX_PLAYERS, MIN_BIG_BLIND, MIN_PLAYERS, SMALL_BLIND_FACTOR } from "@/models/poker";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import React, { useEffect, useRef, useState } from "react";
@@ -10,8 +10,8 @@ export type SettingsSheetProps = {
   visible: boolean;
   onClose: () => void;
   // Either pass unified settings or separate fields (back-compat)
-  settings?: TrainerSettings;
-  setSettings?: (s: TrainerSettings) => void | React.Dispatch<React.SetStateAction<TrainerSettings>>;
+  settings?: TexasHoldemSettings;
+  setSettings?: (s: TexasHoldemSettings) => void | React.Dispatch<React.SetStateAction<TexasHoldemSettings>>;
   // table config
   numPlayers?: number;
   setNumPlayers?: (n: number) => void;
@@ -79,8 +79,8 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
   const numPlayers = settings ? settings.numPlayers : (_numPlayers ?? 6);
   const setNumPlayers = (n: number) => {
     if (settings && setSettings) {
-      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) }));
-      else (setSettings as (s: TrainerSettings) => void)({ ...settings, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) });
+      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) }));
+      else (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, numPlayers: Math.max(MIN_PLAYERS, Math.min(MAX_PLAYERS, n)) });
     } else {
       _setNumPlayers?.(n);
     }
@@ -88,53 +88,53 @@ export const SettingsSheet: React.FC<SettingsSheetProps> = ({
   const bigBlind = settings ? settings.bigBlind : (_bigBlind ?? 2);
   const setBigBlind = (n: number) => {
     if (settings && setSettings) {
-      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, bigBlind: Math.max(MIN_BIG_BLIND, n) }));
-      else (setSettings as (s: TrainerSettings) => void)({ ...settings, bigBlind: Math.max(MIN_BIG_BLIND, n) });
+      if (typeof setSettings === "function") (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, bigBlind: Math.max(MIN_BIG_BLIND, n) }));
+      else (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, bigBlind: Math.max(MIN_BIG_BLIND, n) });
     } else {
       _setBigBlind?.(n);
     }
   };
   const showFlop = settings ? settings.showFlop : (_showFlop ?? false);
   const setShowFlop = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showFlop: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showFlop: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, showFlop: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, showFlop: v })) :
     _setShowFlop?.(v);
   const showTurn = settings ? settings.showTurn : (_showTurn ?? true);
   const setShowTurn = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showTurn: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showTurn: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, showTurn: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, showTurn: v })) :
     _setShowTurn?.(v);
   const showRiver = settings ? settings.showRiver : (_showRiver ?? true);
   const setShowRiver = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showRiver: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showRiver: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, showRiver: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, showRiver: v })) :
     _setShowRiver?.(v);
 
   const autoNew = settings ? settings.autoNew : (_autoNew ?? true);
   const setAutoNew = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, autoNew: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, autoNew: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, autoNew: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, autoNew: v })) :
     _setAutoNew?.(v);
 
   const feedbackSecs = settings ? settings.feedbackSecs : (_feedbackSecs ?? 1);
   const setFeedbackSecs = (n: number) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, feedbackSecs: Math.max(0, Math.min(10, n)) })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, feedbackSecs: Math.max(0, Math.min(10, n)) })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, feedbackSecs: Math.max(0, Math.min(10, n)) })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, feedbackSecs: Math.max(0, Math.min(10, n)) })) :
     typeof _setFeedbackSecs === "function" ? (_setFeedbackSecs as (n: number) => void)(n) : undefined;
 
   const showCommunityCards = settings ? settings.showCommunityCards : (_showCommunityCards ?? false);
   const setShowCommunityCards = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showCommunityCards: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showCommunityCards: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, showCommunityCards: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, showCommunityCards: v })) :
     _setShowCommunityCards?.(v);
 
   const showFeedback = settings ? settings.showFeedback : (_showFeedback ?? true);
   const setShowFeedback = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showFeedback: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showFeedback: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, showFeedback: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, showFeedback: v })) :
     _setShowFeedback?.(v);
 
   const facingRaise = settings ? settings.facingRaise : (_facingRaise ?? true);
   const setFacingRaise = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, facingRaise: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, facingRaise: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, facingRaise: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, facingRaise: v })) :
     _setFacingRaise?.(v);
 
   const showScore = settings ? settings.showScore : (_showScore ?? true);
   const setShowScore = (v: boolean) => settings && setSettings ?
-    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TrainerSettings>>)((s) => ({ ...s, showScore: v })) : (setSettings as (s: TrainerSettings) => void)({ ...settings, showScore: v })) :
+    (typeof setSettings === "function" ? (setSettings as React.Dispatch<React.SetStateAction<TexasHoldemSettings>>)((s) => ({ ...s, showScore: v })) : (setSettings as (s: TexasHoldemSettings) => void)({ ...settings, showScore: v })) :
     _setShowScore?.(v);
 
   // Tooltips internal state

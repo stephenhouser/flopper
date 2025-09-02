@@ -44,7 +44,8 @@ export async function upsertPokerStarsAttachmentForSession(session: Session, gam
     return;
   }
   // const content = exportSessionToPokerStars(session);
-  const content = "Export functionality temporarily disabled";
+  const { exportSessionToPokerStars } = await import('./export');
+  const content = exportSessionToPokerStars(session);
   const att = {
     id: `att_${trackedId}_pokerstars`,
     trackedSessionId: trackedId,

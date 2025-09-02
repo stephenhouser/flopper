@@ -15,6 +15,13 @@ export function useSession(game: GameType = 'Texas Holdem') {
     }).finally(() => setReady(true));
   }, []);
 
+  // Persist session to storage whenever it changes
+  useEffect(() => {
+    if (ready && currentSession) {
+      Storage.setItem(SESSION_STORAGE_KEY, JSON.stringify(currentSession));
+    }
+  }, [currentSession, ready]);
+
   const startNewSession = useCallback(() => {
     const session: Session = { id: `session_${Date.now()}` , startTime: Date.now(), hands: [] };
     setCurrentSession(session);
