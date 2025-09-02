@@ -4,7 +4,6 @@ import { SessionModal } from '@/components/tracker/SessionModal';
 import { TrackerItem } from '@/components/tracker/TrackerItem';
 import { useTracker } from '@/hooks/useTracker';
 import { listAllAttachments, listTrackedSessions } from '@/lib/db';
-import { downloadTextFile } from '@/lib/utils/download';
 import type { GameType, TrackedSession } from '@/models/tracker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -144,7 +143,7 @@ export default function TrackerTab() {
   const onExportCSV = async () => {
     const rows = sessions.length ? sessions : (await listTrackedSessions()) as unknown as TrackedSession[];
     const csv = sessionsToCSV(rows);
-    downloadTextFile('flopper_sessions.csv', csv);
+    console.log('CSV Export:', csv);
   };
 
   const onExportAllJSON = async () => {
@@ -157,7 +156,7 @@ export default function TrackerTab() {
       sessions: sessionsRows,
       attachments: attachmentsRows,
     };
-    downloadTextFile('flopper_export.json', JSON.stringify(payload, null, 2));
+    console.log('JSON Export:', JSON.stringify(payload, null, 2));
   };
 
   const openExportMenu = () => {

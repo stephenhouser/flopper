@@ -1,5 +1,4 @@
 import { deleteAttachmentsFor, getTrackedSessionBySessionId, insertTrackedSession, updateTrackedSession, upsertAttachment } from '@/lib/db';
-import { exportSessionToPokerStars } from '@/lib/export/pokerstars';
 import type { Session } from '@/models/poker';
 import type { GameType } from '@/models/tracker';
 
@@ -44,7 +43,8 @@ export async function upsertPokerStarsAttachmentForSession(session: Session, gam
     } catch {}
     return;
   }
-  const content = exportSessionToPokerStars(session);
+  // const content = exportSessionToPokerStars(session);
+  const content = "Export functionality temporarily disabled";
   const att = {
     id: `att_${trackedId}_pokerstars`,
     trackedSessionId: trackedId,

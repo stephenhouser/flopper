@@ -85,7 +85,7 @@ const PlayerRowComponent = React.memo(
             ))}
           </View>
           <View style={styles.nameRow2}>
-            <Text style={styles.playerName}>{player.name} (${player.stack})</Text>
+            <Text style={[styles.playerName, player.folded && { color: '#4b5563' }]}>{player.name} (${player.stack})</Text>
             {player.isHero && showHandScore ? (
               <Text style={styles.playerSub}>Score: {handScore}</Text>
             ) : null}
@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 14, padding: 10, gap: 10, position: "relative", overflow: "hidden" },
   rowOverlay: { ...StyleSheet.absoluteFillObject, borderRadius: 14 },
   rowHero: { borderWidth: 1, borderColor: "#6b8afd" },
-  rowFolded: { backgroundColor: "#f3f4f6" },
+  rowFolded: { backgroundColor: "#d1d5db", borderWidth: 1, borderColor: "#9ca3af" },
   cardsCol: { flexDirection: "row", gap: 6 },
   metaCol: { flex: 1 },
   nameRow1: { flexDirection: "row", alignItems: "center", gap: 8 },

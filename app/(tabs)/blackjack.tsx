@@ -4,19 +4,18 @@ import ParallaxScrollView from '@/components/ParallaxScrollView';
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { IconSymbol } from '@/components/ui/IconSymbol';
-import { useHandHistory } from '@/hooks/useHandHistory';
 import { useHotkeys } from '@/hooks/useHotkeys';
-import { usePersistentState } from '@/hooks/usePersistentState';
+import { usePersistedState } from '@/hooks/usePersistedState';
 import { useSession } from '@/hooks/useSession';
 import { DEFAULT_TRAINER_SETTINGS, SETTINGS_STORAGE_KEY, smallBlindFromBigBlind, type TrainerSettings } from '@/models/poker';
 
 export default function BlackjackTab() {
   const { currentSession, setCurrentSession } = useSession('Blackjack');
-  const [settings] = usePersistentState<TrainerSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
+  const [settings] = usePersistedState<TrainerSettings>(SETTINGS_STORAGE_KEY, DEFAULT_TRAINER_SETTINGS);
   const sb = smallBlindFromBigBlind(settings.bigBlind);
 
   // Scaffolding: initialize hand history hook (not used yet)
-  useHandHistory({ session: currentSession, setSession: setCurrentSession, bigBlind: settings.bigBlind });
+  // Hand history functionality temporarily removed
 
   // Scaffolding: hotkeys disabled with no-op handlers
   useHotkeys({ disabled: true, heroAction: '', onAct: () => {}, onNewHand: () => {} });

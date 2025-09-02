@@ -1,7 +1,6 @@
 import { ThemedText } from '@/components/ThemedText';
 import { ThemedView } from '@/components/ThemedView';
 import { listAttachmentsFor } from '@/lib/db';
-import { downloadTextFile } from '@/lib/utils/download';
 import type { TrackedSession } from '@/models/tracker';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -56,7 +55,7 @@ export function TrackerItem({ item, onRemove, onEdit }: { item: TrackedSession, 
     const atts = await listAttachmentsFor(item.id) as unknown as AttachmentRow[];
     const pokerstars = atts.find((a: AttachmentRow) => a.type === 'pokerstars');
     if (pokerstars) {
-      downloadTextFile(`${item.name.replace(/\s+/g, '_')}_pokerstars.txt`, pokerstars.content);
+      console.log(`${item.name.replace(/\s+/g, '_')}_pokerstars.txt:`, pokerstars.content);
     } else {
       if (item.sessionId) {
         alert('Attachment not ready yet. Please try again after a hand is played.');
